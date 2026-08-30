@@ -35,5 +35,6 @@
   "exclude_preschool": true,
   "_comment_animation": "Mirrors the real config: animation is IN, the Disney Jr. tier is not. exclude_animation is a server-side without_genres param, so it is inert against fixtures either way -- it is the local preschool filter these tests actually exercise.",
   "exclude_animation": false,
-  "reminders_sheet": "FIXTURE"
+  "reminders_sheet": "FIXTURE",
+  "reminders_webapp": "https://example.invalid/exec"
 }

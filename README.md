@@ -30,6 +30,19 @@ For a weekday cadence you can **leave `Weekday` blank and tick the day**:
 it. (Two ticked days plus an `nth` is ambiguous, so that stays weekly rather
 than guessing.)
 
+**Today's reminders have a checkbox.** Ticks are written to a second tab in
+the Sheet called `Done`, not to the browser — which is what makes them show up
+on every device *and* stop the notification. The Apps Script checks the same
+tab before it sends. Only today is tickable; ticking ahead would silence a
+notification days early.
+
+The page can read the Sheet but not write to it, so a tick calls the Apps
+Script deployed as a **web app** (`reminders_webapp` in config.json). That URL
+is public, and the endpoint answers accordingly: it validates the date, checks
+the key against a reminder that actually exists, and only ever flips one
+checkbox — so the worst a stranger who finds it can do is tick your laundry
+off. Leave `reminders_webapp` blank and ticking is simply disabled.
+
 **Rows without a time are ignored**, so a row with only a title works as a
 section header — the sheet can be organised without inventing reminders. Blank
 rows are ignored too. `Months` takes
@@ -139,7 +152,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         169 assertions, no key and no network needed
+python selftest.py         181 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

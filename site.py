@@ -281,6 +281,8 @@ def main():
         os.environ["KMONEY_CONFIG"] = os.path.join(HERE, "fixtures", "config.json")
         os.environ["KMONEY_REMINDERS_CSV"] = os.path.join(
             HERE, "fixtures", "reminders.csv")
+        os.environ["KMONEY_REMINDERS_DONE"] = os.path.join(
+            HERE, "fixtures", "reminders-done.csv")
 
     panes = []
     for tab in tabs.TABS:

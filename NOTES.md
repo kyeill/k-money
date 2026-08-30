@@ -33,6 +33,29 @@ open on Watchlist days after you last used it. Reminders is what you want on
 opening. Neither the hash nor localStorage is written any more -- nothing reads
 them, and a stale `#watch` in the URL beside a Reminders pane is a lie.
 
+## Ticks live in the Sheet, and that is the whole design
+
+Putting them in `localStorage` would have been easier and would have failed at
+both of the things they are for: another device cannot see one phone's storage,
+and neither can the Apps Script — so a tick could never stop a notification.
+Both problems are the same problem, and the Sheet solves both at once.
+
+The page cannot write to a Sheet, so a tick calls the Apps Script web app with
+`mode:'no-cors'`. **The response is unreadable by design**: an Apps Script web
+app redirects, and a browser will not follow that for a readable cross-origin
+response. So the tick is fire-and-forget and the Sheet is reconciled on the
+next read.
+
+That leaves a gap of a few seconds where the Sheet does not yet agree, so a
+pull-down in that window would show the box springing back open. `PENDING` in
+localStorage covers it for two minutes. **It is JS-only** — Python has no user
+who just tapped something — so the Python/JS parity check must call
+`window.__remReset()` first, or a stale tap looks exactly like the two engines
+disagreeing. That cost a confused minute already.
+
+`doneKey` is `Title@HH:MM`, built identically in all three places. Change it in
+one and ticks stop matching the reminders they were meant to silence.
+
 ## The reminder rules exist three times, and nothing enforces that from outside
 
 `reminders.py` renders the page. The **JS copy** in the same file re-reads the

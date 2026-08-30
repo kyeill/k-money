@@ -41,6 +41,12 @@ var TOPIC = 'PUT-YOUR-NTFY-TOPIC-HERE';
 var TZ = 'America/New_York';   // times in the Sheet are read as this zone
 var GRACE_MINUTES = 15;        // how late a reminder may fire before it is skipped
 
+// Ticks live in a second tab so every device sees them and this script can too.
+// setup() creates it; nothing to do by hand.
+var DONE_TAB = 'Done';
+var DONE_HEADER = ['Date', 'Key', 'Done', 'Updated'];
+var KEEP_DONE_DAYS = 30;       // older rows are pruned on write
+
 // ------------------------------------------------------------------ setup
 
 /** Run once. Installs the 5-minute trigger and asks for authorisation. */
@@ -54,7 +60,12 @@ function setup() {
     if (t.getHandlerFunction() === 'tick') ScriptApp.deleteTrigger(t);
   });
   ScriptApp.newTrigger('tick').timeBased().everyMinutes(5).create();
-  Logger.log('Trigger installed. Reminders will be checked every 5 minutes.');
+  doneSheet(true);          // create the Done tab if it is not there yet
+  Logger.log('Trigger installed, Done tab ready. Checking every 5 minutes.');
+  Logger.log('Now deploy this as a web app so the page can tick things off:');
+  Logger.log('  Deploy > New deployment > Web app,'
+             + ' execute as ME, access ANYONE, then put the /exec URL into'
+             + ' config.json as reminders_webapp.');
 }
 
 /** Run by hand to prove the pipe works without waiting for a real reminder. */
@@ -301,6 +312,115 @@ function firesOn(rule, date) {
   return rule.days.indexOf(weekdayOf(local)) >= 0;
 }
 
+// ------------------------------------------------------------ done ticks
+
+/**
+ * The identity of one occurrence: "Laundry@12:30".
+ *
+ * The SAME string is built by reminders.py and by the page's JS. If this
+ * changes, all three change, or a tick made on the page stops matching the
+ * reminder it was meant to silence.
+ */
+function doneKey(rule) {
+  return rule.title + '@' + pad(rule.hour) + ':' + pad(rule.minute);
+}
+
+function doneSheet(create) {
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(DONE_TAB);
+  if (!sheet && create) {
+    sheet = ss.insertSheet(DONE_TAB);
+    sheet.getRange(1, 1, 1, DONE_HEADER.length).setValues([DONE_HEADER]);
+  }
+  return sheet;
+}
+
+/** {"2026-08-30|Laundry@12:30": true} for everything currently ticked. */
+function loadDone() {
+  var sheet = doneSheet(false);
+  var out = {};
+  if (!sheet) return out;
+  var grid = sheet.getDataRange().getDisplayValues();
+  for (var r = 1; r < grid.length; r++) {
+    var date = String(grid[r][0] || '').trim();
+    var key = String(grid[r][1] || '').trim();
+    if (date && key && String(grid[r][2] || '').trim()) {
+      out[date + '|' + key] = true;
+    }
+  }
+  return out;
+}
+
+/**
+ * Record (or clear) one tick. Returns true if it was accepted.
+ *
+ * The web app is public, so this validates rather than trusting: the date has
+ * to look like a date and be within a couple of days, and the key has to match
+ * a reminder that actually exists. That bounds what a stranger who finds the
+ * URL can do to "toggle one of Kyle's checkboxes" rather than "append anything
+ * to the sheet forever".
+ */
+function setDone(date, key, done) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(String(date || ''))) return false;
+  var today = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd');
+  if (Math.abs(dayDiff(date, today)) > 2) return false;
+
+  var known = false;
+  readRules().forEach(function (r) { if (doneKey(r) === key) known = true; });
+  if (!known) return false;
+
+  var sheet = doneSheet(true);
+  var grid = sheet.getDataRange().getDisplayValues();
+  var stamp = Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd HH:mm');
+  for (var r = 1; r < grid.length; r++) {
+    if (String(grid[r][0]).trim() === date && String(grid[r][1]).trim() === key) {
+      sheet.getRange(r + 1, 3, 1, 2).setValues([[done ? 'x' : '', stamp]]);
+      return true;
+    }
+  }
+  sheet.appendRow([date, key, done ? 'x' : '', stamp]);
+  pruneDone(sheet);
+  return true;
+}
+
+/** Keeps the tab bounded: one row per reminder per day, 30 days back. */
+function pruneDone(sheet) {
+  var cutoff = Utilities.formatDate(
+    new Date(new Date().getTime() - KEEP_DONE_DAYS * 86400000), TZ, 'yyyy-MM-dd');
+  var grid = sheet.getDataRange().getDisplayValues();
+  for (var r = grid.length - 1; r >= 1; r--) {
+    if (String(grid[r][0]).trim() < cutoff) sheet.deleteRow(r + 1);
+  }
+}
+
+function dayDiff(a, b) {
+  return Math.round((new Date(a + 'T00:00:00Z') - new Date(b + 'T00:00:00Z')) / 86400000);
+}
+
+/**
+ * The public endpoint the page calls when you tick a box.
+ *
+ * The page fetches this with mode:'no-cors' and ignores the response -- an
+ * Apps Script web app redirects, which browsers will not follow for a
+ * cross-origin readable request. The tick is therefore fire-and-forget, and
+ * the Sheet is reconciled on the page's next read.
+ */
+function doGet(e) {
+  var p = (e && e.parameter) || {};
+  var out = {ok: false};
+  try {
+    if (p.action === 'done') {
+      out.ok = setDone(p.date, p.key, p.done === '1');
+    } else {
+      out.error = 'unknown action';
+    }
+  } catch (err) {
+    out.error = String(err);
+  }
+  return ContentService.createTextOutput(JSON.stringify(out))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
 // ----------------------------------------------------------------- firing
 
 /** The 5-minute trigger lands here. */
@@ -321,6 +441,9 @@ function tick() {
   }
 
   var fired = loadFired(today);
+  // Ticked on any device, via the Done tab -- which is the whole reason the
+  // ticks live in the Sheet rather than in one phone's localStorage.
+  var done = loadDone();
   var sent = 0;
   rules.forEach(function (rule) {
     if (!firesOn(rule, now)) return;
@@ -331,8 +454,9 @@ function tick() {
     // Keyed by title AND time, not title alone: two rows can share a name at
     // different hours ("Take pills" at 8am and 8pm), and keying on the title
     // silently suppressed the second one for the rest of the day.
-    var key = rule.title + '@' + pad(rule.hour) + ':' + pad(rule.minute);
+    var key = doneKey(rule);
     if (fired.indexOf(key) >= 0) return;
+    if (done[today + '|' + key]) return;      // already ticked off
     try {
       // The day and time go in the TITLE, not just the body: Android's own
       // snooze re-shows a notification hours later with no hint of which

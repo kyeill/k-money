@@ -390,6 +390,58 @@ def test_reminder_render():
     true("no unreplaced placeholders", "%%" not in js)
 
 
+def test_done_ticks():
+    """Ticks live in the Sheet, not localStorage -- that one decision is what
+    makes them sync across devices AND stop the notification."""
+    import reminders
+    done = reminders.read_done(
+        open(os.path.join(HERE, "fixtures", "reminders-done.csv"),
+             encoding="utf-8").read())
+    ok("only rows with the Done column set count",
+       sorted(done), [("2026-08-31", "Odd marks@07:15"), ("2026-09-01", "Rent@09:00")])
+
+    # Asking for a tab that does not exist returns the FIRST tab, so without a
+    # header check the reminders themselves would parse as ticks.
+    reminders_csv = open(os.path.join(HERE, "fixtures", "reminders.csv"),
+                         encoding="utf-8").read()
+    ok("the reminders tab is not mistaken for the Done tab",
+       reminders.read_done(reminders_csv), set())
+    ok("an empty response is no ticks", reminders.read_done(""), set())
+
+    ok("the key is title@HH:MM, zero padded",
+       reminders.done_key({"title": "Laundry", "at": (9, 5)}), "Laundry@09:05")
+
+
+def test_done_render():
+    import reminders
+    os.environ["KMONEY_REMINDERS_CSV"] = os.path.join(HERE, "fixtures", "reminders.csv")
+    os.environ["KMONEY_REMINDERS_DONE"] = os.path.join(HERE, "fixtures",
+                                                       "reminders-done.csv")
+    try:
+        data = reminders.build(today="2026-08-31", cfg=CFG)
+    finally:
+        os.environ.pop("KMONEY_REMINDERS_CSV", None)
+        os.environ.pop("KMONEY_REMINDERS_DONE", None)
+
+    today_rows = data["days"][0][1]
+    marks = {r["title"]: r.get("done") for r in today_rows}
+    ok("the ticked one is marked", marks["Odd marks"], True)
+    ok("an untouched one is not", marks["Standup"], False)
+
+    html = reminders.render(data)
+    ok("a checkbox per row due today",
+       html.count('type="checkbox"'), len(today_rows))
+    ok("one of them is checked", html.count(" checked>"), 1)
+    true("the ticked row is struck through", 'class="rem tick done"' in html)
+    # Rent is ticked for TOMORROW in the fixture, and must not render a box:
+    # ticking ahead would silence a notification a day early.
+    true("only today is tickable",
+         html.count('type="checkbox"') == len(today_rows))
+    true("the web app url reaches the browser code",
+         "example.invalid" in reminders.page_js(data))
+    true("no unreplaced placeholders", "%%" not in reminders.page_js(data))
+
+
 def test_maskable_icon():
     """The manifest promises "any maskable". Android then masks the icon to the
     launcher's shape and crops toward a circle of 80% diameter, so the artwork

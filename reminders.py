@@ -24,8 +24,14 @@ KEY = "reminders"
 LABEL = "Reminders"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CSV_URL = ("https://docs.google.com/spreadsheets/d/%s/gviz/tq?tqx=out:csv")
+CSV_URL = "https://docs.google.com/spreadsheets/d/%s/gviz/tq?tqx=out:csv"
 DAYS_SHOWN = 7
+
+# Ticks live in a second tab so every device sees the same state and the Apps
+# Script can read it too -- that one decision is what makes ticking something
+# off both sync across devices AND stop the notification.
+DONE_TAB = "Done"
+DONE_HEADER = ["date", "key", "done", "updated"]
 
 # Monday-first, matching both the Sheet's column order and date.weekday().
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
@@ -46,17 +52,55 @@ class SheetError(Exception):
 
 # ------------------------------------------------------------------ input
 
-def fetch_csv(sheet_id):
-    """KMONEY_REMINDERS_CSV points at a local file instead, for tests and for
-    `site.py --fixtures`."""
-    local = os.environ.get("KMONEY_REMINDERS_CSV")
+def fetch_csv(sheet_id, tab=None):
+    """KMONEY_REMINDERS_CSV / _DONE point at local files instead, for tests and
+    for `site.py --fixtures`."""
+    env = "KMONEY_REMINDERS_DONE" if tab else "KMONEY_REMINDERS_CSV"
+    local = os.environ.get(env)
     if local:
+        if not os.path.exists(local):
+            return ""
         with open(local, encoding="utf-8") as fh:
             return fh.read()
     import requests
-    r = requests.get(CSV_URL % sheet_id, timeout=20)
+    url = CSV_URL % sheet_id
+    if tab:
+        url += "&sheet=" + tab
+    r = requests.get(url, timeout=20)
     r.raise_for_status()
     return r.text
+
+
+def read_done(text):
+    """{(date, key)} for everything ticked off.
+
+    Asking for a tab that does not exist returns the FIRST tab instead of
+    erroring, so before the Done tab is created this would parse the reminders
+    themselves as ticks. The header check is what stops that, and a mismatch
+    means "nothing is ticked yet" rather than a broken page.
+    """
+    out = set()
+    rows = list(csv.reader(io.StringIO(text or "")))
+    if not rows:
+        return out
+    header = [h.strip().lower() for h in rows[0]]
+    if header[:len(DONE_HEADER)] != DONE_HEADER:
+        return out
+    for line in rows[1:]:
+        cells = [c.strip() for c in line] + [""] * 4
+        if cells[0] and cells[1] and cells[2]:
+            out.add((cells[0], cells[1]))
+    return out
+
+
+def done_key(rule):
+    """"Laundry@12:30" -- the identity of one occurrence.
+
+    The SAME string is built by the page's JS and by the Apps Script. If it
+    changes, all three change, or a tick stops matching the reminder it was
+    meant to silence.
+    """
+    return "%s@%02d:%02d" % (rule["title"], rule["at"][0], rule["at"][1])
 
 
 def parse_time(text):
@@ -225,6 +269,12 @@ CSS = """
          font-weight:600;font-size:13.5px}
 .rem .rn{flex:1 1 auto;min-width:0;font-size:15px;
          overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+label.rem.tick{cursor:pointer;-webkit-tap-highlight-color:transparent}
+label.rem input{flex:0 0 auto;width:19px;height:19px;margin:0 1px 0 0;
+                accent-color:var(--accent)}
+/* Ticked rows stay in place rather than reordering -- a list that rearranges
+   itself under your thumb is how you tick the wrong thing. */
+label.rem.done .rt,label.rem.done .rn{opacity:.45;text-decoration:line-through}
 .rnone{color:var(--muted);font-size:13px;padding:1px 2px 3px}
 .rfoot{color:var(--muted);font-size:12px;margin:16px 2px 0}
 .rerr{color:var(--bad,#d4676a);font-size:13px;border:1px dashed var(--line);
@@ -236,6 +286,7 @@ CSS = """
   .rday{margin:24px 0 0}
   .rday h2{font-size:13px}
   .rem{padding:12px 14px;margin:8px 0}
+  label.rem input{width:21px;height:21px}
   .rem .rt{width:88px;font-size:15px}
   .rem .rn{font-size:17px}
   .rfoot{font-size:13px}
@@ -247,7 +298,7 @@ CSS = """
 # the Python above; selftest and the browser check compare their output.
 JS = """
 (function(){
-  var SHEET=%%SHEET%%, DAYS=%%DAYS%%;
+  var SHEET=%%SHEET%%, DAYS=%%DAYS%%, WEBAPP=%%WEBAPP%%;
   var WD=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   function parseNth(t){
     t=(t||'').trim().toLowerCase();
@@ -355,9 +406,30 @@ JS = """
   }
   function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
     return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+  function doneKey(r){ return r.title+'@'+two(r.at[0])+':'+two(r.at[1]); }
+  function iso(d){ return d.getFullYear()+'-'+two(d.getMonth()+1)+'-'+two(d.getDate()); }
 
-  function build(rules,today){
-    var out=[],i,step;
+  // A tick is fire-and-forget: an Apps Script web app redirects, and a browser
+  // will not follow that for a readable cross-origin response, so the reply is
+  // unreadable by design. The Sheet is reconciled on the next read instead.
+  // Until then PENDING holds what was just tapped, so a refresh three seconds
+  // later does not show the box springing back open.
+  var PENDING={};
+  try{ PENDING=JSON.parse(localStorage.getItem('rdone')||'{}'); }catch(e){}
+  function remember(key,on){
+    PENDING[key]={on:on,at:Date.now()};
+    try{ localStorage.setItem('rdone',JSON.stringify(PENDING)); }catch(e){}
+  }
+  function pending(key){
+    var p=PENDING[key];
+    if(!p) return null;
+    if(Date.now()-p.at>12e4){ delete PENDING[key]; return null; }
+    return p.on;
+  }
+
+  function build(rules,today,done){
+    done=done||{};
+    var out=[],i,step,todayIso=iso(today);
     for(step=0;step<DAYS;step++){
       var day=new Date(today.getFullYear(),today.getMonth(),today.getDate()+step);
       var due=rules.filter(function(r){return firesOn(r,day);});
@@ -368,32 +440,93 @@ JS = """
         day.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'}));
       out.push('<div class="rday"><h2>'+esc(label)+'</h2>');
       if(!due.length) out.push('<div class="rnone">Nothing.</div>');
-      for(i=0;i<due.length;i++)
-        out.push('<div class="rem"><span class="rt">'+esc(clock(due[i].at))+
-                 '</span><span class="rn">'+esc(due[i].title)+'</span></div>');
+      for(i=0;i<due.length;i++){
+        var r=due[i];
+        // Only today is tickable: ticking ahead would silence a notification
+        // days early, which nobody means by it.
+        if(step!==0){
+          out.push('<div class="rem"><span class="rt">'+esc(clock(r.at))+
+                   '</span><span class="rn">'+esc(r.title)+'</span></div>');
+          continue;
+        }
+        var k=doneKey(r), p=pending(k);
+        var on = (p===null) ? !!done[todayIso+'|'+k] : p;
+        out.push('<label class="rem tick'+(on?' done':'')+'">'+
+                 '<input type="checkbox" data-key="'+esc(k)+'"'+(on?' checked':'')+'>'+
+                 '<span class="rt">'+esc(clock(r.at))+'</span>'+
+                 '<span class="rn">'+esc(r.title)+'</span></label>');
+      }
       out.push('</div>');
     }
     return out.join('');
   }
-  window.__remBuild=function(text,today){ return build(readRules(text),today); };
+  window.__remBuild=function(text,today,done){ return build(readRules(text),today,done||{}); };
+  // The pending overlay is a JS-only idea -- Python has no user to have just
+  // tapped something. The parity check therefore needs a way to clear it, or
+  // an old tap makes the two engines look like they disagree when they do not.
+  window.__remReset=function(){
+    PENDING={};
+    try{ localStorage.removeItem('rdone'); }catch(e){}
+  };
 
   var pane=document.querySelector('section[data-k="reminders"]');
   if(!pane) return;
   var body=pane.querySelector('#rbody'), note=pane.querySelector('#rpull');
   var busy=false;
-  function refresh(){
-    if(busy||!SHEET) return;
-    busy=true;
+  function sheetCsv(tab){
     // The Sheet allows cross-origin reads, which is the whole reason a
     // pull-down can show an edit made a minute ago rather than this morning's
     // build. cache-busted, or the browser hands back its own copy.
-    fetch('https://docs.google.com/spreadsheets/d/'+SHEET+
-          '/gviz/tq?tqx=out:csv&_='+Date.now(),{cache:'no-store'})
+    return 'https://docs.google.com/spreadsheets/d/'+SHEET+
+           '/gviz/tq?tqx=out:csv'+(tab?'&sheet='+tab:'')+'&_='+Date.now();
+  }
+  function readDone(text){
+    var rows=splitCSV(text||''), out={}, i;
+    if(!rows.length) return out;
+    var h=rows[0].map(function(x){return (x||'').trim().toLowerCase();});
+    // An unknown tab returns the FIRST one, so without this the reminders
+    // themselves would be parsed as ticks.
+    if(h[0]!=='date'||h[1]!=='key'||h[2]!=='done') return out;
+    for(i=1;i<rows.length;i++){
+      var c=rows[i].map(function(x){return (x||'').trim();});
+      if(c[0]&&c[1]&&c[2]) out[c[0]+'|'+c[1]]=true;
+    }
+    return out;
+  }
+  function refresh(){
+    if(busy||!SHEET) return;
+    busy=true;
+    var rules=null;
+    fetch(sheetCsv(null),{cache:'no-store'})
       .then(function(r){ if(!r.ok) throw new Error(r.status); return r.text(); })
-      .then(function(t){ body.innerHTML=build(readRules(t),new Date()); })
+      .then(function(t){
+        rules=readRules(t);
+        // Ticks are a convenience; if the Done tab is missing or unreadable
+        // the list must still render.
+        return fetch(sheetCsv('Done'),{cache:'no-store'})
+          .then(function(r){ return r.ok? r.text() : ''; })
+          .catch(function(){ return ''; });
+      })
+      .then(function(d){ body.innerHTML=build(rules,new Date(),readDone(d)); })
       .catch(function(){})            // keep the baked list; it is not wrong
       .then(function(){ busy=false; });
   }
+
+  // Delegated, because every refresh replaces the rows underneath.
+  pane.addEventListener('change',function(e){
+    var box=e.target;
+    if(!box||box.type!=='checkbox'||!box.dataset.key) return;
+    var on=box.checked, key=box.dataset.key;
+    box.closest('label').classList.toggle('done',on);
+    remember(key,on);
+    if(!WEBAPP) return;
+    // no-cors: the reply is unreadable across origins from an Apps Script web
+    // app, and is not needed -- the Sheet is the record, reconciled on the
+    // next read.
+    fetch(WEBAPP+'?action=done&date='+encodeURIComponent(iso(new Date()))+
+          '&key='+encodeURIComponent(key)+'&done='+(on?'1':'0'),
+          {mode:'no-cors',cache:'no-store'}).catch(function(){});
+  });
   refresh();
   document.addEventListener('visibilitychange',function(){
     if(document.visibilityState==='visible') refresh(); });
@@ -434,20 +567,35 @@ def day_label(day, today):
     return day.strftime("%A, %b ") + str(day.day)
 
 
+def row_html(rule, tickable):
+    """One reminder. Only today's are tickable -- ticking ahead is not a thing
+    anyone means, and it would silence a notification days early."""
+    if not tickable:
+        return ('<div class="rem"><span class="rt">%s</span>'
+                '<span class="rn">%s</span></div>'
+                % (ui.esc(clock(rule["at"])), ui.esc(rule["title"])))
+    done = rule.get("done")
+    return ('<label class="rem tick%s"><input type="checkbox" data-key="%s"%s>'
+            '<span class="rt">%s</span><span class="rn">%s</span></label>'
+            % (" done" if done else "",
+               ui.esc(done_key(rule)),
+               " checked" if done else "",
+               ui.esc(clock(rule["at"])), ui.esc(rule["title"])))
+
+
 def render(data):
     if data.get("error"):
         return ('<div class="rerr">Could not read the reminders sheet: %s</div>'
                 % ui.esc(data["error"]))
     out = ['<div id="rpull">Release to refresh</div><div id="rbody">']
     for day, due in data["days"]:
+        first = day == data["today"]
         out.append('<div class="rday"><h2>%s</h2>'
                    % ui.esc(day_label(day, data["today"])))
         if not due:
             out.append('<div class="rnone">Nothing.</div>')
         for rule in due:
-            out.append('<div class="rem"><span class="rt">%s</span>'
-                       '<span class="rn">%s</span></div>'
-                       % (ui.esc(clock(rule["at"])), ui.esc(rule["title"])))
+            out.append(row_html(rule, first))
         out.append("</div>")
     out.append("</div>")
     out.append('<div class="rfoot">%d reminder%s in the sheet · '
@@ -470,12 +618,23 @@ def build(today=None, cfg=None, record=True):
     except Exception as exc:          # a bad sheet must not kill the build
         return {"today": today, "days": [], "count": 0,
                 "error": "%s" % exc, "sheet": sheet}
-    return {"today": today, "days": upcoming(rules, today), "sheet": sheet,
-            "count": len(rules), "error": None}
+    try:
+        done = read_done(fetch_csv(sheet, DONE_TAB))
+    except Exception:
+        # Ticks are a convenience. Losing them must never cost the schedule.
+        done = set()
+    days = upcoming(rules, today)
+    iso = today.isoformat()
+    for rule in days[0][1]:
+        rule["done"] = (iso, done_key(rule)) in done
+    return {"today": today, "days": days, "sheet": sheet,
+            "count": len(rules), "error": None,
+            "webapp": (cfg.get("reminders_webapp") or "").strip()}
 
 
 def page_js(data):
     return (JS.replace("%%SHEET%%", '"%s"' % data.get("sheet", ""))
+              .replace("%%WEBAPP%%", '"%s"' % data.get("webapp", ""))
               .replace("%%DAYS%%", str(DAYS_SHOWN)))
 
 
