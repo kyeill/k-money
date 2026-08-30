@@ -119,6 +119,9 @@ def test_listing():
         "Avengers: Doomsday",           # 2026-09-02
         "Daredevil: Born Again",        # 2026-09-02, ties break on title
         "Frankenstein",                 # 2026-09-10
+        # 2026-09-15 "Preschool Pals" is filtered out between these two, and
+        # 2026-09-12 "Preschool Special" before them.
+        "Skeleton Crew Shaped",         # 2026-09-18
         "Spider-Man: Brand New Day",    # 2026-09-20
         "Lanterns",                     # 2026-10-15
         "Wonder Man",                   # 2026-12-01
@@ -171,6 +174,44 @@ def test_tracking_survives_undated():
          "Untitled Marvel Event Film" in tracked)
     true("an Ended show is tracked but will never list (no date, ever)",
          "Loki" in tracked)
+
+
+def test_preschool_filter():
+    """The Disney Jr. tier is officially Marvel/DC/Lucasfilm, so only the genre
+    separates it. The danger is over-reaching and losing a real show."""
+    kids = {"genre_ids": [16, 10762]}
+    ok("a Kids series is preschool", tmdb.is_preschool("tv", kids), True)
+    ok("Kids is TV-only, so it means nothing on a film",
+       tmdb.is_preschool("movie", kids), False)
+
+    for name, ids in [("X-Men '97", [16, 10759, 10765]),
+                      ("Marvel Zombies", [10765, 16, 10759]),
+                      ("Star Wars: Visions", [16, 10765, 10759]),
+                      ("Get Jiro", [16])]:
+        ok("real animation survives: " + name,
+           tmdb.is_preschool("tv", {"genre_ids": ids}), False)
+
+    # THE regression that matters: Family alone must never disqualify a show.
+    ok("Star Wars: Skeleton Crew (Family, live action) is NOT preschool",
+       tmdb.is_preschool("tv", {"genre_ids": [10759, 10765, 10751]}), False)
+    ok("a film needs BOTH animation and family",
+       tmdb.is_preschool("movie", {"genre_ids": [16, 10751]}), True)
+    ok("an animated film that is not Family survives",
+       tmdb.is_preschool("movie", {"genre_ids": [16, 878]}), False)
+    ok("a live-action Family film survives",
+       tmdb.is_preschool("movie", {"genre_ids": [12, 10751]}), False)
+    ok("no genres at all is not preschool",
+       tmdb.is_preschool("tv", {}), False)
+
+
+def test_preschool_filter_end_to_end():
+    data = run_build()
+    everything = [r["title"] for r in data["rows"] + data["pending"]]
+    true("the preschool series never reaches the page",
+         "Preschool Pals" not in everything)
+    true("nor the preschool film", "Preschool Special" not in everything)
+    true("but the Family live-action show does",
+         "Skeleton Crew Shaped" in everything)
 
 
 def test_discover_queries():

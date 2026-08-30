@@ -39,6 +39,33 @@ episode, which is the actual question. Films are fine on
 `primary_release_date.gte`: a film has one date and it is either ahead or
 behind.
 
+## "Lucasfilm" resolves to the WRONG company
+
+`search/company` returns **11928** for a bare "Lucasfilm". The one that matters
+is **Lucasfilm Ltd. = 1**, which covers the animated shows too — *The Bad
+Batch* is credited to both it and Lucasfilm Animation (108270), so one entry
+catches everything. Star Wars is therefore the one franchise with a **pinned**
+`company_id`; the exact-name resolver would otherwise be one typo from silence.
+
+## The Disney Jr. tier is officially Marvel/DC/Lucasfilm
+
+*Spidey and His Amazing Friends*, *Iron Man and His Awesome Friends*, *Krypto
+Saves the Day*, *Young Jedi Adventures* are all genuinely credited to the
+studios, so discovery by company cannot tell them apart from the real slate.
+
+The **Kids** genre (10762) separates them cleanly and catches nothing real:
+X-Men '97, Marvel Zombies, Creature Commandos, My Adventures with Superman and
+Star Wars: Visions all carry Animation *without* Kids. Kids is TV-only, so the
+film side needs **Animation AND Family together**.
+
+**Family alone is far too broad** — it would drop *Star Wars: Skeleton Crew*,
+which is live action and exactly what must not vanish. That is asserted in
+`selftest.py`; do not "simplify" the film rule to Family.
+
+The filter runs locally against `genre_ids` on the discover results rather than
+through `without_genres`, because the film rule ANDs two genres and the
+`without_genres` separators do not express that reliably.
+
 ## A studio files its own podcasts under its own company
 
 And TMDB types them **Miniseries**, so `with_type=2|4` does not catch them.

@@ -28,19 +28,43 @@
    "results": [
     {
      "id": 1000,
-     "primary_release_date": "2026-09-02"
+     "primary_release_date": "2026-09-02",
+     "genre_ids": [
+      28,
+      878
+     ]
     },
     {
      "id": 1001,
-     "primary_release_date": "2026-09-20"
+     "primary_release_date": "2026-09-20",
+     "genre_ids": [
+      28,
+      878
+     ]
     },
     {
      "id": 1003,
-     "primary_release_date": "2026-08-25"
+     "primary_release_date": "2026-08-25",
+     "genre_ids": [
+      28,
+      878
+     ]
     },
     {
      "id": 1004,
-     "primary_release_date": "2025-05-02"
+     "primary_release_date": "2025-05-02",
+     "genre_ids": [
+      28,
+      878
+     ]
+    },
+    {
+     "id": 1007,
+     "primary_release_date": "2026-09-12",
+     "genre_ids": [
+      16,
+      10751
+     ]
     }
    ]
   }
@@ -76,11 +100,34 @@
    "results": [
     {
      "id": 2000,
-     "first_air_date": "2025-03-04"
+     "first_air_date": "2025-03-04",
+     "genre_ids": [
+      16,
+      10759
+     ]
     },
     {
      "id": 2001,
-     "first_air_date": "2026-12-01"
+     "first_air_date": "2026-12-01",
+     "genre_ids": [
+      10765
+     ]
+    },
+    {
+     "id": 2006,
+     "first_air_date": "2026-09-15",
+     "genre_ids": [
+      16,
+      10762
+     ]
+    },
+    {
+     "id": 2007,
+     "first_air_date": "2026-09-18",
+     "genre_ids": [
+      10751,
+      10759
+     ]
     }
    ]
   }
@@ -518,6 +565,65 @@
    "poster_path": null,
    "seasons": [],
    "next_episode_to_air": null,
+   "watch/providers": {
+    "results": {}
+   }
+  }
+ },
+ {
+  "path": "tv/2006",
+  "_note": "Disney Jr. tier. Only here to prove it gets filtered.",
+  "data": {
+   "id": 2006,
+   "name": "Preschool Pals",
+   "status": "Returning Series",
+   "first_air_date": "2026-09-15",
+   "poster_path": null,
+   "seasons": [],
+   "next_episode_to_air": {
+    "air_date": "2026-09-15",
+    "season_number": 1,
+    "episode_number": 2,
+    "name": "Episode 2"
+   },
+   "watch/providers": {
+    "results": {}
+   }
+  }
+ },
+ {
+  "path": "tv/2007",
+  "_note": "Family but live action -- the Skeleton Crew case. Must survive.",
+  "data": {
+   "id": 2007,
+   "name": "Skeleton Crew Shaped",
+   "status": "Returning Series",
+   "first_air_date": "2026-09-18",
+   "poster_path": null,
+   "seasons": [],
+   "next_episode_to_air": {
+    "air_date": "2026-09-18",
+    "season_number": 1,
+    "episode_number": 3,
+    "name": "Episode 3"
+   },
+   "watch/providers": {
+    "results": {}
+   }
+  }
+ },
+ {
+  "path": "movie/1007",
+  "_note": "Animation + Family short. Only here to prove it gets filtered.",
+  "data": {
+   "id": 1007,
+   "title": "Preschool Special",
+   "status": "Post Production",
+   "release_date": "2026-09-12",
+   "poster_path": null,
+   "release_dates": {
+    "results": []
+   },
    "watch/providers": {
     "results": {}
    }

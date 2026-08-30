@@ -1,8 +1,8 @@
 # K Money
 
-A rolling list of what is coming out — Marvel and DC by default, plus whatever
-one-offs are worth following — built once a morning by GitHub Actions and
-published as an installable page.
+A rolling list of what is coming out — Marvel, DC and Star Wars by default,
+plus whatever one-offs are worth following — built once a morning by GitHub
+Actions and published as an installable page.
 
 It is a **tab shell**, not a watchlist app. Watchlist is the first tab; unrelated
 tabs are meant to be added beside it later.
@@ -40,15 +40,25 @@ something genuinely arrives.
 Two sources, one list.
 
 **Franchises** are discovered by studio, so nothing has to be added by hand.
-`config.json` lists them; `company_id` is resolved from the studio name on
-first run if it is left `null`. Marvel Studios is pinned at 420, which is
-folklore-stable; DC Studios resolves to 184898.
+`config.json` lists three: **Marvel Studios** (420), **DC Studios** (184898,
+resolved from the name) and **Lucasfilm Ltd.** (1, pinned — a bare "Lucasfilm"
+resolves to a different company, and Lucasfilm Ltd. covers the animated shows
+too).
 
-Discovery deliberately excludes **animation** (`exclude_animation`, on) and,
-for series, the studios' own **making-of podcasts**. Series are found by
-`air_date` rather than first air date, so a show already running or between
-seasons is caught — that is what puts Daredevil and Lanterns on the list at
-all.
+**Animation is included.** What a studio officially made is the test, and
+X-Men '97, Marvel Zombies, Creature Commandos, My Adventures with Superman and
+Star Wars: Visions are all officially theirs. `exclude_animation` turns it back
+off.
+
+Discovery does exclude the studios' own **making-of podcasts** and the
+**Disney Jr. tier** (`exclude_preschool`) — Spidey and His Amazing Friends,
+Krypto Saves the Day, Young Jedi Adventures. Those are officially Marvel/DC/
+Lucasfilm too, so only the Kids genre separates them; see NOTES for why the
+film-side rule needs two genres rather than one.
+
+Series are found by `air_date` rather than first air date, so a show already
+running or between seasons is caught — that is what puts Daredevil and Lanterns
+on the list at all.
 
 **The watchlist** is hand-edited in `config.json` and is only for the one-offs.
 Entries need `type` (`movie` or `tv`) and `id`. Write the title, leave the id
@@ -70,7 +80,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         75 assertions, no key and no network needed
+python selftest.py         89 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
@@ -116,7 +126,8 @@ def render(data): ...                     # -> the HTML inside its <section>
 …and one line in `tabs.TABS`. The shell owns the frame, the nav, the service
 worker and the light/dark palette; nothing else. Tab CSS is concatenated after
 the shell's, so keep selectors scoped — two tabs both styling `.row` would
-collide. The nav bar hides itself while there is only one tab.
+collide. The nav bar shows even with a single tab; a lone tab that hid its own
+bar made the app look like it had none.
 
 ## The shape of it
 

@@ -211,7 +211,8 @@ def collect(cfg, today, record=True):
             continue
         for kind in ("movie", "tv"):
             for row in tmdb.discover(kind, cid, today, lang, region,
-                                     cfg.get("exclude_animation", True)):
+                                     cfg.get("exclude_animation", True),
+                                     cfg.get("exclude_preschool", True)):
                 wanted.setdefault("%s/%s" % (kind, row["id"]),
                                   (fr.get("label") or fr["key"], False))
 

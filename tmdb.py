@@ -131,11 +131,33 @@ def company_id(name):
 
 ANIMATION = 16
 TALK = 10767              # TV-only genre; a studio's own podcast lands here
+KIDS = 10762              # TV only
+FAMILY = 10751            # movie only
 SCRIPTED = "2|4"          # discover/tv with_type: miniseries or scripted
 
 
+def is_preschool(kind, row):
+    """The Disney Jr. tier: Spidey and His Amazing Friends, Krypto Saves the
+    Day, Young Jedi Adventures.
+
+    These ARE officially Marvel/DC/Lucasfilm, so discovery by studio cannot
+    tell them apart -- but nobody tracking the MCU means them.
+
+    The **Kids** genre separates them cleanly on the TV side and catches no
+    real show: X-Men '97, Marvel Zombies, Creature Commandos and Star Wars:
+    Visions carry Animation without it. Kids is TV-only, so the film side needs
+    Animation AND Family together -- **Family alone is far too broad and would
+    drop Star Wars: Skeleton Crew**, which is exactly the sort of thing that
+    must not vanish.
+    """
+    genres = set(row.get("genre_ids") or [])
+    if kind == "tv":
+        return KIDS in genres
+    return ANIMATION in genres and FAMILY in genres
+
+
 def discover(kind, cid, today, language="en-US", region="US",
-             exclude_animation=True):
+             exclude_animation=True, exclude_preschool=True):
     """Everything a company has coming, plus the slate it has only announced.
 
     Two passes, for different reasons per kind.
@@ -197,6 +219,12 @@ def discover(kind, cid, today, language="en-US", region="US",
             continue
         seen.add(row["id"])
         out.append(row)
+
+    # Filtered here rather than through `without_genres` because the film rule
+    # needs two genres ANDed, and the without_genres separators do not express
+    # that reliably. Discover results carry genre_ids, so it costs nothing.
+    if exclude_preschool:
+        out = [r for r in out if not is_preschool(kind, r)]
     return out
 
 
