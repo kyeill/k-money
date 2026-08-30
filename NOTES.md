@@ -18,6 +18,44 @@ with the notifications.
 The Apps Script cannot be reached from here at all. It is the copy most likely
 to drift; change it in the same commit or not at all.
 
+## ntfy.sh cannot be used from Apps Script — the quota is not yours
+
+It was the first choice and it fails, structurally:
+
+```
+429  {"code":42908,"error":"limit reached: daily message quota reached"}
+```
+
+ntfy.sh's free tier meters **per source IP**, and Apps Script egresses from
+shared Google infrastructure. The daily allowance is spent by thousands of
+other people's scripts before you send anything. It is not your usage, so
+nothing in the script can fix it — not retries, not backoff, not a different
+URL. A POST from an ordinary machine to the same topic returns 200 with a
+message id, which is what makes this so confusing to diagnose.
+
+Delivery is therefore **Pushover**, whose limits are per account. `PROVIDER` at
+the top of the Apps Script switches back to ntfy for anyone running the sender
+from a normal machine, or against a self-hosted ntfy.
+
+## "No error" never meant "delivered"
+
+Two independent traps hid this for an hour, and both are now closed:
+
+* `muteHttpExceptions: true` returns a 4xx as a **response**, not an exception.
+  The original `push()` never looked at the status, so a refusal and a delivery
+  were indistinguishable. Always check the code.
+* **ntfy accepts any string as a topic** and answers 200 — so an unset `TOPIC`
+  publishes happily to a topic literally named `PUT-YOUR-NTFY-TOPIC-HERE`,
+  forever, with no error anywhere.
+
+Pushover has the same shape of trap: it answers **HTTP 200 with
+`{"status":0}`** for a bad token. The status code alone is not the answer, so
+`push()` checks for `"status":1` as well.
+
+The lesson generalises: when a send reports success and nothing arrives, prove
+delivery at the *receiving* end. Polling the ntfy topic with `?poll=1&since=all`
+and finding it empty is what turned this from guesswork into a fact.
+
 ## A Google Sheet time cell is not a time
 
 Read raw, a cell formatted `h:mm am/pm` comes back as a **Date on the

@@ -13,9 +13,29 @@
 
 // ---------------------------------------------------------------- settings
 
-// Your ntfy topic. Anyone who knows this string can read your reminders AND
-// send notifications to your phone, so keep it out of the public repo -- it
-// lives here, in a script bound to your private Sheet, and nowhere else.
+// 'pushover' or 'ntfy'.
+//
+// ntfy.sh was the first choice and does not work from here. Its free tier
+// meters per SOURCE IP, and Apps Script egresses from shared Google
+// infrastructure, so the daily quota is spent by thousands of other people's
+// scripts before you send anything:
+//
+//   429  {"code":42908,"error":"limit reached: daily message quota reached"}
+//
+// Nothing in this file can fix that -- it is not your usage. Pushover is a
+// paid, per-account service built for server-side senders, so its limits are
+// yours alone. The ntfy path is kept below because it works fine from a normal
+// machine, and because a self-hosted or paid ntfy would work from here too.
+var PROVIDER = 'pushover';
+
+// Pushover: both come from pushover.net once you have an account. The user key
+// is on the dashboard; the app token comes from creating an Application.
+var PUSHOVER_USER = 'PUT-YOUR-PUSHOVER-USER-KEY-HERE';
+var PUSHOVER_TOKEN = 'PUT-YOUR-PUSHOVER-APP-TOKEN-HERE';
+
+// ntfy: anyone who knows this string can read your reminders AND send
+// notifications to your phone, so keep it out of the public repo -- it lives
+// here, in a script bound to your private Sheet, and nowhere else.
 var TOPIC = 'PUT-YOUR-NTFY-TOPIC-HERE';
 
 var TZ = 'America/New_York';   // times in the Sheet are read as this zone
@@ -25,9 +45,9 @@ var GRACE_MINUTES = 15;        // how late a reminder may fire before it is skip
 
 /** Run once. Installs the 5-minute trigger and asks for authorisation. */
 function setup() {
-  if (TOPIC === 'PUT-YOUR-NTFY-TOPIC-HERE') {
-    throw new Error('Set TOPIC at the top of this file first.');
-  }
+  // Prove credentials work before installing a trigger that would otherwise
+  // fail silently every five minutes.
+  push('K Money', 'Reminders are set up. This is the only message you get now.');
   // Clear ours first, or every re-run adds another trigger and every reminder
   // fires twice.
   ScriptApp.getProjectTriggers().forEach(function (t) {
@@ -52,13 +72,23 @@ function sendTest() {
  * Google infrastructure, so a 429 here can be somebody else's traffic.
  */
 function probe() {
-  var r = UrlFetchApp.fetch('https://ntfy.sh/' + TOPIC, {
-    method: 'post',
-    payload: 'probe from apps script',
-    headers: {'Title': 'K Money probe'},
-    muteHttpExceptions: true
-  });
-  Logger.log('TOPIC   : %s', TOPIC);
+  Logger.log('provider: %s', PROVIDER);
+  var r;
+  if (PROVIDER === 'pushover') {
+    r = UrlFetchApp.fetch('https://api.pushover.net/1/messages.json', {
+      method: 'post',
+      payload: {token: PUSHOVER_TOKEN, user: PUSHOVER_USER,
+                title: 'K Money probe', message: 'probe from apps script'},
+      muteHttpExceptions: true
+    });
+  } else {
+    r = UrlFetchApp.fetch('https://ntfy.sh/' + TOPIC, {
+      method: 'post',
+      payload: 'probe from apps script',
+      headers: {'Title': 'K Money probe'},
+      muteHttpExceptions: true
+    });
+  }
   Logger.log('status  : %s', r.getResponseCode());
   Logger.log('body    : %s', r.getContentText().slice(0, 400));
 }
@@ -297,35 +327,58 @@ function saveFired(today, titles) {
  * rejected send would look exactly like a delivered one.
  */
 function push(title, body) {
-  var options = {
-    method: 'post',
-    payload: body || ' ',
-    headers: {
-      // ntfy takes the title from a header, and headers must be ASCII. Anything
-      // exotic in a reminder title is stripped rather than breaking the send.
-      'Title': String(title).replace(/[^\x20-\x7E]/g, ''),
-      'Tags': 'bell'
-    },
-    muteHttpExceptions: true
-  };
-  // ntfy accepts ANY string as a topic name, so an unset TOPIC publishes
-  // happily to a topic called PUT-YOUR-NTFY-TOPIC-HERE and returns 200. Every
-  // reminder would then "send" successfully and never arrive.
-  if (!TOPIC || TOPIC === 'PUT-YOUR-NTFY-TOPIC-HERE') {
-    throw new Error('TOPIC is not set at the top of this file.');
+  var url, options;
+  if (PROVIDER === 'pushover') {
+    if (PUSHOVER_USER.indexOf('PUT-YOUR') === 0 ||
+        PUSHOVER_TOKEN.indexOf('PUT-YOUR') === 0) {
+      throw new Error('PUSHOVER_USER / PUSHOVER_TOKEN are not set.');
+    }
+    url = 'https://api.pushover.net/1/messages.json';
+    options = {
+      method: 'post',
+      payload: {token: PUSHOVER_TOKEN, user: PUSHOVER_USER,
+                title: String(title), message: String(body || ' ')},
+      muteHttpExceptions: true
+    };
+  } else {
+    // ntfy accepts ANY string as a topic name, so an unset TOPIC publishes
+    // happily to a topic called PUT-YOUR-NTFY-TOPIC-HERE and returns 200.
+    // Every reminder would then "send" successfully and never arrive.
+    if (!TOPIC || TOPIC.indexOf('PUT-YOUR') === 0) {
+      throw new Error('TOPIC is not set at the top of this file.');
+    }
+    url = 'https://ntfy.sh/' + TOPIC;
+    options = {
+      method: 'post',
+      payload: body || ' ',
+      headers: {
+        // ntfy takes the title from a header, and headers must be ASCII.
+        // Anything exotic in a title is stripped rather than failing the send.
+        'Title': String(title).replace(/[^\x20-\x7E]/g, ''),
+        'Tags': 'bell'
+      },
+      muteHttpExceptions: true
+    };
   }
+
   var last = 'no attempt made';
   for (var attempt = 1; attempt <= 2; attempt++) {
     try {
-      var r = UrlFetchApp.fetch('https://ntfy.sh/' + TOPIC, options);
-      if (r.getResponseCode() < 400) return;
-      last = 'HTTP ' + r.getResponseCode() + ' ' + r.getContentText().slice(0, 200);
+      var r = UrlFetchApp.fetch(url, options);
+      var code = r.getResponseCode();
+      var text = r.getContentText();
+      // Pushover answers 200 with {"status":1}; anything else is a refusal
+      // dressed as success, which is how the ntfy 429 hid for so long.
+      if (code < 400 && (PROVIDER !== 'pushover' || text.indexOf('"status":1') >= 0)) {
+        return;
+      }
+      last = 'HTTP ' + code + ' ' + text.slice(0, 200);
     } catch (err) {
       last = String(err);
     }
     if (attempt === 1) Utilities.sleep(3000);
   }
-  throw new Error('ntfy push failed after 2 tries: ' + last);
+  throw new Error(PROVIDER + ' push failed after 2 tries: ' + last);
 }
 
 function pad(n) { return (n < 10 ? '0' : '') + n; }

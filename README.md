@@ -26,8 +26,13 @@ monthly rule and weekly ticks, it is monthly: one row, one schedule.
 
 **The page does not send anything.** A static site cannot wake a phone. The
 notifications come from `apps-script/reminders.gs`, an Apps Script bound to the
-Sheet running on a 5-minute trigger, which POSTs to an ntfy topic. That script
-holds the topic name and never enters this repo.
+Sheet running on a 5-minute trigger, which POSTs to **Pushover**. That script
+holds the credentials and they never enter this repo.
+
+ntfy.sh was the first choice and does not work from Apps Script: its free tier
+meters per source IP, and Apps Script shares Google egress, so the daily quota
+is spent by strangers before you send anything. `PROVIDER` at the top of the
+script switches back for anyone sending from a normal machine. See NOTES.
 
 The Sheet allows cross-origin reads, so the tab **re-fetches it in the browser**
 on open and on pull-to-refresh — an edit made a minute ago shows up without
