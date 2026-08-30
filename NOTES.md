@@ -3,6 +3,20 @@
 Each of these is encoded in the code and asserted in `selftest.py`. Do not
 rediscover them.
 
+## The Weekday column is optional, and the layout is detected
+
+Columns through `nth` are fixed; `Weekday` after them may or may not be there,
+and `Months` sits at index 10 or 11 accordingly. **Both layouts are accepted on
+purpose** — this schema gets edited while the page and the notifications are
+live, and a column deletion must not take them down. That has already happened
+once with a header label.
+
+With an `nth` set and `Weekday` blank or absent: one ticked day means that
+weekday, **no ticked day means day of the month**. That second rule is what
+makes the column removable, and it also rescues a case that used to fail in
+silence -- an `nth` with no ticks and no Weekday was not monthly, had no days,
+and so fired never.
+
 ## `nth` is a LIST, and it accepts words
 
 Two natural spellings both failed silently in his real sheet:

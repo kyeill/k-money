@@ -43,26 +43,46 @@ QUARTERLY = {1, 4, 7, 10}
 # The header the Sheet must have. Checked because asking Google for a tab that
 # does not exist silently returns the FIRST tab instead of erroring, so a
 # reordered or renamed sheet would otherwise be parsed as if it were this one.
-EXPECT = ["title", "time"] + [d.lower() for d in WEEKDAYS] + \
-         ["nth", "weekday", "months"]
+#
+# Columns up to and including nth are fixed. After that the sheet may or may not
+# carry a Weekday column, and BOTH layouts are accepted -- the schema has to
+# survive being edited while the page and the notifications are live.
+EXPECT = ["title", "time"] + [d.lower() for d in WEEKDAYS] + ["nth"]
+WEEKDAY_COL = len(EXPECT)          # index 10, when the column is present
 
 
 class SheetError(Exception):
     pass
 
 
-def header_ok(header):
-    """Match on the FIRST WORD of each heading.
+def _first_words(header):
+    return [cell.split()[0] if cell.split() else "" for cell in header]
 
-    He labels sections in the sheet, and put one in the header cell itself --
-    A1 read "Title DAILY", which broke every reader at once: the page showed an
-    error and no notification could fire. Being forgiving about a label costs
-    nothing and still refuses the Done tab, whose first heading is "date".
+
+def layout(header):
+    """(ok, index of Months, does a Weekday column exist).
+
+    Headings match on their FIRST WORD: he labels sections in the sheet and put
+    one in the header cell itself -- A1 read "Title DAILY", which broke every
+    reader at once. Being forgiving about a label costs nothing and still
+    refuses the Done tab, whose first heading is "date".
     """
-    if len(header) < len(EXPECT):
-        return False
-    return all(cell.split()[:1] == [want]
-               for cell, want in zip(header, EXPECT))
+    words = _first_words(header)
+    if len(words) <= WEEKDAY_COL:
+        return (False, None, False)
+    if words[:len(EXPECT)] != EXPECT:
+        return (False, None, False)
+    if words[WEEKDAY_COL] == "weekday":
+        if len(words) <= WEEKDAY_COL + 1 or words[WEEKDAY_COL + 1] != "months":
+            return (False, None, True)
+        return (True, WEEKDAY_COL + 1, True)
+    if words[WEEKDAY_COL] == "months":
+        return (True, WEEKDAY_COL, False)
+    return (False, None, False)
+
+
+def header_ok(header):
+    return layout(header)[0]
 
 
 # ------------------------------------------------------------------ input
@@ -200,12 +220,15 @@ def read_rules(text):
     if not rows:
         raise SheetError("the sheet is empty")
     header = [h.strip().lower() for h in rows[0]]
-    if not header_ok(header):
-        raise SheetError("unexpected header %r; expected %r" % (header, EXPECT))
+    good, months_col, has_weekday = layout(header)
+    if not good:
+        raise SheetError("unexpected header %r; expected %r then Weekday "
+                         "(optional) then Months" % (header, EXPECT))
+    width = months_col + 1
 
     rules = []
     for line in rows[1:]:
-        cells = [c.strip() for c in line] + [""] * (len(EXPECT) - len(line))
+        cells = [c.strip() for c in line] + [""] * width
         title = cells[0]
         at = parse_time(cells[1])
         # A time is required, by his call: a reminder with no time cannot fire.
@@ -215,15 +238,24 @@ def read_rules(text):
         # A cell with text in it that yields nothing is a typo, not a blank --
         # and used to fail silently. It is counted and surfaced on the page.
         unreadable = bool(cells[9].strip()) and not nths
-        weekday = cells[10].strip().title()
+        weekday = cells[WEEKDAY_COL].strip().title() if has_weekday else ""
         # Any non-empty mark counts, so x / X / TRUE / a tick all work.
         days = {i for i, d in enumerate(WEEKDAYS) if cells[2 + i]}
         # "4th" with Sun ticked and Weekday left blank is the obvious intent,
         # and it is the natural way to write it. Without this the nth is
         # silently dropped and the row fires EVERY Sunday -- four times too
         # often, with nothing anywhere to say so.
-        if nths and not weekday and len(days) == 1:
-            weekday = WEEKDAYS[next(iter(days))]
+        # With an nth set, the weekday can be inferred rather than typed:
+        #   one day ticked  -> that weekday        ("4th" + Sun = 4th Sunday)
+        #   no day ticked   -> day of the month    ("25th" = the 25th)
+        # The second is what lets the Weekday column be deleted entirely, and
+        # it also rescues a case that used to fail silently: an nth with no
+        # ticks and no Weekday was not monthly, had no days, and so fired never.
+        if nths and not weekday:
+            if len(days) == 1:
+                weekday = WEEKDAYS[next(iter(days))]
+            elif not days:
+                weekday = "Day"
         monthly = bool(nths) and weekday != ""
         rules.append({
             "title": title,
@@ -232,7 +264,7 @@ def read_rules(text):
             "nths": nths,
             "unreadable": unreadable,
             "weekday": weekday,
-            "months": parse_months(cells[11]),
+            "months": parse_months(cells[months_col]),
             "monthly": monthly,
         })
     return rules
@@ -340,7 +372,7 @@ JS = """
     t=(t||'').trim().toLowerCase();
     if(!t) return [];
     var out=[];
-    t.replace(/,/g,' ').split(/\s+/).forEach(function(p){
+    t.replace(/,/g,' ').split(/\\s+/).forEach(function(p){
       if(!p) return;
       var v;
       if(WORDN[p]!==undefined) v=WORDN[p];
@@ -396,22 +428,29 @@ JS = """
   function readRules(text){
     var rows=splitCSV(text);
     if(!rows.length) throw new Error('empty sheet');
+    // The Weekday column is optional; Months sits at 10 or 11 accordingly.
+    var head=rows[0].map(function(x){
+      return (x||'').trim().toLowerCase().split(/\\s+/)[0]; });
+    var hasWd = head[10]==='weekday';
+    var monthsCol = hasWd ? 11 : 10;
     var rules=[],i;
     for(i=1;i<rows.length;i++){
       var c=rows[i].map(function(x){return (x||'').trim();});
-      while(c.length<12) c.push('');
+      while(c.length<=monthsCol) c.push('');
       var at=parseTime(c[1]);
       if(!c[0]||!at) continue;
       var nths=parseNths(c[9]);
-      var wd=(c[10]||'').trim();
+      var wd=hasWd?(c[10]||'').trim():'';
       wd=wd?wd.charAt(0).toUpperCase()+wd.slice(1).toLowerCase():'';
       var days=[],d;
       for(d=0;d<7;d++) if(c[2+d]) days.push(d);
-      // "4th" with one day ticked and Weekday blank means that day; without
-      // this the nth is dropped and the row fires every week instead.
-      if(nths.length&&wd===''&&days.length===1) wd=WD[days[0]];
+      // One day ticked means that weekday; none ticked means day of the month.
+      if(nths.length&&wd===''){
+        if(days.length===1) wd=WD[days[0]];
+        else if(!days.length) wd='Day';
+      }
       rules.push({title:c[0],at:at,days:days,nths:nths,
-                  weekday:wd,months:parseMonths(c[11]),
+                  weekday:wd,months:parseMonths(c[monthsCol]),
                   monthly:(nths.length>0&&wd!=='')});
     }
     return rules;

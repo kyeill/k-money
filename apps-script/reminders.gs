@@ -204,8 +204,12 @@ function parseNths(t) {
 }
 var MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+// Columns up to and including nth are fixed. The Weekday column after them is
+// OPTIONAL -- both layouts are accepted, because the sheet gets edited while
+// this is live and a schema change must not take the notifications down.
 var EXPECT = ['title', 'time', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun',
-              'nth', 'weekday', 'months'];
+              'nth'];
+var WEEKDAY_COL = EXPECT.length;   // 10, when the column is present
 
 function readRules() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
@@ -230,27 +234,36 @@ function readRules() {
                       '", expected "' + EXPECT[i] + '"');
     }
   }
+  var hasWeekday = header[WEEKDAY_COL] === 'weekday';
+  var monthsCol = hasWeekday ? WEEKDAY_COL + 1 : WEEKDAY_COL;
+  if (header[monthsCol] !== 'months') {
+    throw new Error('expected a Months column at position ' + (monthsCol + 1) +
+                    ', found "' + header[monthsCol] + '"');
+  }
 
   var rules = [];
   for (var r = 1; r < grid.length; r++) {
     var c = grid[r].map(function (x) { return String(x == null ? '' : x).trim(); });
-    while (c.length < EXPECT.length) c.push('');
+    while (c.length <= monthsCol) c.push('');
     var at = parseTime(c[1]);
     if (!c[0] || !at) continue;          // a reminder with no time cannot fire
     var nths = parseNths(c[9]);
-    var weekday = title3(c[10]);
+    var weekday = hasWeekday ? title3(c[WEEKDAY_COL]) : '';
     var days = [];
     for (var d = 0; d < 7; d++) if (c[2 + d]) days.push(d);
     // "4th" with Sun ticked and Weekday left blank is the obvious intent, and
     // it is the natural way to write it. Without this the nth is silently
     // dropped and the row fires EVERY Sunday -- four times too often.
-    if (nths.length && weekday === '' && days.length === 1) {
-      weekday = WD[days[0]];
+    // One day ticked means that weekday; none ticked means day of the month,
+    // which is what lets the Weekday column be deleted entirely.
+    if (nths.length && weekday === '') {
+      if (days.length === 1) weekday = WD[days[0]];
+      else if (!days.length) weekday = 'Day';
     }
     rules.push({
       title: c[0], hour: at[0], minute: at[1], days: days,
       nths: nths, weekday: weekday,
-      months: parseMonths(c[11]),
+      months: parseMonths(c[monthsCol]),
       monthly: (nths.length > 0 && weekday !== '')
     });
   }

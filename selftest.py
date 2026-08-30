@@ -270,6 +270,37 @@ def test_reminder_parsing():
     ok("but the Done tab is still refused",
        reminders.header_ok(["date", "key", "done", "updated"]), False)
     ok("and a short header is refused", reminders.header_ok(["title"]), False)
+
+    # The Weekday column is optional. Both layouts must work, because the sheet
+    # gets edited while the page and the notifications are live.
+    eleven = ["title", "time", "mon", "tue", "wed", "thu", "fri", "sat", "sun",
+              "nth", "months"]
+    ok("a sheet with no Weekday column is fine",
+       reminders.layout(eleven), (True, 10, False))
+    ok("and one with it puts Months a column later",
+       reminders.layout(eleven[:10] + ["weekday", "months"]), (True, 11, True))
+    ok("Months missing entirely is refused",
+       reminders.layout(eleven[:10] + ["weekday"])[0], False)
+
+    # Day-of-month with no Weekday column at all: nth and no ticked day can
+    # only mean the day of the month. Without this it was not monthly, had no
+    # days, and fired NEVER.
+    no_wd = "\n".join([
+        '"' + '","'.join(eleven) + '"',
+        '"Rent","9:00 AM","","","","","","","","1st",""',
+        '"Card","2:00 PM","","","","","","","","Last",""',
+        '"Bins","7:00 AM","","","","","","","x","1st, 3rd",""'])
+    by = {r["title"]: r for r in reminders.read_rules(no_wd)}
+    ok("no ticks means day of the month", by["Rent"]["weekday"], "Day")
+    ok("and it is monthly", by["Rent"]["monthly"], True)
+    true("the 1st fires on the 1st",
+         reminders.fires_on(by["Rent"], dt.date(2026, 9, 1)))
+    ok("and not the 2nd",
+       reminders.fires_on(by["Rent"], dt.date(2026, 9, 2)), False)
+    true("Last means the last day",
+         reminders.fires_on(by["Card"], dt.date(2026, 9, 30)))
+    ok("a ticked day still wins over day-of-month",
+       by["Bins"]["weekday"], "Sun")
     ok("a heading that merely starts the same is refused",
        reminders.header_ok(["titles", "time", "mon", "tue", "wed", "thu",
                             "fri", "sat", "sun", "nth", "weekday", "months"]),
