@@ -16,7 +16,11 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SEEN = os.path.join(HERE, "output", "history", "seen.json")
 
 KEY = "watch"
-LABEL = "Watch"
+LABEL = "Watchlist"
+
+# A title in one of these states has no date because it is over, not because it
+# is waiting -- 16 finished Marvel and DC shows arrive via the popularity pass.
+FINISHED = ("Released", "Ended", "Canceled")
 
 # TMDB release_dates types. 3 is a wide theatrical run, 2 a limited one.
 THEATRICAL, DIGITAL, PREMIERE, ON_TV = (2, 3), 4, 1, 6
@@ -222,6 +226,25 @@ def listing(rows, cfg, today):
     return out
 
 
+# Roughly "how close is this to actually happening", which is a more useful
+# order for a waiting list than the alphabet.
+PENDING_ORDER = ["Returning", "Post-production", "Filming", "Announced", "Rumored"]
+
+
+def pending(rows):
+    """Undated, but still alive — the slate that is waiting on a date.
+
+    Finished titles are excluded: they are undated because they are over. A
+    pinned one survives anyway, since TMDB calls Peacemaker "Ended" while
+    season 3 is announced and that is exactly the case pinning exists for.
+    """
+    out = [r for r in rows
+           if not r["date"] and (r["status"] not in FINISHED or r.get("pinned"))]
+    rank = {label: i for i, label in enumerate(PENDING_ORDER)}
+    out.sort(key=lambda r: (rank.get(r["when"], len(rank)), r["title"]))
+    return out
+
+
 def stamp_new(shown, today, record=True):
     """Badge what has only just appeared ON THE LIST.
 
@@ -251,8 +274,8 @@ def build(today=None, cfg=None, record=True):
     return {
         "today": today,
         "rows": shown,
+        "pending": pending(rows),
         "tracked": len(rows),
-        "waiting": len(rows) - len(shown),
     }
 
 
@@ -262,10 +285,12 @@ def build(today=None, cfg=None, record=True):
 
 CSS = """
 .sec{margin:14px 0 0}
+.sec h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;
+        color:var(--muted);font-weight:600;margin:26px 0 8px}
+.sec h2 b{color:var(--ink);font-weight:600}
 /* Already out, but recent enough to still be worth catching up on. It reads
    quieter than everything ahead of it without leaving the running order. */
 a.item.past{opacity:.62}
-.tally{color:var(--muted);font-size:12px;margin:14px 2px 0}
 a.item{display:flex;gap:11px;align-items:flex-start;text-decoration:none;
        color:inherit;background:var(--card);border:1px solid var(--line);
        border-radius:10px;padding:10px 11px;margin:7px 0}
@@ -294,7 +319,7 @@ a.item{display:flex;gap:11px;align-items:flex-start;text-decoration:none;
 .empty{color:var(--muted);font-size:13px;padding:2px 0 4px}
 @media (min-width:641px){
   .sec{margin:18px 0 0}
-  .tally{font-size:13px;margin-top:18px}
+  .sec h2{font-size:13px;margin-top:32px}
   a.item{padding:12px 14px;margin:9px 0;gap:13px}
   .pos{width:54px;height:81px}
   .t{font-size:17px}
@@ -310,10 +335,15 @@ TMDB_PAGE = "https://www.themoviedb.org/%s/%s"
 
 
 def _item(row, today):
-    day, weekday = ui.day_parts(row["date"], today)
-    near = ui.relative(row["date"], today)
-    if near:
-        day, weekday = near, ""
+    if row["date"]:
+        day, weekday = ui.day_parts(row["date"], today)
+        near = ui.relative(row["date"], today)
+        if near:
+            day, weekday = near, ""
+    else:
+        # The status already reads on the subtitle line; repeating "TBA" down
+        # the whole column just adds noise to a section that is entirely TBA.
+        day, weekday = "", ""
 
     bits = []
     if row["source"]:
@@ -336,7 +366,7 @@ def _item(row, today):
         '<span class="s">%s</span>%s</span>'
         '<span class="when"><span class="d">%s</span><span class="w">%s</span></span></a>'
     ) % (
-        " past" if row["date"] < today else "",
+        " past" if row["date"] and row["date"] < today else "",
         ui.esc(TMDB_PAGE % (row["kind"], row["id"])),
         poster,
         ui.esc(row["title"]),
@@ -349,17 +379,19 @@ def _item(row, today):
 
 def render(data):
     today = data["today"]
-    rows = data["rows"]
-    if not rows:
-        return '<div class="empty">Nothing scheduled.</div>'
+    out = []
+    if data["rows"]:
+        out.append('<div class="sec">')
+        out.extend(_item(r, today) for r in data["rows"])
+        out.append("</div>")
+    else:
+        out.append('<div class="empty">Nothing scheduled.</div>')
 
-    out = ['<div class="sec">']
-    out.extend(_item(r, today) for r in rows)
-    out.append("</div>")
-    # Says why the list is shorter than the slate, without listing the slate.
-    if data.get("waiting"):
-        out.append('<div class="tally">%d tracked · %d waiting on a date</div>'
-                   % (data["tracked"], data["waiting"]))
+    if data.get("pending"):
+        out.append('<div class="sec"><h2>Pending release date <b>%d</b></h2>'
+                   % len(data["pending"]))
+        out.extend(_item(r, today) for r in data["pending"])
+        out.append("</div>")
     return "".join(out)
 
 
@@ -369,5 +401,9 @@ if __name__ == "__main__":
         print("  %-11s %-42s %-18s %s" % (
             r["date"], r["title"][:42], r["when"][:18],
             ", ".join(r["providers"]) or "-"))
-    print("\n%d shown, %d tracked, %d waiting on a date"
-          % (len(data["rows"]), data["tracked"], data["waiting"]))
+    print("\n== Pending release date (%d)" % len(data["pending"]))
+    for r in data["pending"]:
+        print("  %-11s %-42s %-18s %s" % (
+            "-", r["title"][:42], r["when"][:18], r["source"]))
+    print("\n%d listed, %d pending, %d tracked"
+          % (len(data["rows"]), len(data["pending"]), data["tracked"]))

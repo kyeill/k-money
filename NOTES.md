@@ -77,6 +77,17 @@ A cancelled or long-ended show also has no future date. Only titles whose
 `status` is *not* Released / Ended / Canceled reach the TBA bucket, or the list
 fills with dead projects — unless the row is pinned, see above.
 
+## "Undated" and "waiting" are not the same number
+
+An early tally read "48 waiting on a date" and was wrong twice over. It was
+computed as `tracked - shown`, which also counted titles that *had* a date and
+had simply aged out of the window. And of the 27 genuinely undated, **16 were
+finished shows** — Loki, WandaVision, Hawkeye, Echo, The Penguin and the rest,
+pulled in by the popularity pass, undated because they are over.
+
+Eleven could actually get a date. That is what "Pending release date" shows:
+`status not in FINISHED`, or pinned. Count the thing you mean.
+
 ## Undated titles are tracked, not listed — and the difference matters
 
 Kyle asked to exclude anything without a date. Dropping them from *discovery*

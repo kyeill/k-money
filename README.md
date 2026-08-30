@@ -4,12 +4,12 @@ A rolling list of what is coming out — Marvel and DC by default, plus whatever
 one-offs are worth following — built once a morning by GitHub Actions and
 published as an installable page.
 
-It is a **tab shell**, not a watchlist app. Watch is the first tab; unrelated
+It is a **tab shell**, not a watchlist app. Watchlist is the first tab; unrelated
 tabs are meant to be added beside it later.
 
 ## What it shows
 
-**One list, ordered by when each thing is next out.** No sections, no buckets.
+**One list, ordered by when each thing is next out.** No horizon buckets.
 Something released in the last 14 days stays on, dimmed, at the top — so a
 release is not missed by looking a day late.
 
@@ -17,10 +17,15 @@ Every row carries a poster, the title, where it came from (Marvel / DC / your
 own), what the date actually *is* — `In theaters`, `Streaming`, `S2 E4 · The
 Green Sea`, `Premiere` — and which services stream it. Rows link to TMDB.
 
-**Undated titles are tracked but not shown.** They stay in discovery so that a
-project sitting on the slate for two years appears the moment it is scheduled;
-dropping them outright would mean never noticing it got a date. The footer
-tally says how many are waiting.
+Below it, **Pending release date**: announced and alive, but unscheduled,
+ordered by how close each is to happening — Returning, then Post-production,
+Filming, Announced, Rumored.
+
+A title only reaches that section if it could still plausibly get a date.
+Finished shows are excluded: they are undated because they are *over*, not
+because they are waiting. Studio discovery drags in sixteen of them (Loki,
+WandaVision, Hawkeye, The Penguin…) and they would otherwise triple the count.
+They stay tracked, silently, in case TMDB ever revives one.
 
 A title flagged **NEW** reached the *list* within the last 7 days — which,
 since undated things are not listed, usually means it just got a date. That is
@@ -65,7 +70,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         69 assertions, no key and no network needed
+python selftest.py         72 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
@@ -106,7 +111,7 @@ collide. The nav bar hides itself while there is only one tab.
 
 ```
 tmdb.py     the only thing that talks to the network; disk-cached
-watch.py    the Watch tab -- date logic, ordering, and its own render
+watch.py    the Watchlist tab -- date logic, ordering, and its own render
 ui.py       shared render helpers
 tabs.py     the registry
 site.py     the shell: frame, nav, service worker, manifest

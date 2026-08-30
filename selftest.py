@@ -120,10 +120,7 @@ def test_listing():
     dates = [r["date"] for r in data["rows"]]
     ok("dates ascend", dates, sorted(dates))
 
-    true("nothing undated is shown", all(r["date"] for r in data["rows"]))
-    true("an undated project is still TRACKED, so it shows up once dated",
-         data["waiting"] >= 3)
-    ok("the tally adds up", data["tracked"], len(data["rows"]) + data["waiting"])
+    true("nothing undated is in the main list", all(r["date"] for r in data["rows"]))
 
     true("a film released last year is gone", "Last Year's Marvel Film" not in titles)
     true("the popularity pass does not add dated films",
@@ -134,6 +131,21 @@ def test_listing():
     ok("DC company id resolved by name", src["Lanterns"], "DC")
     ok("watchlist entries carry their own label", src["Frankenstein"], "Mine")
     ok("franchise items are labelled", src["Avengers: Doomsday"], "Marvel")
+
+
+def test_pending():
+    """The waiting list: undated but still alive, closest-to-happening first."""
+    data = run_build()
+    ok("pending, ordered by how close it is to happening",
+       [r["title"] for r in data["pending"]],
+       ["Peacemaker",                    # Returning
+        "Ended But Pinned",              # Announced, and only there by pinning
+        "Untitled Marvel Event Film"])   # Announced
+    true("a finished show is not 'pending' -- it is over",
+         "Loki" not in [r["title"] for r in data["pending"]])
+    true("nothing pending has a date", all(not r["date"] for r in data["pending"]))
+    true("the main list and the pending list do not overlap",
+         not {r["key"] for r in data["rows"]} & {r["key"] for r in data["pending"]})
 
 
 def test_tracking_survives_undated():
@@ -294,20 +306,24 @@ def test_page():
     ok("links balance", page.count("<a "), page.count("</a>"))
     ok("spans balance", page.count("<span"), page.count("</span>"))
 
-    ok("every row is rendered", body.count('class="item'), len(data["rows"]))
+    ok("every row is rendered", body.count('class="item'),
+       len(data["rows"]) + len(data["pending"]))
     ok("the already-released row is dimmed", body.count('class="item past"'), 1)
-    true("the tally says what is being tracked but not listed",
-         re.search(r'class="tally">\d+ tracked \D+ \d+ waiting', body))
+    ok("the pending section is headed and counted",
+       re.findall(r"<h2>Pending release date <b>(\d+)</b>", body),
+       [str(len(data["pending"]))])
+    ok("the main list has no heading above it", body.count("<h2>"), 1)
 
     true("posters are lazy", 'loading="lazy"' in body)
     true("links open outward", 'rel="noopener"' in body)
     true("a provider chip made it", "Disney Plus" in body)
     true("the episode name made it", "The Green Sea" in body)
     true("filler episode names did not", "Episode 4" not in body)
-    true("no undated row reached the page", "TBA" not in body)
+    true("an undated row leaves its date column blank rather than reading TBA",
+         "TBA" not in body)
 
     # An empty list must say so rather than render nothing at all.
-    empty = watch.render({"today": TODAY, "rows": [], "tracked": 0, "waiting": 0})
+    empty = watch.render({"today": TODAY, "rows": [], "pending": [], "tracked": 0})
     true("an empty list still says something", "Nothing scheduled." in empty)
 
 

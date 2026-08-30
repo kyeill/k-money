@@ -14,7 +14,7 @@ python site.py           build the app into output/site/
 python site.py --tab X   build one tab, while working on it
 python watch.py          print the list as text (writes no history)
 python resolve.py --write fill watchlist ids in from titles
-python selftest.py       69 assertions -- run before trusting any change
+python selftest.py       72 assertions -- run before trusting any change
 ```
 
 Python is not on PATH:
@@ -27,7 +27,7 @@ change to the date logic belongs there before it belongs in the page.
 
 ## It is a shell, deliberately
 
-Kyle asked for this so that **unrelated tabs can be added later**. Watch is
+Kyle asked for this so that **unrelated tabs can be added later**. Watchlist is
 just the first one. `tabs.py` documents the contract and is the only file that
 knows tabs exist — resist putting tab-specific anything into `site.py`.
 
