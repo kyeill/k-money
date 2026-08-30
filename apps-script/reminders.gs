@@ -44,6 +44,26 @@ function sendTest() {
 }
 
 /**
+ * Run by hand when a send reports success but nothing arrives.
+ *
+ * push() hides the status once it is happy; this prints it. ntfy accepts any
+ * string as a topic and answers 200, so "no error" has never meant "delivered"
+ * -- and ntfy.sh rate-limits per source IP, which on Apps Script is shared
+ * Google infrastructure, so a 429 here can be somebody else's traffic.
+ */
+function probe() {
+  var r = UrlFetchApp.fetch('https://ntfy.sh/' + TOPIC, {
+    method: 'post',
+    payload: 'probe from apps script',
+    headers: {'Title': 'K Money probe'},
+    muteHttpExceptions: true
+  });
+  Logger.log('TOPIC   : %s', TOPIC);
+  Logger.log('status  : %s', r.getResponseCode());
+  Logger.log('body    : %s', r.getContentText().slice(0, 400));
+}
+
+/**
  * Run by hand when a send fails with "Address unavailable".
  *
  * That error is a CONNECTION failure, not an HTTP status -- muteHttpExceptions
@@ -288,6 +308,12 @@ function push(title, body) {
     },
     muteHttpExceptions: true
   };
+  // ntfy accepts ANY string as a topic name, so an unset TOPIC publishes
+  // happily to a topic called PUT-YOUR-NTFY-TOPIC-HERE and returns 200. Every
+  // reminder would then "send" successfully and never arrive.
+  if (!TOPIC || TOPIC === 'PUT-YOUR-NTFY-TOPIC-HERE') {
+    throw new Error('TOPIC is not set at the top of this file.');
+  }
   var last = 'no attempt made';
   for (var attempt = 1; attempt <= 2; attempt++) {
     try {
