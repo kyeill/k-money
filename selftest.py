@@ -492,7 +492,11 @@ def test_reminder_render():
 
     ok("seven days are shown", html.count('class="rday"'), 7)
     true("today is named, not dated", "<h2>Today</h2>" in html)
-    true("and tomorrow", "<h2>Tomorrow</h2>" in html)
+    # Only today is named. "Tomorrow" sat oddly above a column of real dates.
+    true("every other day carries its date",
+         "<h2>Monday, Aug 31</h2>" in html)
+    true("including the one after that", "<h2>Tuesday, Sep 1</h2>" in html)
+    ok("nothing says Tomorrow any more", "Tomorrow" in html, False)
     true("no counts in the headings -- he does not want them",
          "<b>" not in html)
 

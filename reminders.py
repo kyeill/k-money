@@ -423,8 +423,11 @@ CSS = """
 .rem .rn{flex:1 1 auto;min-width:0;font-size:15px;
          overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 label.rem.tick{cursor:pointer;-webkit-tap-highlight-color:transparent}
+/* The row aligns on the text baseline, and a checkbox's baseline is its BOTTOM
+   edge -- so baseline alignment sits it visibly high against the text. Centre
+   this one item instead, leaving the time and title sharing their baseline. */
 label.rem input{flex:0 0 auto;width:19px;height:19px;margin:0 1px 0 0;
-                accent-color:var(--accent)}
+                align-self:center;accent-color:var(--accent)}
 /* Ticked rows stay in place rather than reordering -- a list that rearranges
    itself under your thumb is how you tick the wrong thing. */
 label.rem.done .rt,label.rem.done .rn{opacity:.45;text-decoration:line-through}
@@ -647,8 +650,8 @@ JS = """
       due.sort(function(a,b){
         return (a.at[0]-b.at[0])||(a.at[1]-b.at[1])||
                (a.title.toLowerCase()<b.title.toLowerCase()?-1:1); });
-      var label=step===0?'Today':(step===1?'Tomorrow':
-        day.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'}));
+      var label=step===0?'Today':
+        day.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'});
       out.push('<div class="rday"><h2>'+esc(label)+'</h2>');
       if(!due.length) out.push('<div class="rnone">Nothing.</div>');
       for(i=0;i<due.length;i++){
@@ -773,11 +776,11 @@ def clock(at):
 
 
 def day_label(day, today):
-    delta = (day - today).days
-    if delta == 0:
+    """Only today is named. "Tomorrow" reads fine in isolation but sits oddly
+    above a column of real dates, and it is one more thing to translate in your
+    head when you are looking for a particular day."""
+    if day == today:
         return "Today"
-    if delta == 1:
-        return "Tomorrow"
     return day.strftime("%A, %b ") + str(day.day)
 
 
