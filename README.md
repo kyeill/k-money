@@ -90,6 +90,17 @@ comes from `TMDB_API_KEY` or a gitignored `secrets.json`:
 In Actions it is the repository secret `TMDB_API_KEY`. `selftest.py` needs
 neither — it runs against `fixtures/tmdb.json`.
 
+### Fixtures
+
+`selftest.py` and `site.py --fixtures` both run against `fixtures/tmdb.json`
+**and `fixtures/config.json`** — a config of their own, deliberately not the
+real one. Sharing `config.json` meant that adding a title to the watchlist
+broke every test until someone wrote a TMDB payload for it.
+
+The override is the `KMONEY_CONFIG` environment variable, which `load_config`
+honours ahead of the default path. It is generic on purpose: any future tab
+reading config gets pointed at the fixture set the same way.
+
 ## Adding a tab
 
 `tabs.py` is the only file that knows tabs exist. A tab is a module with:

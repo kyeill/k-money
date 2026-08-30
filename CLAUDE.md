@@ -48,17 +48,38 @@ He has also asked that README and NOTES be kept updated **constantly**, across
 all his projects — treat doc updates as part of every change, not a cleanup
 pass afterwards.
 
-## Publishing a change the same day
+## Publishing a change
 
 1. commit
-2. `git pull --rebase` — the morning build commits `seen.json`, so your push is
-   rejected otherwise
-3. delete `output/history/_last_build.txt`, commit, push
+2. `git pull --rebase` — the build commits `seen.json` and `_last_build.txt`,
+   so your push is rejected otherwise. This happens routinely; expect it.
+3. push
 
-A push builds and deploys on its own (the gate only skips *scheduled* runs), so
-step 3 matters only if you also want to dispatch manually:
-`gh workflow run build.yml -R kyeill/k-money`
+**A push builds and deploys on its own** (the gate only skips *scheduled*
+runs), so nothing else is needed. Confirm with
+`gh run watch <id> -R kyeill/k-money --exit-status`.
+
+To force a run without a code change, delete
+`output/history/_last_build.txt`, commit and push, then
+`gh workflow run build.yml -R kyeill/k-money`.
 
 `gh` is installed at `C:\Program Files\GitHub CLI\gh.exe` but is **not on PATH**
 in Claude's shell — call it by full path, and omit the leading slash on
-`gh api` endpoints or Git Bash rewrites them into Windows paths.
+`gh api` endpoints or Git Bash rewrites them into Windows paths. A
+`permissions.allow` rule in `~/.claude/settings.json` covers it; without that
+rule every `gh` call is refused by the auto-mode classifier, and Claude cannot
+add the rule itself.
+
+## Validation routine — run all of it before trusting a change
+
+`python selftest.py` (75 assertions), plus: compile every module, run every
+entry point (`site.py`, `site.py --fixtures`, `site.py --tab watch`,
+`watch.py`, `resolve.py`), a dead-code sweep (every `def` and module constant
+cross-referenced across all files; CSS classes checked against the built page,
+remembering that `.on`, `.past`, `.empty` and `.new` are applied at runtime and
+always look unused), and a structural check of the page — balanced tags, and
+one provider chip at most per row.
+
+**A local build will not match the live one byte for byte.** `cache/` holds
+TMDB responses for hours, so a local run can render staler data than the
+workflow just fetched. Compare structure, not bytes.

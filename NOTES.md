@@ -177,6 +177,14 @@ on node24 and still outputs `page_url`, v5 upload-pages-artifact still takes
 Current: `checkout@v5`, `setup-python@v6`, `upload-pages-artifact@v5`,
 `deploy-pages@v5`.
 
+## `TZ=America/New_York date` does NOT work in the local Git Bash
+
+It silently returns UTC — the tz database is not there. The workflow's gate
+depends on that conversion, so **never reason about whether the gate will fire
+from local `date` output**. On ubuntu-latest it works correctly: the run at
+2026-08-30T01:02Z stamped `2026-08-29`, which is the right Eastern date, and is
+how the conversion was confirmed to work where it matters.
+
 ## GitHub Pages serves index.html with `max-age=600`
 
 So after a rebuild the browser hands the service worker a stale copy for ten
