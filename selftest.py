@@ -641,6 +641,13 @@ def test_church():
     ok("an entry per event", html.count('class="cev'), 6)
     ok("only the coloured rows carry a stripe", html.count("--tint:"), 4)
     true("the stripe is the colour from the Sheet", '--tint:#8b93a0' in html)
+    # The bubble is washed in the same colour, not just edged with it.
+    ok("a wash goes with every stripe", html.count("--wash:"), 4)
+    ok("the wash is the stripe colour, made faint",
+       church.wash("#8b93a0"), "rgba(139,147,160,0.13)")
+    true("the wash is laid OVER the card, not instead of it -- a translucent "
+         "colour on the page background would sit darker than a plain row",
+         "linear-gradient(var(--wash),var(--wash)),var(--card)" in church.CSS)
     true("headings carry the date", "<h2>Tuesday, Sep 8</h2>" in html)
     true("the title is the big line", '<span class="t">ISO form</span>' in html)
     true("the details are the small line", '<span class="s">Lesson 1</span>' in html)

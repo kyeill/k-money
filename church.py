@@ -48,6 +48,19 @@ def color_of(text):
     return COLORS.get(text)
 
 
+# The wash under the row. Faint on purpose: at full strength the colour fights
+# the text it sits behind, and a page of saturated cards stops distinguishing
+# anything. Mixed here rather than with CSS color-mix(), which the phone
+# browsers this is read on do not all have.
+WASH = 0.13
+
+
+def wash(hex_color):
+    """`#e8730c` -> the same colour laid over the card at WASH strength."""
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    return "rgba(%d,%d,%d,%.2f)" % (r, g, b, WASH)
+
+
 def layout(header):
     """(where, missing, unknown) -- every column here is found BY NAME.
 
@@ -118,15 +131,20 @@ def read_events(text, today):
 
 # The two-line row is the Watchlist's, on purpose -- title above, quieter
 # detail below -- so the app reads as one app rather than three. The colour is
-# a 3px left stripe, the shape Sports Daily uses, because a stripe groups by
-# kind at a glance without tinting a whole card and shouting.
+# Sports Daily's: a stripe down the leading edge, and the whole bubble washed
+# in the same colour so the row reads as orange or blue from across the room
+# rather than only at the margin.
 CSS = """
 .cday{margin:18px 0 0}
 .cday h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;
          color:var(--muted);font-weight:600;margin:0 0 7px}
 .cev{background:var(--card);border:1px solid var(--line);border-radius:10px;
-     border-left:3px solid transparent;padding:10px 12px;margin:6px 0}
-.cev.tint{border-left-color:var(--tint)}
+     border-left:4px solid transparent;padding:10px 12px;margin:6px 0}
+/* Two layers, not one: the wash is translucent, so without the card colour
+   underneath it the page background would show through and a tinted row would
+   sit DARKER than an untinted one. */
+.cev.tint{border-left-color:var(--tint);
+          background:linear-gradient(var(--wash),var(--wash)),var(--card)}
 .cev .t{display:block;font-weight:600;font-size:15px;line-height:1.25}
 /* Wraps, unlike the Watchlist's one-line subtitle: no date column is squeezing
    this row, and a note is worth reading in full. */
@@ -162,7 +180,8 @@ def render(data):
             tint = ev.get("color")
             out.append('<div class="cev%s"%s><span class="t">%s</span>%s</div>' % (
                 " tint" if tint else "",
-                ' style="--tint:%s"' % ui.esc(tint) if tint else "",
+                ' style="--tint:%s;--wash:%s"' % (ui.esc(tint), wash(tint))
+                if tint else "",
                 ui.esc(ev["title"]),
                 '<span class="s">%s</span>' % ui.esc(ev["details"])
                 if ev["details"] else "",

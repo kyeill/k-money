@@ -158,13 +158,19 @@ A row is the Watchlist's shape — title above, quieter detail below — so the 
 reads as one app rather than three. A `Details` cell that just repeats the
 `Title` is dropped: the same line twice reads as a bug, not as detail.
 
-`Color` is a 3px left stripe, the shape Sports Daily uses, so a glance sorts
-meetings from worship without tinting whole cards and shouting. It takes a
-name — red, orange, amber, yellow, green, teal, blue, navy, purple, pink,
-brown, gray, black, white — or a literal `#rrggbb`. The named values are picked
-to show against the dark card; black and white are bent towards a slate and a
-bone, since neither says anything as a stripe here. A blank or unrecognised
-colour is simply no stripe.
+`Color` shades the row the way Sports Daily shades its games: a stripe down the
+leading edge **and** the whole bubble washed in the same colour, so a glance
+sorts meetings from worship. It takes a name — red, orange, amber, yellow,
+green, teal, blue, navy, purple, pink, brown, gray, black, white — or a literal
+`#rrggbb`. The named values are picked to show against the dark card; black and
+white are bent towards a slate and a bone, since neither says anything as a
+stripe here. A blank or unrecognised colour is simply no shading.
+
+The wash is 13% and the card colour is painted **underneath** it. Both matter:
+at full strength the colour fights the text sitting on it, and a translucent
+colour laid straight on the page background would make a tinted row *darker*
+than a plain one. It is mixed in Python rather than by CSS `color-mix()`, which
+not every phone browser this gets read on has.
 
 Much simpler than Reminders on purpose. Every row carries its own date, so
 there is no cadence to recompute, nothing to notify, and nothing that has to
@@ -246,7 +252,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         260 assertions, no key and no network needed
+python selftest.py         263 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
