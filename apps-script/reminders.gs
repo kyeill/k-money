@@ -64,6 +64,34 @@ function sendTest() {
 }
 
 /**
+ * Run by hand when Pushover refuses the credentials.
+ *
+ * The two keys are both ~30 characters and come from different pages, so
+ * swapping them is the obvious mistake -- and the API's own validate endpoint
+ * settles it without either value leaving this script.
+ */
+function checkCredentials() {
+  Logger.log('user  : %s chars, starts "%s"  (dashboard key, usually u...)',
+             PUSHOVER_USER.length, PUSHOVER_USER.charAt(0));
+  Logger.log('token : %s chars, starts "%s"  (Application token, usually a...)',
+             PUSHOVER_TOKEN.length, PUSHOVER_TOKEN.charAt(0));
+  if (PUSHOVER_USER !== PUSHOVER_USER.trim() ||
+      PUSHOVER_TOKEN !== PUSHOVER_TOKEN.trim()) {
+    Logger.log('WARNING: one of them has leading or trailing whitespace.');
+  }
+  if (PUSHOVER_USER.charAt(0) === 'a' && PUSHOVER_TOKEN.charAt(0) === 'u') {
+    Logger.log('LIKELY SWAPPED: these look the wrong way round.');
+  }
+  var r = UrlFetchApp.fetch('https://api.pushover.net/1/users/validate.json', {
+    method: 'post',
+    payload: {token: PUSHOVER_TOKEN, user: PUSHOVER_USER},
+    muteHttpExceptions: true
+  });
+  Logger.log('validate: HTTP %s  %s',
+             r.getResponseCode(), r.getContentText().slice(0, 300));
+}
+
+/**
  * Run by hand when a send reports success but nothing arrives.
  *
  * push() hides the status once it is happy; this prints it. ntfy accepts any
