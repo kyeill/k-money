@@ -161,6 +161,22 @@ If `build.yml` arrives in the repo-creation push, GitHub never scans it: Actions
 looks healthy, the sidebar lists no workflow, and `gh workflow run` says the
 workflow is not found. Fix: edit the file and push again. (From `standings`.)
 
+## Action versions: take the bump deliberately
+
+An action declares which Node runtime it wants. GitHub is retiring Node 20 from
+its runners and, for now, force-runs those actions on Node 24 with a
+deprecation annotation instead of failing them. Nothing is broken — until the
+fallback is withdrawn, at which point the morning deploy fails unattended.
+
+`upload-pages-artifact@v5` and `deploy-pages@v5` (2026-08-30) clear both
+annotations; v3 pulled in `upload-artifact@v4`, which was the transitive
+offender. Interfaces checked before bumping, not assumed: v5 deploy-pages runs
+on node24 and still outputs `page_url`, v5 upload-pages-artifact still takes
+`path`.
+
+Current: `checkout@v5`, `setup-python@v6`, `upload-pages-artifact@v5`,
+`deploy-pages@v5`.
+
 ## GitHub Pages serves index.html with `max-age=600`
 
 So after a rebuild the browser hands the service worker a stale copy for ten

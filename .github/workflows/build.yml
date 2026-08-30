@@ -73,7 +73,11 @@ jobs:
           # commit retriggers the workflow forever.
           git diff --staged --quiet || git commit -m "Record first-seen dates [skip ci]"
           git push
-      - uses: actions/upload-pages-artifact@v3
+      # v5, not v3: v3 pulled in upload-artifact@v4, which targets Node 20 and
+      # was being force-run on Node 24 with a deprecation annotation on every
+      # run. Taken deliberately rather than waiting for the fallback to be
+      # withdrawn and the morning deploy to fail unattended.
+      - uses: actions/upload-pages-artifact@v5
         if: steps.gate.outputs.run == 'yes'
         with:
           path: output/site
@@ -86,5 +90,7 @@ jobs:
       name: github-pages
       url: ${{ steps.deploy.outputs.page_url }}
     steps:
+      # v5 runs on node24 and still exposes page_url, so the `url:` above is
+      # unaffected. See the note on upload-pages-artifact.
       - id: deploy
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5
