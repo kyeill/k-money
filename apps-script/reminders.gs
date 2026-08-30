@@ -43,6 +43,33 @@ function sendTest() {
   Logger.log('Sent. Check your phone.');
 }
 
+/**
+ * Run by hand when a send fails with "Address unavailable".
+ *
+ * That error is a CONNECTION failure, not an HTTP status -- muteHttpExceptions
+ * would have swallowed a 4xx or 5xx. So the question is which layer is broken,
+ * and example.com is the control: if that fails too, Apps Script cannot reach
+ * anything; if only the ntfy rows fail, Google cannot reach ntfy specifically
+ * and the answer is a different delivery service, not a different URL.
+ */
+function diagnose() {
+  var tries = [
+    ['control (example.com)', 'https://example.com/'],
+    ['ntfy health          ', 'https://ntfy.sh/v1/health'],
+    ['your topic           ', 'https://ntfy.sh/' + TOPIC + '/json?poll=1']
+  ];
+  tries.forEach(function (t) {
+    var began = new Date().getTime();
+    try {
+      var r = UrlFetchApp.fetch(t[1], {muteHttpExceptions: true});
+      Logger.log('%s  OK    HTTP %s  (%sms)',
+                 t[0], r.getResponseCode(), new Date().getTime() - began);
+    } catch (err) {
+      Logger.log('%s  FAIL  %s  (%sms)', t[0], err, new Date().getTime() - began);
+    }
+  });
+}
+
 /** Run by hand to see what today looks like without sending anything. */
 function preview() {
   var rules = readRules();
