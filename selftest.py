@@ -85,11 +85,17 @@ def test_tv_dates():
        watch.tv_date(specials, TODAY), (None, "Series"))
 
 
-def test_providers():
-    ok("rent and buy are ignored",
-       watch.providers(detail("movie/1003")), ["Disney Plus"])
-    ok("no US block is no providers",
-       watch.providers(detail("movie/1000")), [])
+def test_provider():
+    ok("rent and buy are ignored, and the reseller loses to the real service "
+       "despite its better display_priority",
+       watch.provider(detail("movie/1003")), "Disney+")
+    ok("between two real services, display_priority decides",
+       watch.provider(detail("tv/2000")), "Disney+")
+    ok("a reseller-only title names the reseller rather than nothing",
+       watch.provider(detail("tv/2004")), "HBO Max Amazon Channel")
+    ok("no US block is no provider", watch.provider(detail("movie/1000")), None)
+    ok("TMDB's spelling is corrected to the brand",
+       watch.PROVIDER_NAMES["Disney Plus"], "Disney+")
 
 
 # -------------------------------------------------------------- buckets
@@ -129,7 +135,7 @@ def test_listing():
 
     src = {r["title"]: r["source"] for r in data["rows"]}
     ok("DC company id resolved by name", src["Lanterns"], "DC")
-    ok("watchlist entries carry their own label", src["Frankenstein"], "Mine")
+    ok("watchlist entries carry their own label", src["Frankenstein"], "Custom")
     ok("franchise items are labelled", src["Avengers: Doomsday"], "Marvel")
 
 
@@ -316,7 +322,8 @@ def test_page():
 
     true("posters are lazy", 'loading="lazy"' in body)
     true("links open outward", 'rel="noopener"' in body)
-    true("a provider chip made it", "Disney Plus" in body)
+    true("exactly one provider chip per row that has one",
+         body.count("class=\"chip\"") <= body.count("class=\"item"))
     true("the episode name made it", "The Green Sea" in body)
     true("filler episode names did not", "Episode 4" not in body)
     true("an undated row leaves its date column blank rather than reading TBA",

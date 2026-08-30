@@ -121,18 +121,37 @@ def tv_date(detail, today=None):
     return None, "Series"
 
 
-def providers(detail, region="US"):
-    """Where it streams. Rent and buy are deliberately ignored: the question is
-    whether it is included somewhere already paid for, not whether it is
-    purchasable, and every title is purchasable."""
+# TMDB's own spelling for a couple of services is not the brand. Keep this
+# list SHORT -- a rule needing many exceptions is the wrong rule.
+PROVIDER_NAMES = {"Disney Plus": "Disney+", "Amazon Prime Video": "Prime Video"}
+
+
+def provider(detail, region="US"):
+    """The ONE service to watch it on.
+
+    Rent and buy are ignored: the question is whether it is included somewhere
+    already paid for, not whether it is purchasable, and everything is
+    purchasable.
+
+    TMDB lists each service twice -- the service itself and the reseller
+    variant you can bolt onto Amazon or Apple ("HBO Max Amazon Channel"). The
+    reseller is not a different place to watch it, just a different way to pay,
+    and `display_priority` is NO help in choosing: it ranks HBO Max Amazon
+    Channel at 11 and actual HBO Max at 152. Drop the resellers first, and only
+    then let display_priority pick between genuinely different services
+    (Disney+ 5 beats Hulu 6).
+    """
     block = ((detail.get("watch/providers") or {}).get("results") or {}).get(region) or {}
-    seen, out = set(), []
-    for entry in block.get("flatrate") or []:
-        name = entry.get("provider_name")
-        if name and name not in seen:
-            seen.add(name)
-            out.append(name)
-    return out
+    entries = [e for e in block.get("flatrate") or [] if e.get("provider_name")]
+    direct = [e for e in entries if not e["provider_name"].endswith("Channel")]
+    # If a title is ONLY carried by resellers, saying nothing would be worse
+    # than naming the odd one.
+    best = min(direct or entries,
+               key=lambda e: e.get("display_priority", 9999), default=None)
+    if not best:
+        return None
+    name = best["provider_name"]
+    return PROVIDER_NAMES.get(name, name)
 
 
 # ------------------------------------------------------------------ rows
@@ -154,7 +173,7 @@ def make_row(kind, detail, source, region="US", today=None):
         "date": day,
         "when": when,
         "status": detail.get("status") or "",
-        "providers": providers(detail, region),
+        "provider": provider(detail, region),
         "poster": tmdb.poster(detail.get("poster_path")),
         "source": source,
         "overview": (detail.get("overview") or "").strip(),
@@ -198,7 +217,7 @@ def collect(cfg, today, record=True):
 
     for item in cfg.get("watchlist") or []:
         if item.get("id"):
-            wanted["%s/%s" % (item["type"], item["id"])] = (item.get("label") or "Mine", True)
+            wanted["%s/%s" % (item["type"], item["id"])] = (item.get("label") or "Custom", True)
 
     rows = []
     for key, (source, pinned) in sorted(wanted.items()):
@@ -228,18 +247,22 @@ def listing(rows, cfg, today):
 
 # Roughly "how close is this to actually happening", which is a more useful
 # order for a waiting list than the alphabet.
-PENDING_ORDER = ["Returning", "Post-production", "Filming", "Announced", "Rumored"]
+PENDING_ORDER = ["Returning", "Post-production", "Filming", "Announced"]
+
+# Finished titles are undated because they are over. Rumored ones are excluded
+# at Kyle's request (2026-08-29): an unconfirmed rumour is not a plan, and the
+# three of them were most of what made the section look padded.
+SKIP_IN_PENDING = FINISHED + ("Rumored",)
 
 
 def pending(rows):
     """Undated, but still alive — the slate that is waiting on a date.
 
-    Finished titles are excluded: they are undated because they are over. A
-    pinned one survives anyway, since TMDB calls Peacemaker "Ended" while
-    season 3 is announced and that is exactly the case pinning exists for.
+    A pinned title survives the filter anyway, since TMDB calls Peacemaker
+    "Ended" while season 3 is announced and that is the case pinning exists for.
     """
     out = [r for r in rows
-           if not r["date"] and (r["status"] not in FINISHED or r.get("pinned"))]
+           if not r["date"] and (r["status"] not in SKIP_IN_PENDING or r.get("pinned"))]
     rank = {label: i for i, label in enumerate(PENDING_ORDER)}
     out.sort(key=lambda r: (rank.get(r["when"], len(rank)), r["title"]))
     return out
@@ -359,7 +382,7 @@ def _item(row, today):
               "this.replaceWith(Object.assign(document.createElement('span'),"
               "{className:'pos'}))\">" % ui.esc(row["poster"])
               if row["poster"] else '<span class="pos"></span>')
-    provs = "".join(ui.chip(p) for p in row["providers"])
+    provs = ui.chip(row["provider"]) if row["provider"] else ""
     return (
         '<a class="item%s" href="%s" target="_blank" rel="noopener">%s'
         '<span class="body"><span class="t">%s%s</span>'
@@ -400,7 +423,7 @@ if __name__ == "__main__":
     for r in data["rows"]:
         print("  %-11s %-42s %-18s %s" % (
             r["date"], r["title"][:42], r["when"][:18],
-            ", ".join(r["providers"]) or "-"))
+            r["provider"] or "-"))
     print("\n== Pending release date (%d)" % len(data["pending"]))
     for r in data["pending"]:
         print("  %-11s %-42s %-18s %s" % (

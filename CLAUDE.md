@@ -14,7 +14,7 @@ python site.py           build the app into output/site/
 python site.py --tab X   build one tab, while working on it
 python watch.py          print the list as text (writes no history)
 python resolve.py --write fill watchlist ids in from titles
-python selftest.py       72 assertions -- run before trusting any change
+python selftest.py       75 assertions -- run before trusting any change
 ```
 
 Python is not on PATH:

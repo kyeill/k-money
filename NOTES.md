@@ -118,6 +118,19 @@ Everything is purchasable. Only `flatrate` answers the actual question — is
 this included on something already paid for. `watch/providers` is US-only here
 by config.
 
+## `display_priority` ranks the RESELLER above the real service
+
+TMDB lists each service twice: the service, and the variant you bolt onto
+someone else's bill ("HBO Max Amazon Channel"). That is not a different place
+to watch it, only a different way to pay — and the priority field is actively
+misleading here: **HBO Max Amazon Channel is 11, actual HBO Max is 152.**
+Sorting on it alone picks the reseller every time.
+
+Drop names ending in "Channel" first, and only then let `display_priority`
+choose between genuinely different services (Disney+ 5 beats Hulu 6). If a
+title is carried *only* by resellers, name the odd one rather than saying
+nothing.
+
 ## `site.py` shadows a stdlib module name
 
 `site` is imported by Python at startup, so `import site` anywhere in this

@@ -7,8 +7,8 @@
     { "key": "dcu", "label": "DC", "company": "DC Studios", "company_id": null }
   ],
   "watchlist": [
-    { "type": "movie", "title": "Frankenstein", "id": 1005, "label": "Mine" },
-    { "type": "tv", "title": "Ended But Pinned", "id": 2005, "label": "Mine" }
+    { "type": "movie", "title": "Frankenstein", "id": 1005, "label": "Custom" },
+    { "type": "tv", "title": "Ended But Pinned", "id": 2005, "label": "Custom" }
   ],
   "ignore": [],
   "keep_released_days": 14,

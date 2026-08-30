@@ -231,7 +231,7 @@
  },
  {
   "path": "movie/1003",
-  "_note": "Out four days ago, and streaming -- rent/buy must be ignored.",
+  "_note": "Out four days ago. Rent/buy must be ignored, and the reseller variant must lose to the real service despite its better display_priority.",
   "data": {
    "id": 1003,
    "title": "Thunderbolts",
@@ -256,17 +256,24 @@
      "US": {
       "flatrate": [
        {
-        "provider_name": "Disney Plus"
+        "provider_name": "Disney Plus Amazon Channel",
+        "display_priority": 11
+       },
+       {
+        "provider_name": "Disney Plus",
+        "display_priority": 152
        }
       ],
       "rent": [
        {
-        "provider_name": "Apple TV"
+        "provider_name": "Apple TV",
+        "display_priority": 4
        }
       ],
       "buy": [
        {
-        "provider_name": "Amazon Video"
+        "provider_name": "Amazon Video",
+        "display_priority": 3
        }
       ]
      }
@@ -364,7 +371,12 @@
      "US": {
       "flatrate": [
        {
-        "provider_name": "Disney Plus"
+        "provider_name": "Hulu",
+        "display_priority": 6
+       },
+       {
+        "provider_name": "Disney Plus",
+        "display_priority": 5
        }
       ]
      }
@@ -418,7 +430,8 @@
      "US": {
       "flatrate": [
        {
-        "provider_name": "HBO Max"
+        "provider_name": "HBO Max",
+        "display_priority": 152
        }
       ]
      }
@@ -444,7 +457,7 @@
  },
  {
   "path": "tv/2004",
-  "_note": "Between seasons: no next episode, but a dated season ahead.",
+  "_note": "Between seasons, and carried ONLY by a reseller -- the fallback case.",
   "data": {
    "id": 2004,
    "name": "Lanterns",
@@ -468,7 +481,8 @@
      "US": {
       "flatrate": [
        {
-        "provider_name": "HBO Max"
+        "provider_name": "HBO Max Amazon Channel",
+        "display_priority": 11
        }
       ]
      }
