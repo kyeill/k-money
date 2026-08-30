@@ -565,6 +565,28 @@ def test_done_render():
     true("no unreplaced placeholders", "%%" not in reminders.page_js(data))
 
 
+def test_afternoon_gap():
+    """A day reads as morning then the rest, so the first thing at or after 1pm
+    gets space above it -- but only when something came before it."""
+    import reminders
+    at = lambda h, m=0: {"at": (h, m)}
+    due = [at(7), at(9, 5), at(13), at(20)]
+    ok("the 1pm row opens the afternoon",
+       [reminders.starts_afternoon(due, i) for i in range(4)],
+       [False, False, True, False])
+    ok("12:30 is still morning, 1:00 is not",
+       reminders.starts_afternoon([at(12, 30), at(13)], 1), True)
+    ok("an afternoon-only day gets no stray gap at the top",
+       [reminders.starts_afternoon([at(14), at(20)], i) for i in range(2)],
+       [False, False])
+    ok("a morning-only day gets none either",
+       [reminders.starts_afternoon([at(7), at(9)], i) for i in range(2)],
+       [False, False])
+    ok("only the FIRST afternoon row gets it",
+       [reminders.starts_afternoon([at(9), at(13), at(14), at(15)], i)
+        for i in range(4)], [False, True, False, False])
+
+
 def test_maskable_icon():
     """The manifest promises "any maskable". Android then masks the icon to the
     launcher's shape and crops toward a circle of 80% diameter, so the artwork

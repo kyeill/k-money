@@ -27,6 +27,9 @@ LABEL = "Reminders"
 HERE = os.path.dirname(os.path.abspath(__file__))
 CSV_URL = "https://docs.google.com/spreadsheets/d/%s/gviz/tq?tqx=out:csv"
 DAYS_SHOWN = 7
+# A day reads as morning-then-rest, so the first thing at or after 1pm gets a
+# gap above it. Display only -- it changes nothing about what fires.
+AFTERNOON_HOUR = 13
 
 # Ticks live in a second tab so every device sees the same state and the Apps
 # Script can read it too -- that one decision is what makes ticking something
@@ -425,6 +428,9 @@ label.rem input{flex:0 0 auto;width:19px;height:19px;margin:0 1px 0 0;
 /* Ticked rows stay in place rather than reordering -- a list that rearranges
    itself under your thumb is how you tick the wrong thing. */
 label.rem.done .rt,label.rem.done .rn{opacity:.45;text-decoration:line-through}
+/* The break between morning and the rest of the day. Space only -- a rule or
+   a heading would imply two sections, and it is one day. */
+.rem.pm1{margin-top:20px}
 .rnone{color:var(--muted);font-size:13px;padding:1px 2px 3px}
 .rfoot{color:var(--muted);font-size:12px;margin:16px 2px 0}
 .rerr{color:var(--bad,#d4676a);font-size:13px;border:1px dashed var(--line);
@@ -436,6 +442,7 @@ label.rem.done .rt,label.rem.done .rn{opacity:.45;text-decoration:line-through}
   .rday{margin:24px 0 0}
   .rday h2{font-size:13px}
   .rem{padding:12px 14px;margin:8px 0}
+  .rem.pm1{margin-top:26px}
   label.rem input{width:21px;height:21px}
   .rem .rt{width:88px;font-size:15px}
   .rem .rn{font-size:17px}
@@ -448,7 +455,7 @@ label.rem.done .rt,label.rem.done .rn{opacity:.45;text-decoration:line-through}
 # the Python above; selftest and the browser check compare their output.
 JS = """
 (function(){
-  var SHEET=%%SHEET%%, DAYS=%%DAYS%%, WEBAPP=%%WEBAPP%%;
+  var SHEET=%%SHEET%%, DAYS=%%DAYS%%, WEBAPP=%%WEBAPP%%, PMHOUR=%%PMHOUR%%;
   var WD=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   var OPTIONAL=['nth','weekday','every','starting','months'];
   var WORDN={first:1,second:2,third:3,fourth:4,fifth:5,last:-1};
@@ -646,16 +653,19 @@ JS = """
       if(!due.length) out.push('<div class="rnone">Nothing.</div>');
       for(i=0;i<due.length;i++){
         var r=due[i];
+        // Gap above the first thing at or after 1pm, but only if something
+        // came before it -- an afternoon-only day gets no stray space.
+        var pm=(i>0&&r.at[0]>=PMHOUR&&due[i-1].at[0]<PMHOUR)?' pm1':'';
         // Only today is tickable: ticking ahead would silence a notification
         // days early, which nobody means by it.
         if(step!==0){
-          out.push('<div class="rem"><span class="rt">'+esc(clock(r.at))+
+          out.push('<div class="rem'+pm+'"><span class="rt">'+esc(clock(r.at))+
                    '</span><span class="rn">'+esc(r.title)+'</span></div>');
           continue;
         }
         var k=doneKey(r), p=pending(k);
         var on = (p===null) ? !!done[todayIso+'|'+k] : p;
-        out.push('<label class="rem tick'+(on?' done':'')+'">'+
+        out.push('<label class="rem tick'+(on?' done':'')+pm+'">'+
                  '<input type="checkbox" data-key="'+esc(k)+'"'+(on?' checked':'')+'>'+
                  '<span class="rt">'+esc(clock(r.at))+'</span>'+
                  '<span class="rn">'+esc(r.title)+'</span></label>');
@@ -771,17 +781,27 @@ def day_label(day, today):
     return day.strftime("%A, %b ") + str(day.day)
 
 
-def row_html(rule, tickable):
+def starts_afternoon(due, i):
+    """True for the first row at or after 1pm, when something came before it.
+
+    A day with nothing but afternoon items gets no stray gap at the top.
+    """
+    return (i > 0 and due[i]["at"][0] >= AFTERNOON_HOUR
+            and due[i - 1]["at"][0] < AFTERNOON_HOUR)
+
+
+def row_html(rule, tickable, gap=False):
     """One reminder. Only today's are tickable -- ticking ahead is not a thing
     anyone means, and it would silence a notification days early."""
+    pm = " pm1" if gap else ""
     if not tickable:
-        return ('<div class="rem"><span class="rt">%s</span>'
+        return ('<div class="rem%s"><span class="rt">%s</span>'
                 '<span class="rn">%s</span></div>'
-                % (ui.esc(clock(rule["at"])), ui.esc(rule["title"])))
+                % (pm, ui.esc(clock(rule["at"])), ui.esc(rule["title"])))
     done = rule.get("done")
-    return ('<label class="rem tick%s"><input type="checkbox" data-key="%s"%s>'
+    return ('<label class="rem tick%s%s"><input type="checkbox" data-key="%s"%s>'
             '<span class="rt">%s</span><span class="rn">%s</span></label>'
-            % (" done" if done else "",
+            % (" done" if done else "", pm,
                ui.esc(done_key(rule)),
                " checked" if done else "",
                ui.esc(clock(rule["at"])), ui.esc(rule["title"])))
@@ -798,8 +818,8 @@ def render(data):
                    % ui.esc(day_label(day, data["today"])))
         if not due:
             out.append('<div class="rnone">Nothing.</div>')
-        for rule in due:
-            out.append(row_html(rule, first))
+        for i, rule in enumerate(due):
+            out.append(row_html(rule, first, starts_afternoon(due, i)))
         out.append("</div>")
     out.append("</div>")
     cols = data.get("unknown_cols") or []
@@ -853,7 +873,8 @@ def build(today=None, cfg=None, record=True):
 def page_js(data):
     return (JS.replace("%%SHEET%%", '"%s"' % data.get("sheet", ""))
               .replace("%%WEBAPP%%", '"%s"' % data.get("webapp", ""))
-              .replace("%%DAYS%%", str(DAYS_SHOWN)))
+              .replace("%%DAYS%%", str(DAYS_SHOWN))
+              .replace("%%PMHOUR%%", str(AFTERNOON_HOUR)))
 
 
 if __name__ == "__main__":

@@ -118,6 +118,10 @@ Every row carries a poster, the title, where it came from (Marvel / DC /
 Custom), what the date actually *is* — `In theaters`, `Streaming`, `S2 E4 ·
 The Green Sea`, `Premiere` — and **one** place to stream it. Rows link to TMDB.
 
+Within a day, the first reminder at or after **1pm** gets space above it, so a
+day reads as morning and then the rest. Space only, not a heading -- it is one
+day, not two sections. A day with only afternoon items gets no stray gap.
+
 Below it, **Pending release date**: announced and alive, but unscheduled,
 ordered by how close each is to happening — Returning, then Post-production,
 Filming, Announced.
@@ -180,7 +184,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         221 assertions, no key and no network needed
+python selftest.py         226 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
