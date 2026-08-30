@@ -11,27 +11,56 @@ It is a **tab shell**. Two tabs today — **Reminders** and **Watchlist** — an
 
 A Google Sheet is the source of truth, and the tab shows the next seven days.
 
-| Title | Time | Mon…Sun | nth | Weekday | Months |
-| --- | --- | --- | --- | --- | --- |
-| Laundry | 12:30 PM | `x` under Sun | | | |
-| Credit Cards | 2:00 PM | | `Last` | `Sun` | `All` |
-| Rent | 9:00 AM | | `1st` | `Day` | `All` |
-| Quarterly tax | 8:00 AM | | `Last` | `Day` | `Quarterly` |
+```
+A Title   B Time   C–I Mon…Sun   J nth   K Every   L Starting   M Months
+```
 
-Any non-empty mark ticks a weekday.
+**Title, Time and the day columns are positional. Everything after them is
+found by NAME**, so those columns can be added, removed or reordered freely —
+`Weekday` used to sit in there and no longer does. A heading that is not
+recognised is named on the page, because a typo in `Starting` would otherwise
+drop the column silently and stop every interval reminder.
 
-`nth` takes **`1st` to `31st`**, a bare number, the words **`First`–`Fifth`**,
-or **`Last`** — and **a list**: `1st, 3rd` fires on both. A cell that parses to
-no cadence at all is called out on the page rather than silently reverting to
-the weekly ticks. `Weekday`
-takes `Mon`–`Sun`, or **`Day`** for day-of-month — `25th` + `Day` is the 25th,
-`Last` + `Day` is the last day. A day that a month does not have simply does
-not fire: `30th` skips February rather than landing somewhere else.
+**A time is required.** A reminder without one can never fire, so those rows
+are skipped — which means a row with only a title works as a section header.
+Blank rows are ignored too.
 
-For a weekday cadence you can **leave `Weekday` blank and tick the day**:
-`4th` with Sun ticked is the 4th Sunday, which is the more natural way to write
-it. (Two ticked days plus an `nth` is ambiguous, so that stays weekly rather
-than guessing.)
+### The three cadences
+
+**Weekly** — tick the days. Any non-empty mark counts.
+
+**Monthly** — `nth` plus a day. It takes `1st`–`31st`, a bare number, the words
+`First`–`Fifth`, or `Last`, **and a list**: `1st, 3rd` fires on both.
+
+| ticked days | `nth` means |
+| --- | --- |
+| exactly one | that weekday — `4th` + Sun is the 4th Sunday |
+| none | **day of the month** — `25th` is the 25th, `Last` the last day |
+| two or more | ambiguous, so it stays weekly rather than guessing |
+
+A day a month does not have simply does not fire: `30th` skips February rather
+than landing somewhere else. (`Weekday`, if you re-add the column, takes
+`Mon`–`Sun` or `Day` and overrides the inference.)
+
+**Interval** — `Every` plus `Starting`. `4 weeks` + `2026-09-07` fires on the
+7th and every 28 days after, never varying. That is *not* "every 4th Monday",
+which stretches to five weeks across some month boundaries. `Every` takes
+`N weeks` or `N days` (`2w`, `3d` too) and **a unit is required** — a bare
+number could mean either. `Starting` accepts ISO or `9/7/2026`, since Sheets
+renders dates in the viewer's locale. A future anchor just delays the start.
+
+**Interval beats monthly beats weekly. One row, one schedule.**
+
+**`Months` gates all three**, which is how anything gets a season — tick `Sat`
+and put `Sep, Oct, Nov, Dec` in Months for "every Saturday, but only in the back
+half of the year". It takes blank/`All`, `Quarterly` (Jan/Apr/Jul/Oct), or a
+list. Blank means all twelve, so it costs existing rows nothing.
+
+A cadence cell that parses to nothing is **called out on the page** rather than
+silently reverting to the weekly ticks. That fallback once hid eight broken
+rows: a typo did not look like a typo, it looked like a different schedule.
+
+### Ticking things off
 
 **Today's reminders have a checkbox.** Ticks are written to a second tab in
 the Sheet called `Done`, not to the browser — which is what makes them show up
@@ -46,17 +75,12 @@ the key against a reminder that actually exists, and only ever flips one
 checkbox — so the worst a stranger who finds it can do is tick your laundry
 off. Leave `reminders_webapp` blank and ticking is simply disabled.
 
-**Rows without a time are ignored**, so a row with only a title works as a
-section header — the sheet can be organised without inventing reminders. Blank
-rows are ignored too. `Months` takes
-blank/`All`, `Quarterly` (Jan/Apr/Jul/Oct), or a list like `Jan, Jul`. **A time
-is required** — a reminder without one can never fire. If a row has both a
-monthly rule and weekly ticks, it is monthly: one row, one schedule.
+### On the page
 
-**`Months` gates weekly rows too**, which is how a reminder gets a season —
-tick `Sat` and put `Sep, Oct, Nov, Dec` in Months for "every Saturday, but only
-in the back half of the year". A blank Months means all twelve, so it costs
-existing rows nothing.
+Only today is named; every other day carries its date. Within a day, the first
+reminder at or after **1pm** gets space above it, so a day reads as morning and
+then the rest — space only, not a heading, because it is one day rather than
+two sections. A day with only afternoon items gets no stray gap.
 
 Notifications arrive titled **`Laundry (Sun 8/30)`**. Android's own snooze
 re-shows a notification hours later with no hint of which occurrence it was,
@@ -117,10 +141,6 @@ release is not missed by looking a day late.
 Every row carries a poster, the title, where it came from (Marvel / DC /
 Custom), what the date actually *is* — `In theaters`, `Streaming`, `S2 E4 ·
 The Green Sea`, `Premiere` — and **one** place to stream it. Rows link to TMDB.
-
-Only today is named; every other day carries its date. Within a day, the first reminder at or after **1pm** gets space above it, so a
-day reads as morning and then the rest. Space only, not a heading -- it is one
-day, not two sections. A day with only afternoon items gets no stray gap.
 
 Below it, **Pending release date**: announced and alive, but unscheduled,
 ordered by how close each is to happening — Returning, then Post-production,
