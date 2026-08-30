@@ -212,8 +212,9 @@ function tick() {
   try {
     rules = readRules();
   } catch (err) {
-    // Tell someone rather than failing silently every five minutes forever.
-    push('K Money: reminders sheet problem', String(err));
+    // Tell someone rather than failing silently every five minutes forever --
+    // but if the push fails too, report the sheet problem, not the push.
+    try { push('K Money: reminders sheet problem', String(err)); } catch (e) {}
     throw err;
   }
 
@@ -226,7 +227,16 @@ function tick() {
     // useful -- a phone that was off all morning should not buzz at teatime.
     if (late < 0 || late > GRACE_MINUTES) return;
     if (fired.indexOf(rule.title) >= 0) return;
-    push(rule.title, 'Due ' + clock(rule.hour, rule.minute));
+    try {
+      push(rule.title, 'Due ' + clock(rule.hour, rule.minute));
+    } catch (err) {
+      // Deliberately NOT stamped as fired, so the next tick tries again. The
+      // grace window is wider than the gap between ticks, so a blip costs a
+      // few minutes of lateness rather than the reminder itself -- and one bad
+      // send must never abort the reminders queued behind it.
+      Logger.log('send failed for "%s": %s', rule.title, err);
+      return;
+    }
     fired.push(rule.title);
     sent++;
   });
@@ -254,18 +264,42 @@ function saveFired(today, titles) {
     .setProperty('fired', JSON.stringify({date: today, titles: titles}));
 }
 
+/**
+ * Send one notification, or throw.
+ *
+ * Tried twice: the first real send failed with "Address unavailable" after a
+ * 50-second hang, while ntfy answered fine from elsewhere at the same moment
+ * and every diagnostic passed minutes later. That is a transient connection
+ * blip, and a reminder is worth a second attempt.
+ *
+ * muteHttpExceptions means a 4xx or 5xx comes back as a response rather than
+ * an exception, so the status has to be checked by hand -- otherwise a
+ * rejected send would look exactly like a delivered one.
+ */
 function push(title, body) {
-  UrlFetchApp.fetch('https://ntfy.sh/' + TOPIC, {
+  var options = {
     method: 'post',
-    payload: body || '',
+    payload: body || ' ',
     headers: {
-      // ntfy reads the title from a header, and headers must be ASCII. Anything
+      // ntfy takes the title from a header, and headers must be ASCII. Anything
       // exotic in a reminder title is stripped rather than breaking the send.
       'Title': String(title).replace(/[^\x20-\x7E]/g, ''),
       'Tags': 'bell'
     },
     muteHttpExceptions: true
-  });
+  };
+  var last = 'no attempt made';
+  for (var attempt = 1; attempt <= 2; attempt++) {
+    try {
+      var r = UrlFetchApp.fetch('https://ntfy.sh/' + TOPIC, options);
+      if (r.getResponseCode() < 400) return;
+      last = 'HTTP ' + r.getResponseCode() + ' ' + r.getContentText().slice(0, 200);
+    } catch (err) {
+      last = String(err);
+    }
+    if (attempt === 1) Utilities.sleep(3000);
+  }
+  throw new Error('ntfy push failed after 2 tries: ' + last);
 }
 
 function pad(n) { return (n < 10 ? '0' : '') + n; }
