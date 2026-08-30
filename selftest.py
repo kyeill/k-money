@@ -230,7 +230,7 @@ def test_reminder_parsing():
     ok("a row with no time is dropped -- it could never fire",
        "No time row" not in titles, True)
     ok("a row with no title is dropped", "" not in titles, True)
-    ok("everything else parses", len(rules), 12)
+    ok("everything else parses", len(rules), 14)
 
     ok("12-hour times", reminders.parse_time("12:30 PM"), (12, 30))
     ok("midnight is 00, not 12", reminders.parse_time("12:00 AM"), (0, 0))
@@ -311,6 +311,28 @@ def test_reminder_rules():
     ok("the 20th is the 3rd Sunday", fires("Fourth Sun", "2026-09-20"), False)
     ok("it is treated as monthly, not weekly", by["Fourth Sun"]["monthly"], True)
     ok("and the weekday was inferred from the tick", by["Fourth Sun"]["weekday"], "Sun")
+
+    # Day-of-month past the 5th. Without this "the 25th" is inexpressible --
+    # nth used to be a lookup of 1st..5th and Last only.
+    true("the 25th fires on the 25th", fires("Rent 25th", "2026-09-25"))
+    ok("and not the 24th", fires("Rent 25th", "2026-09-24"), False)
+    true("and again next month", fires("Rent 25th", "2026-10-25"))
+    ok("nth parses a bare number", reminders.parse_nth("25"), 25)
+    ok("and an ordinal", reminders.parse_nth("25th"), 25)
+    ok("Last is -1", reminders.parse_nth("Last"), -1)
+    ok("blank is nothing", reminders.parse_nth(""), None)
+    ok("nonsense is nothing", reminders.parse_nth("soon"), None)
+    ok("out of range is nothing", reminders.parse_nth("32nd"), None)
+
+    # A short month simply has no 30th, so the rule is silent rather than
+    # firing on some other day.
+    ok("the 30th does not fire in February", fires("Feb 30th", "2027-02-28"), False)
+    true("but does in January", fires("Feb 30th", "2027-01-30"))
+
+    # Section headers: a row with a title and nothing else must be inert, so
+    # the sheet can be organised without inventing reminders.
+    true("a section header row is not a rule",
+         "HOUSEHOLD" not in [r["title"] for r in _rules()])
 
     # Two days ticked with an nth is genuinely ambiguous, so no inference: it
     # stays weekly rather than guessing which day the nth applies to.

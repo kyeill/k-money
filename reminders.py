@@ -29,7 +29,6 @@ DAYS_SHOWN = 7
 
 # Monday-first, matching both the Sheet's column order and date.weekday().
 WEEKDAYS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
-NTH = {"1st": 1, "2nd": 2, "3rd": 3, "4th": 4, "5th": 5, "last": -1}
 MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
           "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 QUARTERLY = {1, 4, 7, 10}
@@ -87,6 +86,26 @@ def parse_time(text):
     return (hour, minute) if 0 <= hour < 24 else None
 
 
+def parse_nth(text):
+    """'1st'..'31st', a bare number, or 'Last' (-1).
+
+    Anything past 5 only means something with `Weekday = Day` -- no month has a
+    sixth Tuesday -- and `nth_weekday` returns nothing for those, so a nonsense
+    combination is silent rather than wrong. Allowing the full range is what
+    makes "the 25th" expressible at all.
+    """
+    text = (text or "").strip().lower()
+    if not text:
+        return None
+    if text == "last":
+        return -1
+    digits = "".join(ch for ch in text if ch.isdigit())
+    if not digits:
+        return None
+    value = int(digits)
+    return value if 1 <= value <= 31 else None
+
+
 def parse_months(text):
     """Blank or 'All' -> every month. 'Quarterly' -> Jan/Apr/Jul/Oct. Otherwise
     a list of month names, so semi-annual and annual need no new syntax."""
@@ -120,7 +139,7 @@ def read_rules(text):
         # A time is required, by his call: a reminder with no time cannot fire.
         if not title or not at:
             continue
-        nth = NTH.get(cells[9].strip().lower())
+        nth = parse_nth(cells[9])
         weekday = cells[10].strip().title()
         # Any non-empty mark counts, so x / X / TRUE / a tick all work.
         days = {i for i, d in enumerate(WEEKDAYS) if cells[2 + i]}
@@ -230,7 +249,15 @@ JS = """
 (function(){
   var SHEET=%%SHEET%%, DAYS=%%DAYS%%;
   var WD=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  var NTH={'1st':1,'2nd':2,'3rd':3,'4th':4,'5th':5,'last':-1};
+  function parseNth(t){
+    t=(t||'').trim().toLowerCase();
+    if(!t) return null;
+    if(t==='last') return -1;
+    var d=t.replace(/[^0-9]/g,'');
+    if(!d) return null;
+    var n=parseInt(d,10);
+    return (n>=1&&n<=31)? n : null;
+  }
   var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
   function splitCSV(text){
@@ -283,17 +310,17 @@ JS = """
       while(c.length<12) c.push('');
       var at=parseTime(c[1]);
       if(!c[0]||!at) continue;
-      var nth=NTH[(c[9]||'').trim().toLowerCase()];
+      var nth=parseNth(c[9]);
       var wd=(c[10]||'').trim();
       wd=wd?wd.charAt(0).toUpperCase()+wd.slice(1).toLowerCase():'';
       var days=[],d;
       for(d=0;d<7;d++) if(c[2+d]) days.push(d);
       // "4th" with one day ticked and Weekday blank means that day; without
       // this the nth is dropped and the row fires every week instead.
-      if(nth!==undefined&&wd===''&&days.length===1) wd=WD[days[0]];
-      rules.push({title:c[0],at:at,days:days,nth:(nth===undefined?null:nth),
+      if(nth!==null&&wd===''&&days.length===1) wd=WD[days[0]];
+      rules.push({title:c[0],at:at,days:days,nth:nth,
                   weekday:wd,months:parseMonths(c[11]),
-                  monthly:(nth!==undefined&&wd!=='')});
+                  monthly:(nth!==null&&wd!=='')});
     }
     return rules;
   }

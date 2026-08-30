@@ -18,11 +18,21 @@ A Google Sheet is the source of truth, and the tab shows the next seven days.
 | Rent | 9:00 AM | | `1st` | `Day` | `All` |
 | Quarterly tax | 8:00 AM | | `Last` | `Day` | `Quarterly` |
 
-Any non-empty mark ticks a weekday. `nth` takes `1st`–`5th` or `Last`;
-`Weekday` takes `Mon`–`Sun` or **`Day`** for day-of-month — **or leave Weekday
-blank and just tick the day**: `4th` with Sun ticked is the 4th Sunday, which
-is the more natural way to write it. (Two ticked days plus an `nth` is
-ambiguous, so that stays weekly rather than guessing.) `Months` takes
+Any non-empty mark ticks a weekday.
+
+`nth` takes **`1st` to `31st`** (or a bare number) **or `Last`**. `Weekday`
+takes `Mon`–`Sun`, or **`Day`** for day-of-month — `25th` + `Day` is the 25th,
+`Last` + `Day` is the last day. A day that a month does not have simply does
+not fire: `30th` skips February rather than landing somewhere else.
+
+For a weekday cadence you can **leave `Weekday` blank and tick the day**:
+`4th` with Sun ticked is the 4th Sunday, which is the more natural way to write
+it. (Two ticked days plus an `nth` is ambiguous, so that stays weekly rather
+than guessing.)
+
+**Rows without a time are ignored**, so a row with only a title works as a
+section header — the sheet can be organised without inventing reminders. Blank
+rows are ignored too. `Months` takes
 blank/`All`, `Quarterly` (Jan/Apr/Jul/Oct), or a list like `Jan, Jul`. **A time
 is required** — a reminder without one can never fire. If a row has both a
 monthly rule and weekly ticks, it is monthly: one row, one schedule.
@@ -129,7 +139,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         157 assertions, no key and no network needed
+python selftest.py         169 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

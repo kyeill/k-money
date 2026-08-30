@@ -3,6 +3,18 @@
 Each of these is encoded in the code and asserted in `selftest.py`. Do not
 rediscover them.
 
+## `nth` is a day number, not a lookup of five ordinals
+
+It parses `1st`..`31st`, a bare number, or `Last`. It used to be a dict of
+1st-5th and Last only, which made **"the 25th" inexpressible** -- and that was
+the one thing `Weekday = Day` existed for. Values past 5 are meaningless with a
+weekday (no month has a sixth Tuesday) and `nth_weekday` returns nothing for
+them, so a nonsense pairing is silent rather than wrong.
+
+A day a month does not have is likewise silent: `30th` does not fire in
+February. It does NOT fall back to the 28th -- `Last` + `Day` is how you ask
+for that.
+
 ## An `nth` with no `Weekday` used to fire every week
 
 Setting `4th` and ticking Sun, leaving the Weekday column blank, is the obvious

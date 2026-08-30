@@ -162,7 +162,21 @@ function preview() {
 // ------------------------------------------------------------------ input
 
 var WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-var NTH = {'1st': 1, '2nd': 2, '3rd': 3, '4th': 4, '5th': 5, 'last': -1};
+/**
+ * '1st'..'31st', a bare number, or 'Last' (-1). Anything past 5 only means
+ * something with Weekday = Day -- no month has a sixth Tuesday -- and
+ * nthWeekday returns null for those, so a nonsense pairing is silent rather
+ * than wrong. The full range is what makes "the 25th" expressible.
+ */
+function parseNth(t) {
+  t = String(t || '').trim().toLowerCase();
+  if (!t) return null;
+  if (t === 'last') return -1;
+  var d = t.replace(/[^0-9]/g, '');
+  if (!d) return null;
+  var n = parseInt(d, 10);
+  return (n >= 1 && n <= 31) ? n : null;
+}
 var MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 var EXPECT = ['title', 'time', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun',
@@ -191,21 +205,21 @@ function readRules() {
     while (c.length < EXPECT.length) c.push('');
     var at = parseTime(c[1]);
     if (!c[0] || !at) continue;          // a reminder with no time cannot fire
-    var nth = NTH[c[9].toLowerCase()];
+    var nth = parseNth(c[9]);
     var weekday = title3(c[10]);
     var days = [];
     for (var d = 0; d < 7; d++) if (c[2 + d]) days.push(d);
     // "4th" with Sun ticked and Weekday left blank is the obvious intent, and
     // it is the natural way to write it. Without this the nth is silently
     // dropped and the row fires EVERY Sunday -- four times too often.
-    if (nth !== undefined && weekday === '' && days.length === 1) {
+    if (nth !== null && weekday === '' && days.length === 1) {
       weekday = WD[days[0]];
     }
     rules.push({
       title: c[0], hour: at[0], minute: at[1], days: days,
-      nth: (nth === undefined ? null : nth), weekday: weekday,
+      nth: nth, weekday: weekday,
       months: parseMonths(c[11]),
-      monthly: (nth !== undefined && weekday !== '')
+      monthly: (nth !== null && weekday !== '')
     });
   }
   return rules;
