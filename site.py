@@ -220,13 +220,18 @@ def _png(size):
 
 
 def render(built, panes):
-    """panes: [(key, label, html)] in nav order."""
-    css = SHELL_CSS + "".join(getattr(tabs.by_key(k), "CSS", "") for k, _, _ in panes)
+    """panes: [(key, label, html, js)] in nav order; js may be ""."""
+    panes = [p if len(p) == 4 else (p[0], p[1], p[2], "") for p in panes]
+    css = SHELL_CSS + "".join(getattr(tabs.by_key(k), "CSS", "")
+                              for k, _, _, _ in panes)
     nav = "".join(
         '<button data-k="%s" aria-selected="false">%s</button>' % (ui.esc(k), ui.esc(lbl))
-        for k, lbl, _ in panes)
+        for k, lbl, _, _ in panes)
     body = "".join(
-        '<section data-k="%s">%s</section>' % (ui.esc(k), html) for k, _, html in panes)
+        '<section data-k="%s">%s</section>' % (ui.esc(k), html)
+        for k, _, html, _ in panes)
+    # Tab code runs after the shell's, so the panes it looks for already exist.
+    tab_js = "".join(js for _, _, _, js in panes if js)
     return (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1,"
@@ -248,7 +253,7 @@ def render(built, panes):
     ) % {
         "app": ui.esc(APP), "font": FONT, "css": css, "nav": nav, "body": body,
         "pretty": pretty(built),
-        "js": JS.replace("%%BUILT%%", built),
+        "js": JS.replace("%%BUILT%%", built) + tab_js,
     }
 
 
@@ -274,13 +279,16 @@ def main():
             tmdb.use_fixtures(_json.load(fh))
         built, record = "2026-08-29", False
         os.environ["KMONEY_CONFIG"] = os.path.join(HERE, "fixtures", "config.json")
+        os.environ["KMONEY_REMINDERS_CSV"] = os.path.join(
+            HERE, "fixtures", "reminders.csv")
 
     panes = []
     for tab in tabs.TABS:
         if only and tab.KEY != only:
             continue
         data = tab.build(today=built, record=record)
-        panes.append((tab.KEY, tab.LABEL, tab.render(data)))
+        js = getattr(tab, "page_js", lambda _d: "")(data)
+        panes.append((tab.KEY, tab.LABEL, tab.render(data), js))
     if not panes:
         raise SystemExit("no tabs built (--tab %s matched nothing)" % only)
 
@@ -298,7 +306,7 @@ def main():
     write(os.path.join(SITE, "sw.js"), SW % {"v": stamp})
     print("wrote %s (%.1f KB) -- tabs: %s"
           % (os.path.join(SITE, "index.html"), len(page) / 1024,
-             ", ".join(k for k, _, _ in panes)))
+             ", ".join(k for k, _, _, _ in panes)))
 
 
 def write(path, text):

@@ -13,8 +13,9 @@ morning and published to Pages. Nothing runs locally.
 python site.py           build the app into output/site/
 python site.py --tab X   build one tab, while working on it
 python watch.py          print the list as text (writes no history)
+python reminders.py      print the next seven days of reminders
 python resolve.py --write fill watchlist ids in from titles
-python selftest.py       96 assertions -- run before trusting any change
+python selftest.py       143 assertions -- run before trusting any change
 ```
 
 Python is not on PATH:
@@ -72,9 +73,9 @@ add the rule itself.
 
 ## Validation routine — run all of it before trusting a change
 
-`python selftest.py` (96 assertions), plus: compile every module, run every
+`python selftest.py` (143 assertions), plus: compile every module, run every
 entry point (`site.py`, `site.py --fixtures`, `site.py --tab watch`,
-`watch.py`, `resolve.py`), a dead-code sweep (every `def` and module constant
+`watch.py`, `reminders.py`, `resolve.py`), a dead-code sweep (every `def` and module constant
 cross-referenced across all files; CSS classes checked against the built page,
 remembering that `.on`, `.past`, `.empty` and `.new` are applied at runtime and
 always look unused), and a structural check of the page — balanced tags, and

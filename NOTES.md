@@ -3,6 +3,44 @@
 Each of these is encoded in the code and asserted in `selftest.py`. Do not
 rediscover them.
 
+## The reminder rules exist three times, and nothing enforces that from outside
+
+`reminders.py` renders the page. The **JS copy** in the same file re-reads the
+Sheet in the browser so a pull-down is live. `apps-script/reminders.gs` is the
+only one that actually notifies. All three must agree.
+
+Python and JS are compared directly: run both over the same CSV and hash the
+rendered HTML. They matched byte for byte across month ends, quarter
+boundaries, a 5th-Sunday month and a leap February. **Do this again after any
+rule change** — the failure mode otherwise is a page that quietly disagrees
+with the notifications.
+
+The Apps Script cannot be reached from here at all. It is the copy most likely
+to drift; change it in the same commit or not at all.
+
+## A Google Sheet time cell is not a time
+
+Read raw, a cell formatted `h:mm am/pm` comes back as a **Date on the
+1899-12-30 epoch** — the gviz JSON endpoint literally returns
+`Date(1899,11,30,12,30,0)`. Both the CSV endpoint and Apps Script's
+`getDisplayValues()` hand back the *displayed* `"12:30 PM"` instead, which is
+why all three parsers take a string. Never switch to raw values or
+`getValues()`.
+
+## Asking a Google Sheet for a tab that does not exist returns the FIRST tab
+
+Silently, with no error — a trap that already cost time on `dynasty`. So the
+header row is validated on every read, in `reminders.py` and again in the Apps
+Script, and a mismatch is refused loudly rather than parsed as if it were the
+right sheet.
+
+## The Sheet allows cross-origin reads
+
+`Access-Control-Allow-Origin` comes back echoing the caller, so the page can
+fetch the CSV directly from `kyeill.github.io`. That is the only reason
+pull-to-refresh shows an edit made a minute ago rather than this morning's
+build. Do not assume it of other Google endpoints.
+
 ## TMDB's top-level `release_date` is the earliest release **anywhere on earth**
 
 For anything with a festival or overseas premiere it is already in the past

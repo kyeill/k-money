@@ -5,16 +5,18 @@ A tab is any module exposing:
     KEY     str   url fragment and localStorage value, e.g. "watch"
     LABEL   str   what the nav button reads
     CSS     str   its own rules; the shell owns only the frame  (optional)
-    build() -> data          whatever that tab needs, JSON-shaped
-    render(data) -> str      the HTML inside its <section>
+    build() -> data              whatever that tab needs, JSON-shaped
+    render(data) -> str          the HTML inside its <section>
+    page_js(data) -> str         browser-side code for this tab   (optional)
 
-Nothing else in the app knows what a tab is. A second, unrelated tab is a new
-module plus one line here.
+Nothing else in the app knows what a tab is. A new tab is a module plus one
+line here -- and this list's ORDER is the nav order.
 """
 
+import reminders
 import watch
 
-TABS = [watch]
+TABS = [reminders, watch]
 
 
 def by_key(key):

@@ -4,6 +4,7 @@ Runs entirely against fixtures/tmdb.json, so it needs no API key and no
 network. `python selftest.py` before trusting any change.
 """
 
+import datetime as dt
 import importlib.util
 import json
 import os
@@ -212,6 +213,127 @@ def test_preschool_filter_end_to_end():
     true("nor the preschool film", "Preschool Special" not in everything)
     true("but the Family live-action show does",
          "Skeleton Crew Shaped" in everything)
+
+
+# ------------------------------------------------------------- reminders
+
+def _rules():
+    import reminders
+    with open(os.path.join(HERE, "fixtures", "reminders.csv"), encoding="utf-8") as fh:
+        return reminders.read_rules(fh.read())
+
+
+def test_reminder_parsing():
+    import reminders
+    rules = _rules()
+    titles = [r["title"] for r in rules]
+    ok("a row with no time is dropped -- it could never fire",
+       "No time row" not in titles, True)
+    ok("a row with no title is dropped", "" not in titles, True)
+    ok("everything else parses", len(rules), 8)
+
+    ok("12-hour times", reminders.parse_time("12:30 PM"), (12, 30))
+    ok("midnight is 00, not 12", reminders.parse_time("12:00 AM"), (0, 0))
+    ok("noon stays 12", reminders.parse_time("12:00 PM"), (12, 0))
+    ok("lowercase and no space", reminders.parse_time("7:15am"), (7, 15))
+    ok("24-hour passes through", reminders.parse_time("19:00"), (19, 0))
+    ok("blank is no time", reminders.parse_time(""), None)
+    ok("nonsense is no time", reminders.parse_time("soon"), None)
+
+    by = {r["title"]: r for r in rules}
+    ok("any non-empty mark ticks the day", sorted(by["Odd marks"]["days"]), [0])
+    ok("weekly rows are not monthly", by["Standup"]["monthly"], False)
+    ok("a complete nth+weekday makes a row monthly", by["Rent"]["monthly"], True)
+    ok("blank Months means every month", sorted(by["Board mtg"]["months"]),
+       list(range(1, 13)))
+    ok("Quarterly is Jan/Apr/Jul/Oct",
+       sorted(by["Quarterly tax"]["months"]), [1, 4, 7, 10])
+    ok("All means every month", sorted(by["Rent"]["months"]), list(range(1, 13)))
+
+    bad = "Title,Time,Mon\nx,1:00 PM,x"
+    try:
+        reminders.read_rules(bad)
+        ok("a wrong header is refused", "no error", "SheetError")
+    except reminders.SheetError:
+        ok("a wrong header is refused", "SheetError", "SheetError")
+
+
+def test_reminder_rules():
+    """Google silently returns the FIRST tab for an unknown one, so the header
+    check above is what stops us parsing the wrong sheet. These are the dates."""
+    import reminders
+    by = {r["title"]: r for r in _rules()}
+
+    def fires(title, iso):
+        return reminders.fires_on(by[title], dt.date.fromisoformat(iso))
+
+    true("weekly: Laundry on a Sunday", fires("Laundry", "2026-08-30"))
+    ok("weekly: not on a Monday", fires("Laundry", "2026-08-31"), False)
+    true("weekdays only: Standup on Friday", fires("Standup", "2026-09-04"))
+    ok("weekdays only: not Saturday", fires("Standup", "2026-09-05"), False)
+
+    true("last Sunday of August is the 30th", fires("Credit Cards", "2026-08-30"))
+    ok("the 23rd is a Sunday but not the last one",
+       fires("Credit Cards", "2026-08-23"), False)
+    true("first Tuesday of September is the 1st", fires("Board mtg", "2026-09-01"))
+    ok("the second Tuesday is not the first",
+       fires("Board mtg", "2026-09-08"), False)
+
+    true("1st Day is the 1st", fires("Rent", "2026-09-01"))
+    ok("and only the 1st", fires("Rent", "2026-09-02"), False)
+    true("Last Day of a 31-day month", fires("Quarterly tax", "2026-10-31"))
+    ok("but only in a quarter month", fires("Quarterly tax", "2026-11-30"), False)
+    true("Last Day of a 30-day quarter month", fires("Quarterly tax", "2026-04-30"))
+    true("Last Day handles February", fires("Quarterly tax", "2027-01-31"))
+
+    # A row carrying both kinds is monthly; the weekly ticks are ignored.
+    true("mixed row fires on its monthly rule (2nd Wed of Sep)",
+         fires("Mixed both", "2026-09-09"))
+    ok("mixed row ignores its weekly tick (a Monday)",
+       fires("Mixed both", "2026-09-07"), False)
+
+    # Leap year, because "last day of February" is where date maths goes wrong.
+    leap = {"title": "x", "at": (9, 0), "days": set(), "nth": -1,
+            "weekday": "Day", "months": set(range(1, 13)), "monthly": True}
+    true("last day of Feb 2028 is the 29th",
+         reminders.fires_on(leap, dt.date(2028, 2, 29)))
+    ok("not the 28th in a leap year",
+       reminders.fires_on(leap, dt.date(2028, 2, 28)), False)
+    true("last day of Feb 2027 is the 28th",
+         reminders.fires_on(leap, dt.date(2027, 2, 28)))
+
+    # A 5th weekday exists in some months and not others.
+    fifth = {"title": "x", "at": (9, 0), "days": set(), "nth": 5,
+             "weekday": "Sun", "months": set(range(1, 13)), "monthly": True}
+    true("August 2026 has a 5th Sunday", reminders.fires_on(fifth, dt.date(2026, 8, 30)))
+    ok("September 2026 has no 5th Sunday",
+       any(reminders.fires_on(fifth, dt.date(2026, 9, d)) for d in range(1, 31)),
+       False)
+
+
+def test_reminder_render():
+    import reminders
+    rules = _rules()
+    today = dt.date(2026, 8, 30)
+    data = {"today": today, "days": reminders.upcoming(rules, today),
+            "count": len(rules), "error": None, "sheet": "abc"}
+    html = reminders.render(data)
+
+    ok("seven days are shown", html.count('class="rday"'), 7)
+    true("today is named, not dated", "<h2>Today " in html)
+    true("and tomorrow", "<h2>Tomorrow " in html)
+    true("a quiet day says so", "Nothing." in html)
+    true("times read as clock times", ">12:30 pm<" in html)
+    true("the page says it does not send anything",
+         "notifications are sent by the sheet, not this page" in html)
+
+    ok("a broken sheet renders an error, not a traceback",
+       'class="rerr"' in reminders.render(
+           {"today": today, "days": [], "count": 0, "error": "boom"}), True)
+
+    js = reminders.page_js(data)
+    true("the sheet id reaches the browser code", '"abc"' in js)
+    true("no unreplaced placeholders", "%%" not in js)
 
 
 def test_maskable_icon():

@@ -4,10 +4,43 @@ A rolling list of what is coming out — Marvel, DC and Star Wars by default,
 plus whatever one-offs are worth following — built once a morning by GitHub
 Actions and published as an installable page.
 
-It is a **tab shell**, not a watchlist app. Watchlist is the first tab; unrelated
-tabs are meant to be added beside it later.
+It is a **tab shell**. Two tabs today — **Reminders** and **Watchlist** — and
+`tabs.py` is the only file that knows that.
 
-## What it shows
+## Reminders
+
+A Google Sheet is the source of truth, and the tab shows the next seven days.
+
+| Title | Time | Mon…Sun | nth | Weekday | Months |
+| --- | --- | --- | --- | --- | --- |
+| Laundry | 12:30 PM | `x` under Sun | | | |
+| Credit Cards | 2:00 PM | | `Last` | `Sun` | `All` |
+| Rent | 9:00 AM | | `1st` | `Day` | `All` |
+| Quarterly tax | 8:00 AM | | `Last` | `Day` | `Quarterly` |
+
+Any non-empty mark ticks a weekday. `nth` takes `1st`–`5th` or `Last`;
+`Weekday` takes `Mon`–`Sun` or **`Day`** for day-of-month; `Months` takes
+blank/`All`, `Quarterly` (Jan/Apr/Jul/Oct), or a list like `Jan, Jul`. **A time
+is required** — a reminder without one can never fire. If a row has both a
+monthly rule and weekly ticks, it is monthly: one row, one schedule.
+
+**The page does not send anything.** A static site cannot wake a phone. The
+notifications come from `apps-script/reminders.gs`, an Apps Script bound to the
+Sheet running on a 5-minute trigger, which POSTs to an ntfy topic. That script
+holds the topic name and never enters this repo.
+
+The Sheet allows cross-origin reads, so the tab **re-fetches it in the browser**
+on open and on pull-to-refresh — an edit made a minute ago shows up without
+waiting for tomorrow's build. The daily build bakes a snapshot so the tab paints
+instantly and still works offline.
+
+Which means the rules exist **twice**: in `reminders.py` and again in JS. That
+duplication is deliberate and it is *checked* — `selftest.py` asserts the Python
+side, and a browser cross-check runs both over the same CSV across month ends,
+quarter boundaries and a leap year, comparing the rendered HTML exactly. See
+NOTES before touching either.
+
+## Watchlist
 
 **One list, ordered by when each thing is next out.** No horizon buckets.
 Something released in the last 14 days stays on, dimmed, at the top — so a
@@ -76,11 +109,12 @@ silently disappearing is indistinguishable from a bug.
 
 ```
 python site.py             build output/site/
+python reminders.py        print the next seven days as text
 python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         96 assertions, no key and no network needed
+python selftest.py         143 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
@@ -136,6 +170,7 @@ LABEL = "Budget"        # nav button text
 CSS = "..."             # its own rules; optional
 def build(today=None, record=True): ...   # -> JSON-shaped data
 def render(data): ...                     # -> the HTML inside its <section>
+def page_js(data): ...                    # -> browser code for it (optional)
 ```
 
 …and one line in `tabs.TABS`. The shell owns the frame, the nav, the service
@@ -147,13 +182,17 @@ bar made the app look like it had none.
 ## The shape of it
 
 ```
-tmdb.py     the only thing that talks to the network; disk-cached
-watch.py    the Watchlist tab -- date logic, ordering, and its own render
-ui.py       shared render helpers
-tabs.py     the registry
-site.py     the shell: frame, nav, service worker, manifest
-resolve.py  title -> tmdb id, run by hand
-selftest.py fixture-driven; no key, no network
+tmdb.py      the only thing that talks to TMDB; disk-cached
+watch.py     the Watchlist tab -- date logic, ordering, and its own render
+reminders.py the Reminders tab -- sheet rules, and the same rules again in JS
+ui.py        shared render helpers
+tabs.py      the registry; this list's ORDER is the nav order
+site.py      the shell: frame, nav, service worker, manifest, icons
+resolve.py   title -> tmdb id, run by hand
+selftest.py  fixture-driven; no key, no network
+
+apps-script/reminders.gs   NOT part of the build -- paste into the Sheet's
+                           Apps Script editor. The only thing that notifies.
 ```
 
 Read `NOTES.md` before changing the date logic. Every entry there is a trap
