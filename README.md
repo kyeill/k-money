@@ -24,6 +24,15 @@ blank/`All`, `Quarterly` (Jan/Apr/Jul/Oct), or a list like `Jan, Jul`. **A time
 is required** — a reminder without one can never fire. If a row has both a
 monthly rule and weekly ticks, it is monthly: one row, one schedule.
 
+**`Months` gates weekly rows too**, which is how a reminder gets a season —
+tick `Sat` and put `Sep, Oct, Nov, Dec` in Months for "every Saturday, but only
+in the back half of the year". A blank Months means all twelve, so it costs
+existing rows nothing.
+
+Notifications arrive titled **`Laundry (Sun 8/30)`**. Android's own snooze
+re-shows a notification hours later with no hint of which occurrence it was,
+and a bare "Laundry" then tells you nothing.
+
 **The page does not send anything.** A static site cannot wake a phone. The
 notifications come from `apps-script/reminders.gs`, an Apps Script bound to the
 Sheet running on a 5-minute trigger, which POSTs to **Pushover**. That script
@@ -119,7 +128,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         143 assertions, no key and no network needed
+python selftest.py         150 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

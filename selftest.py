@@ -230,7 +230,7 @@ def test_reminder_parsing():
     ok("a row with no time is dropped -- it could never fire",
        "No time row" not in titles, True)
     ok("a row with no title is dropped", "" not in titles, True)
-    ok("everything else parses", len(rules), 8)
+    ok("everything else parses", len(rules), 10)
 
     ok("12-hour times", reminders.parse_time("12:30 PM"), (12, 30))
     ok("midnight is 00, not 12", reminders.parse_time("12:00 AM"), (0, 0))
@@ -302,6 +302,17 @@ def test_reminder_rules():
     true("last day of Feb 2027 is the 28th",
          reminders.fires_on(leap, dt.date(2027, 2, 28)))
 
+    # Months gates WEEKLY rows too, which is how a weekly rule gets a season.
+    true("weekly-with-season fires inside its months (Sat 3 Oct)",
+         fires("Ski season", "2026-10-03"))
+    ok("and not outside them (Sat 1 Aug)", fires("Ski season", "2026-08-01"), False)
+    ok("nor on the wrong weekday inside them (Sun 4 Oct)",
+       fires("Ski season", "2026-10-04"), False)
+    true("a summer-only weekly fires in July", fires("Summer swim", "2026-07-06"))
+    ok("and is silent in October", fires("Summer swim", "2026-10-05"), False)
+    true("a season does not disturb a plain weekly row",
+         fires("Laundry", "2026-08-30") and fires("Laundry", "2027-01-03"))
+
     # A 5th weekday exists in some months and not others.
     fifth = {"title": "x", "at": (9, 0), "days": set(), "nth": 5,
              "weekday": "Sun", "months": set(range(1, 13)), "monthly": True}
@@ -320,9 +331,15 @@ def test_reminder_render():
     html = reminders.render(data)
 
     ok("seven days are shown", html.count('class="rday"'), 7)
-    true("today is named, not dated", "<h2>Today " in html)
-    true("and tomorrow", "<h2>Tomorrow " in html)
-    true("a quiet day says so", "Nothing." in html)
+    true("today is named, not dated", "<h2>Today</h2>" in html)
+    true("and tomorrow", "<h2>Tomorrow</h2>" in html)
+    true("no counts in the headings -- he does not want them",
+         "<b>" not in html)
+
+    # Every day in the window happens to be busy now, so make a quiet one.
+    quiet = {"today": today, "days": [(today, [])], "count": 0,
+             "error": None, "sheet": "abc"}
+    true("a quiet day says so", "Nothing." in reminders.render(quiet))
     true("times read as clock times", ">12:30 pm<" in html)
     true("the page says it does not send anything",
          "notifications are sent by the sheet, not this page" in html)

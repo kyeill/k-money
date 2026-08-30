@@ -262,10 +262,14 @@ function firesOn(rule, date) {
   var d = Number(Utilities.formatDate(date, TZ, 'dd'));
   var local = new Date(y, m - 1, d);
 
+  // Months gates BOTH kinds of rule, so "Sat ticked, Months = Sep, Oct, Nov,
+  // Dec" is a weekly reminder with a season. A blank Months means all twelve,
+  // so existing rows are unaffected.
+  if (rule.months.indexOf(m) < 0) return false;
+
   if (rule.monthly) {
     // A row with both a monthly rule and weekly ticks is monthly. One row,
     // one schedule.
-    if (rule.months.indexOf(m) < 0) return false;
     if (rule.weekday === 'Day') {
       var want = (rule.nth === -1) ? daysIn(y, m) : rule.nth;
       return want >= 1 && want <= daysIn(y, m) && want === d;
@@ -310,7 +314,11 @@ function tick() {
     var key = rule.title + '@' + pad(rule.hour) + ':' + pad(rule.minute);
     if (fired.indexOf(key) >= 0) return;
     try {
-      push(rule.title, 'Due ' + clock(rule.hour, rule.minute));
+      // The day and time go in the TITLE, not just the body: Android's own
+      // snooze re-shows a notification hours later with no hint of which
+      // occurrence it was, and a bare "Laundry" then tells you nothing.
+      push(rule.title + ' (' + stamp(now) + ')',
+           'Due ' + clock(rule.hour, rule.minute));
     } catch (err) {
       // Deliberately NOT stamped as fired, so the next tick tries again. The
       // grace window is wider than the gap between ticks, so a blip costs a
@@ -414,6 +422,13 @@ function push(title, body) {
 }
 
 function pad(n) { return (n < 10 ? '0' : '') + n; }
+
+/** "Sun 8/30" -- which occurrence this notification was for. */
+function stamp(date) {
+  return Utilities.formatDate(date, TZ, 'EEE') + ' ' +
+         Number(Utilities.formatDate(date, TZ, 'MM')) + '/' +
+         Number(Utilities.formatDate(date, TZ, 'dd'));
+}
 
 function clock(h, m) {
   var hour = h % 12; if (hour === 0) hour = 12;

@@ -3,6 +3,13 @@
 Each of these is encoded in the code and asserted in `selftest.py`. Do not
 rediscover them.
 
+## The tab always opens on the first tab
+
+It used to restore the last tab from localStorage, which meant the app could
+open on Watchlist days after you last used it. Reminders is what you want on
+opening. Neither the hash nor localStorage is written any more -- nothing reads
+them, and a stale `#watch` in the URL beside a Reminders pane is a lie.
+
 ## The reminder rules exist three times, and nothing enforces that from outside
 
 `reminders.py` renders the page. The **JS copy** in the same file re-reads the
@@ -15,8 +22,8 @@ boundaries, a 5th-Sunday month and a leap February. **Do this again after any
 rule change** — the failure mode otherwise is a page that quietly disagrees
 with the notifications.
 
-The Apps Script cannot be reached from here at all. It is the copy most likely
-to drift; change it in the same commit or not at all.
+The Apps Script can be reached too — see the harness section below. Change all
+three in the same commit or not at all.
 
 ## ntfy.sh cannot be used from Apps Script — the quota is not yours
 

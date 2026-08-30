@@ -158,11 +158,14 @@ def nth_day(year, month, nth):
 
 
 def fires_on(rule, day):
+    # Months gates BOTH kinds of rule, so "Sat ticked, Months = Sep, Oct, Nov,
+    # Dec" is a weekly reminder with a season. A blank Months parses to all
+    # twelve, so every existing row is unaffected by this being here.
+    if day.month not in rule["months"]:
+        return False
     if rule["monthly"]:
         # A row carrying both a monthly rule and weekly ticks is monthly. One
         # row, one schedule -- a row firing on both would be unreadable later.
-        if day.month not in rule["months"]:
-            return False
         if rule["weekday"] == "Day":
             return nth_day(day.year, day.month, rule["nth"]) == day
         if rule["weekday"] not in WEEKDAYS:
@@ -295,8 +298,9 @@ JS = """
   }
   function firesOn(r,date){
     var y=date.getFullYear(), m=date.getMonth()+1, dd=date.getDate();
+    // Months gates weekly rows too, so a weekly rule can have a season.
+    if(r.months.indexOf(m)<0) return false;
     if(r.monthly){
-      if(r.months.indexOf(m)<0) return false;
       if(r.weekday==='Day'){
         var want=(r.nth===-1)?daysIn(y,m):r.nth;
         return want>=1&&want<=daysIn(y,m)&&want===dd;
@@ -325,7 +329,7 @@ JS = """
                (a.title.toLowerCase()<b.title.toLowerCase()?-1:1); });
       var label=step===0?'Today':(step===1?'Tomorrow':
         day.toLocaleDateString(undefined,{weekday:'long',month:'short',day:'numeric'}));
-      out.push('<div class="rday"><h2>'+esc(label)+' <b>'+due.length+'</b></h2>');
+      out.push('<div class="rday"><h2>'+esc(label)+'</h2>');
       if(!due.length) out.push('<div class="rnone">Nothing.</div>');
       for(i=0;i<due.length;i++)
         out.push('<div class="rem"><span class="rt">'+esc(clock(due[i].at))+
@@ -399,8 +403,8 @@ def render(data):
                 % ui.esc(data["error"]))
     out = ['<div id="rpull">Release to refresh</div><div id="rbody">']
     for day, due in data["days"]:
-        out.append('<div class="rday"><h2>%s <b>%d</b></h2>'
-                   % (ui.esc(day_label(day, data["today"])), len(due)))
+        out.append('<div class="rday"><h2>%s</h2>'
+                   % ui.esc(day_label(day, data["today"])))
         if not due:
             out.append('<div class="rnone">Nothing.</div>')
         for rule in due:

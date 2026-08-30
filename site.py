@@ -97,14 +97,14 @@ function show(key,push){
   panes.forEach(p=>p.classList.toggle('on',p.dataset.k===key));
   const btn=tabs.find(b=>b.dataset.k===key);
   if(btn&&btn.scrollIntoView)btn.scrollIntoView({inline:'nearest',block:'nearest'});
-  try{localStorage.setItem('tab',key)}catch(e){}
-  if(push)history.replaceState(null,'','#'+key);
+  // Neither the hash nor localStorage is written any more: nothing reads them
+  // back, and a stale #watch in the URL while Reminders is showing is a lie.
 }
 tabs.forEach(b=>b.onclick=()=>show(b.dataset.k,true));
-const start=location.hash.slice(1)||(()=>{try{return localStorage.getItem('tab')}
-  catch(e){return null}})()||(tabs[0]&&tabs[0].dataset.k);
-if(start&&tabs.some(b=>b.dataset.k===start))show(start,false);
-else if(tabs[0])show(tabs[0].dataset.k,false);
+// ALWAYS the first tab on open. Restoring the last-used tab from localStorage
+// meant the app could open on whichever one you happened to leave it on, days
+// later -- Reminders is the thing you want on opening it.
+if(tabs[0])show(tabs[0].dataset.k,false);
 // Swipe between tabs. The gesture must be HORIZONTAL -- comparing dx to dy and
 // requiring a clear winner -- or an ordinary vertical scroll down a long list
 // keeps flicking you into the next tab.
