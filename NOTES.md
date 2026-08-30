@@ -152,6 +152,19 @@ Batch* is credited to both it and Lucasfilm Animation (108270), so one entry
 catches everything. Star Wars is therefore the one franchise with a **pinned**
 `company_id`; the exact-name resolver would otherwise be one typo from silence.
 
+## DC Studios makes the DCU *and* Elseworlds, and TMDB cannot tell them apart
+
+*The Batman: Part II* is company **184898**, exactly like *Superman* and
+*Lanterns*, because DC Studios produces the Elseworlds line (The Batman, Joker)
+alongside the DCU proper. There is no genre, keyword or company that separates
+them reliably — the distinction is editorial, announced in press releases.
+
+So Elseworlds titles are listed by hand in `config.json`'s `ignore`, with a
+parallel `_comment_ignore_list` naming each one and why. **Expect to add to it**
+as DC announces more; this is the one part of discovery that cannot be
+automated, and pretending otherwise would silently put the wrong films on the
+list.
+
 ## The Disney Jr. tier is officially Marvel/DC/Lucasfilm
 
 *Spidey and His Amazing Friends*, *Iron Man and His Awesome Friends*, *Krypto

@@ -92,16 +92,14 @@ resolved from the name) and **Lucasfilm Ltd.** (1, pinned — a bare "Lucasfilm"
 resolves to a different company, and Lucasfilm Ltd. covers the animated shows
 too).
 
-**Animation is included.** What a studio officially made is the test, and
-X-Men '97, Marvel Zombies, Creature Commandos, My Adventures with Superman and
-Star Wars: Visions are all officially theirs. `exclude_animation` turns it back
-off.
+**Animation is excluded** (`exclude_animation`), along with the studios' own
+**making-of podcasts** and the **Disney Jr. tier** (`exclude_preschool`).
 
-Discovery does exclude the studios' own **making-of podcasts** and the
-**Disney Jr. tier** (`exclude_preschool`) — Spidey and His Amazing Friends,
-Krypto Saves the Day, Young Jedi Adventures. Those are officially Marvel/DC/
-Lucasfilm too, so only the Kids genre separates them; see NOTES for why the
-film-side rule needs two genres rather than one.
+**Elseworlds films are excluded by hand.** DC Studios produces *The Batman* and
+*Joker* alongside the DCU proper, all under company 184898, and TMDB has no
+field that separates them — the distinction is editorial. They live in
+`config.json`'s `ignore`, each one named in `_comment_ignore_list`. Expect to
+add to it as DC announces more; see NOTES.
 
 Series are found by `air_date` rather than first air date, so a show already
 running or between seasons is caught — that is what puts Daredevil and Lanterns

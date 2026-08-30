@@ -43,14 +43,19 @@
       "_note": "TMDB marks it Ended though season 3 is announced, so studio discovery drops it. Pinned here so it cannot fall out of scope."
     }
   ],
-  "_comment_ignore": "tmdb ids that auto-discovery keeps surfacing and you do not care about.",
-  "ignore": [],
+  "_comment_ignore": "Titles auto-discovery surfaces that do not belong. DC Studios produces the DCU *and* the Elseworlds films (The Batman, Joker), and TMDB has no field telling them apart -- both are company 184898 -- so Elseworlds has to be listed by hand here.",
+  "ignore": [
+    "movie/806704"
+  ],
+  "_comment_ignore_list": [
+    "movie/806704  The Batman: Part II -- Elseworlds, not the DCU"
+  ],
   "_comment_window": "How long something already released stays on the list, so a release is not missed by looking a day late.",
   "keep_released_days": 14,
   "exclude_preschool": true,
   "_comment_preschool": "Drops the Disney Jr. tier -- Spidey and His Amazing Friends, Krypto Saves the Day, Young Jedi Adventures. They are officially Marvel/DC/Lucasfilm, so only the Kids genre separates them. Set false to keep them.",
-  "exclude_animation": false,
-  "_comment_animation": "false = animation is IN. Discovery is by studio, so what comes through is what the studio officially made -- X-Men '97 and What If are Marvel Studios, and that is the test. Set true to drop it again (TMDB genre 16).",
+  "exclude_animation": true,
+  "_comment_animation": "true = animation is OUT (TMDB genre 16), his call 2026-08-30. He briefly had it in for official MCU/DCU animation, then reversed.",
   "reminders_sheet": "1v9ErfF8bZ-jpboTz6cHth1sZf8VlCQa2DOufH74OJmk",
   "_comment_reminders": "The Google Sheet behind the Reminders tab. Public read (anyone with the link), which is what lets the page fetch it in the browser. NOTIFICATIONS ARE NOT SENT FROM HERE -- the Apps Script bound to that sheet does that; see apps-script/reminders.gs."
 }
