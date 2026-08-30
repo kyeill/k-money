@@ -45,10 +45,14 @@
   ],
   "_comment_ignore": "Titles auto-discovery surfaces that do not belong. DC Studios produces the DCU *and* the Elseworlds films (The Batman, Joker), and TMDB has no field telling them apart -- both are company 184898 -- so Elseworlds has to be listed by hand here.",
   "ignore": [
-    "movie/806704"
+    "movie/806704",
+    "movie/1504329"
   ],
   "_comment_ignore_list": [
-    "movie/806704  The Batman: Part II -- Elseworlds, not the DCU"
+    "NOT THE DCU -- will never come back:",
+    "  movie/806704   The Batman: Part II -- Elseworlds, not the DCU",
+    "SHELVED -- delete the line if it is ever revived:",
+    "  movie/1504329  Sgt. Rock -- announced, then shelved (his call 2026-08-30)"
   ],
   "_comment_window": "How long something already released stays on the list, so a release is not missed by looking a day late.",
   "keep_released_days": 14,
