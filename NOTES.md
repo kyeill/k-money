@@ -56,6 +56,28 @@ The lesson generalises: when a send reports success and nothing arrives, prove
 delivery at the *receiving* end. Polling the ntfy topic with `?poll=1&since=all`
 and finding it empty is what turned this from guesswork into a fact.
 
+## The Apps Script CAN be tested — run it in a browser with Google stubbed
+
+It is the copy of the rules nothing else can reach, so it is the one most
+likely to rot. It is also ordinary ES5: load the source, hand it stubbed
+`Utilities` / `SpreadsheetApp` / `UrlFetchApp` / `PropertiesService` / `Logger`
+via `new Function(...)`, override `Date` so `new Date()` returns a chosen
+instant, and step `tick()` through 288 five-minute slots to simulate a whole
+day. `Utilities.formatDate` maps onto `Intl.DateTimeFormat` with
+`timeZone: 'America/New_York'` and `hourCycle: 'h23'`.
+
+That harness earned itself immediately by finding a real bug: **`fired` was
+keyed by TITLE alone**, so two rows sharing a name at different times ("Take
+pills" 8am and 8pm) silently lost the second one for the rest of the day. Now
+keyed by title **and** time.
+
+Confirmed by the same run, and worth keeping true:
+
+* a 12:32 reminder fires at 12:35 — at most one tick late, never early;
+* on the DST fall-back day the 1am hour repeats, and a 1:30 AM reminder still
+  fires exactly **once**;
+* "last Sunday" fires on 30 Aug and 27 Sep but not on 6 Sep.
+
 ## A Google Sheet time cell is not a time
 
 Read raw, a cell formatted `h:mm am/pm` comes back as a **Date on the

@@ -304,7 +304,11 @@ function tick() {
     // Not yet due, or so late that firing now would be misleading rather than
     // useful -- a phone that was off all morning should not buzz at teatime.
     if (late < 0 || late > GRACE_MINUTES) return;
-    if (fired.indexOf(rule.title) >= 0) return;
+    // Keyed by title AND time, not title alone: two rows can share a name at
+    // different hours ("Take pills" at 8am and 8pm), and keying on the title
+    // silently suppressed the second one for the rest of the day.
+    var key = rule.title + '@' + pad(rule.hour) + ':' + pad(rule.minute);
+    if (fired.indexOf(key) >= 0) return;
     try {
       push(rule.title, 'Due ' + clock(rule.hour, rule.minute));
     } catch (err) {
@@ -315,7 +319,7 @@ function tick() {
       Logger.log('send failed for "%s": %s', rule.title, err);
       return;
     }
-    fired.push(rule.title);
+    fired.push(key);
     sent++;
   });
   if (sent) saveFired(today, fired);
