@@ -39,17 +39,7 @@ def fixtures():
         return json.load(fh)
 
 
-CFG = {
-    "region": "US", "language": "en-US",
-    "franchises": [
-        {"key": "mcu", "label": "Marvel", "company": "Marvel Studios", "company_id": 420},
-        {"key": "dcu", "label": "DC", "company": "DC Studios", "company_id": None},
-    ],
-    "watchlist": [{"type": "movie", "id": 1005, "title": "Frankenstein", "label": "Mine"},
-                  {"type": "tv", "id": 2005, "title": "Ended But Pinned", "label": "Mine"}],
-    "ignore": [],
-    "soon_days": 7, "near_days": 30, "keep_released_days": 14,
-}
+CFG = watch.load_config(os.path.join(HERE, "fixtures", "config.json"))
 
 
 def detail(path):
@@ -114,38 +104,55 @@ def run_build():
             watch.SEEN = saved
 
 
-def test_buckets():
+def test_listing():
     data = run_build()
-    b = data["buckets"]
-    titles = {k: [r["title"] for r in v] for k, v in b.items()}
+    titles = [r["title"] for r in data["rows"]]
 
-    ok("this week", titles["now"], ["Avengers: Doomsday", "Daredevil: Born Again"])
-    ok("next 30 days", titles["soon"], ["Frankenstein", "Spider-Man: Brand New Day"])
-    ok("later", titles["later"], ["Lanterns", "Wonder Man"])
-    ok("no date yet", titles["tba"],
-       ["Ended But Pinned", "Peacemaker", "Untitled Marvel Event Film"])
-    ok("just out", titles["out"], ["Thunderbolts"])
+    ok("one list, ordered by when each thing is next out", titles, [
+        "Thunderbolts",                 # 2026-08-25, out four days ago
+        "Avengers: Doomsday",           # 2026-09-02
+        "Daredevil: Born Again",        # 2026-09-02, ties break on title
+        "Frankenstein",                 # 2026-09-10
+        "Spider-Man: Brand New Day",    # 2026-09-20
+        "Lanterns",                     # 2026-10-15
+        "Wonder Man",                   # 2026-12-01
+    ])
+    dates = [r["date"] for r in data["rows"]]
+    ok("dates ascend", dates, sorted(dates))
 
-    every = [t for v in titles.values() for t in v]
-    true("an ended show with no date is dropped", "Loki" not in every)
-    true("a film released last year is dropped", "Last Year's Marvel Film" not in every)
-    # The popularity pass keeps every SERIES, because a renewed-but-unscheduled
-    # show has no date to gate on -- but for FILMS it keeps only the blanks.
-    true("a returning series with no date is picked up", "Peacemaker" in every)
+    true("nothing undated is shown", all(r["date"] for r in data["rows"]))
+    true("an undated project is still TRACKED, so it shows up once dated",
+         data["waiting"] >= 3)
+    ok("the tally adds up", data["tracked"], len(data["rows"]) + data["waiting"])
+
+    true("a film released last year is gone", "Last Year's Marvel Film" not in titles)
     true("the popularity pass does not add dated films",
-         "Should Not Appear" not in every)
-    true("a pinned title survives an Ended status", "Ended But Pinned" in every)
-    ok("nothing is listed twice", len(every), len(set(every)))
+         "Should Not Appear" not in titles)
+    ok("nothing is listed twice", len(titles), len(set(titles)))
 
-    src = {r["title"]: r["source"] for v in b.values() for r in v}
+    src = {r["title"]: r["source"] for r in data["rows"]}
     ok("DC company id resolved by name", src["Lanterns"], "DC")
     ok("watchlist entries carry their own label", src["Frankenstein"], "Mine")
     ok("franchise items are labelled", src["Avengers: Doomsday"], "Marvel")
 
-    ordered = [r["date"] for r in b["later"]]
-    ok("sections sort by date", ordered, sorted(ordered))
-    ok("just out sorts newest first", [r["date"] for r in b["out"]],
-       sorted([r["date"] for r in b["out"]], reverse=True))
+
+def test_tracking_survives_undated():
+    """The point of tracking undated titles: they appear the day they are dated."""
+    tmdb.use_fixtures(fixtures())
+    with tempfile.TemporaryDirectory() as tmp:
+        saved, watch.SEEN = watch.SEEN, os.path.join(tmp, "seen.json")
+        try:
+            rows = watch.collect(CFG, TODAY, record=False)
+        finally:
+            watch.SEEN = saved
+    tracked = {r["title"] for r in rows}
+    # The popularity pass keeps every SERIES, because a renewed-but-unscheduled
+    # show has no date to gate on -- but for FILMS it keeps only the blanks.
+    true("a returning series with no date is tracked", "Peacemaker" in tracked)
+    true("an announced film with no date is tracked",
+         "Untitled Marvel Event Film" in tracked)
+    true("an Ended show is tracked but will never list (no date, ever)",
+         "Loki" in tracked)
 
 
 def test_discover_queries():
@@ -188,7 +195,9 @@ def test_ignore():
             data = watch.build(today=TODAY, cfg=cfg, record=False)
         finally:
             watch.SEEN = saved
-    ok("ignore drops by key and by bare id", data["buckets"]["now"], [])
+    gone = {"Avengers: Doomsday", "Daredevil: Born Again"}
+    true("ignore drops by key and by bare id",
+         not gone & {r["title"] for r in data["rows"]})
 
 
 def test_new_badge():
@@ -199,29 +208,28 @@ def test_new_badge():
             json.dump({"movie/1000": "2026-01-01"}, fh)
         saved, watch.SEEN = watch.SEEN, path
         try:
-            rows = {r["key"]: r for r in watch.collect(CFG, TODAY, record=True)}
+            data = watch.build(today=TODAY, cfg=CFG, record=True)
         finally:
             watch.SEEN = saved
         with open(path, encoding="utf-8") as fh:
             stored = json.load(fh)
+    rows = {r["key"]: r for r in data["rows"]}
     ok("a title first seen in January is not new", rows["movie/1000"]["is_new"], False)
     ok("a title first seen today is new", rows["movie/1001"]["is_new"], True)
     ok("first-seen dates are kept, not overwritten",
        stored["movie/1000"], "2026-01-01")
-    ok("every title gets recorded", len(stored), len(rows))
+    # Only LISTED titles are recorded. An undated project banked years ago must
+    # still read NEW on the day it is finally scheduled, which it cannot do if
+    # discovery stamped it the first time it was merely announced.
+    ok("only what is shown gets recorded", len(stored), len(rows))
+    true("an undated title is not stamped", "movie/1002" not in stored)
 
 
 # ------------------------------------------------------------ formatting
 
 def test_first_run_badges_nothing():
     """Everything is first-seen-today on run one; badging it all says nothing."""
-    tmdb.use_fixtures(fixtures())
-    with tempfile.TemporaryDirectory() as tmp:
-        saved, watch.SEEN = watch.SEEN, os.path.join(tmp, "seen.json")
-        try:
-            rows = watch.collect(CFG, TODAY, record=True)
-        finally:
-            watch.SEEN = saved
+    rows = run_build()["rows"]
     ok("nothing is new before there is a before",
        sorted({r["is_new"] for r in rows}), [False])
     ok("and the seed batch is backdated, so it is not new tomorrow either",
@@ -229,12 +237,21 @@ def test_first_run_badges_nothing():
 
 
 def test_undated_labels():
-    data = run_build()
-    by = {r["title"]: r["when"] for r in data["buckets"]["tba"]}
-    ok("an undated film says what stage it is at", by["Untitled Marvel Event Film"], "Announced")
+    """Undated rows are not listed today, but the label still has to be right:
+    one of them becomes a listed row the day it is scheduled."""
+    tmdb.use_fixtures(fixtures())
+    with tempfile.TemporaryDirectory() as tmp:
+        saved, watch.SEEN = watch.SEEN, os.path.join(tmp, "seen.json")
+        try:
+            rows = watch.collect(CFG, TODAY, record=False)
+        finally:
+            watch.SEEN = saved
+    by = {r["title"]: r["when"] for r in rows if not r["date"]}
+    ok("an undated film says what stage it is at",
+       by["Untitled Marvel Event Film"], "Announced")
     ok("an undated series says it is returning", by["Peacemaker"], "Returning")
     true("nothing undated says 'Release' or 'Series'",
-         not {v for v in by.values()} & {"Release", "Series"})
+         not set(by.values()) & {"Release", "Series"})
 
 
 def test_ui():
@@ -277,26 +294,21 @@ def test_page():
     ok("links balance", page.count("<a "), page.count("</a>"))
     ok("spans balance", page.count("<span"), page.count("</span>"))
 
-    rows = sum(len(v) for v in data["buckets"].values())
-    ok("every row is rendered", body.count('class="item"'), rows)
-
-    heads = re.findall(r"<h2>([^<]+) <b>(\d+)</b>", body)
-    counted = {name.strip(): int(n) for name, n in heads}
-    for key, label in watch.SECTIONS:
-        if data["buckets"][key]:
-            ok("heading count matches rows: " + label,
-               counted.get(label), len(data["buckets"][key]))
+    ok("every row is rendered", body.count('class="item'), len(data["rows"]))
+    ok("the already-released row is dimmed", body.count('class="item past"'), 1)
+    true("the tally says what is being tracked but not listed",
+         re.search(r'class="tally">\d+ tracked \D+ \d+ waiting', body))
 
     true("posters are lazy", 'loading="lazy"' in body)
     true("links open outward", 'rel="noopener"' in body)
     true("a provider chip made it", "Disney Plus" in body)
     true("the episode name made it", "The Green Sea" in body)
     true("filler episode names did not", "Episode 4" not in body)
+    true("no undated row reached the page", "TBA" not in body)
 
-    # An empty week must still print its heading -- an app whose first section
-    # vanishes on a quiet week looks broken.
-    quiet = {"today": TODAY, "buckets": dict(data["buckets"], now=[])}
-    true("an empty week still shows", "Nothing this week." in watch.render(quiet))
+    # An empty list must say so rather than render nothing at all.
+    empty = watch.render({"today": TODAY, "rows": [], "tracked": 0, "waiting": 0})
+    true("an empty list still says something", "Nothing scheduled." in empty)
 
 
 def main():

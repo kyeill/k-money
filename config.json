@@ -27,12 +27,18 @@
       "type": "tv",
       "title": "Severance",
       "id": 95396
+    },
+    {
+      "type": "tv",
+      "title": "Peacemaker",
+      "label": "DC",
+      "id": 110492,
+      "_note": "TMDB marks it Ended though season 3 is announced, so studio discovery drops it. Pinned here so it cannot fall out of scope."
     }
   ],
   "_comment_ignore": "tmdb ids that auto-discovery keeps surfacing and you do not care about.",
   "ignore": [],
-  "soon_days": 7,
-  "near_days": 30,
+  "_comment_window": "How long something already released stays on the list, so a release is not missed by looking a day late.",
   "keep_released_days": 14,
   "exclude_animation": true,
   "_comment_animation": "Animated series and films are dropped from studio discovery (TMDB genre 16). Flip to false to let DC/Marvel animation back in."

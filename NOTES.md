@@ -77,6 +77,18 @@ A cancelled or long-ended show also has no future date. Only titles whose
 `status` is *not* Released / Ended / Canceled reach the TBA bucket, or the list
 fills with dead projects — unless the row is pinned, see above.
 
+## Undated titles are tracked, not listed — and the difference matters
+
+Kyle asked to exclude anything without a date. Dropping them from *discovery*
+would have been the obvious reading and the wrong one: nothing would then
+notice the day a slate project finally gets scheduled. They stay in `collect`
+and are filtered out in `listing`.
+
+The same distinction drives the NEW badge. First-seen is stamped in
+`stamp_new`, on the rows actually shown — **not** in `collect`. Stamping at
+discovery would mean a project banked two years ago quietly appears one morning
+with no badge, on the very day it became news.
+
 ## "Release" and "Series" are not labels
 
 They are what the date functions fall back to when there is no date, and in a

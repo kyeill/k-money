@@ -35,7 +35,10 @@ UNDATED = {
 
 
 def load_config(path=None):
-    with open(path or os.path.join(HERE, "config.json"), encoding="utf-8-sig") as fh:
+    """KMONEY_CONFIG points every tab at a different config -- that is how
+    `site.py --fixtures` runs the canned data without touching the real one."""
+    path = path or os.environ.get("KMONEY_CONFIG") or os.path.join(HERE, "config.json")
+    with open(path, encoding="utf-8-sig") as fh:
         return json.load(fh)
 
 
@@ -202,68 +205,55 @@ def collect(cfg, today, record=True):
         row["pinned"] = pinned
         rows.append(row)
 
+    return rows
+
+
+def listing(rows, cfg, today):
+    """One list, ordered by when each thing is next out.
+
+    Undated titles are tracked but not shown. They stay in `collect` so that a
+    project sitting on the slate for two years appears the moment it is
+    scheduled -- dropping them from discovery instead would mean never noticing
+    it got a date.
+    """
+    back = _shift(today, -abs(cfg.get("keep_released_days", 14)))
+    out = [r for r in rows if r["date"] and r["date"] >= back]
+    out.sort(key=lambda r: (r["date"], r["title"]))
+    return out
+
+
+def stamp_new(shown, today, record=True):
+    """Badge what has only just appeared ON THE LIST.
+
+    First-seen is recorded when a title becomes showable, not when discovery
+    first saw it: an undated project banked two years ago should still read NEW
+    on the day it finally gets a date, which is the day it becomes news.
+    """
     seen, ran_before = _load_seen()
     cutoff = _shift(today, -NEW_FOR_DAYS)
     # On the very first run every title is "first seen today", which would badge
     # the whole list -- and stamping today would keep badging it for a week.
     # The seed batch is backdated instead, so only what arrives later is new.
     stamp = today if ran_before else SEED
-    for row in rows:
+    for row in shown:
         row["first_seen"] = seen.setdefault(row["key"], stamp)
         row["is_new"] = row["first_seen"] > cutoff
     if record:
         _save_seen(seen)
-    return rows
-
-
-def bucket(rows, cfg, today):
-    """Sort into the five horizons the page shows."""
-    soon = _shift(today, cfg.get("soon_days", 7))
-    near = _shift(today, cfg.get("near_days", 30))
-    back = _shift(today, -abs(cfg.get("keep_released_days", 14)))
-
-    out = {"out": [], "now": [], "soon": [], "later": [], "tba": []}
-    for row in rows:
-        day = row["date"]
-        if not day:
-            # A released, ended or cancelled title with no date is not
-            # upcoming, it is just gone. Only live projects belong in TBA --
-            # EXCEPT one added by hand, which must never vanish silently.
-            # TMDB calls Peacemaker "Ended" while season 3 is announced, and a
-            # watchlist entry disappearing on that basis looks like a bug.
-            if row["status"] in ("Released", "Ended", "Canceled") and not row.get("pinned"):
-                continue
-            out["tba"].append(row)
-        elif day < today:
-            if day >= back:
-                out["out"].append(row)
-        elif day <= soon:
-            out["now"].append(row)
-        elif day <= near:
-            out["soon"].append(row)
-        else:
-            out["later"].append(row)
-
-    for name, group in out.items():
-        group.sort(key=lambda r: (r["date"] or "9999-99-99", r["title"]),
-                   reverse=(name == "out"))
-    return out
-
-
-SECTIONS = [
-    ("now", "This week"),
-    ("soon", "Next 30 days"),
-    ("later", "Later"),
-    ("tba", "No date yet"),
-    ("out", "Just out"),
-]
+    return shown
 
 
 def build(today=None, cfg=None, record=True):
     today = today or dt.date.today().isoformat()
     cfg = cfg or load_config()
     rows = collect(cfg, today, record)
-    return {"today": today, "buckets": bucket(rows, cfg, today), "count": len(rows)}
+    shown = stamp_new(listing(rows, cfg, today), today, record)
+    return {
+        "today": today,
+        "rows": shown,
+        "tracked": len(rows),
+        "waiting": len(rows) - len(shown),
+    }
 
 
 # ----------------------------------------------------------------- render
@@ -271,10 +261,11 @@ def build(today=None, cfg=None, record=True):
 # editing a shared stylesheet and hoping nothing else moved.
 
 CSS = """
-.sec{margin:22px 0 0}
-.sec h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;
-        color:var(--muted);font-weight:600;margin:0 0 8px}
-.sec h2 b{color:var(--ink);font-weight:600}
+.sec{margin:14px 0 0}
+/* Already out, but recent enough to still be worth catching up on. It reads
+   quieter than everything ahead of it without leaving the running order. */
+a.item.past{opacity:.62}
+.tally{color:var(--muted);font-size:12px;margin:14px 2px 0}
 a.item{display:flex;gap:11px;align-items:flex-start;text-decoration:none;
        color:inherit;background:var(--card);border:1px solid var(--line);
        border-radius:10px;padding:10px 11px;margin:7px 0}
@@ -302,8 +293,8 @@ a.item{display:flex;gap:11px;align-items:flex-start;text-decoration:none;
 .when .w{font-size:11.5px;color:var(--muted)}
 .empty{color:var(--muted);font-size:13px;padding:2px 0 4px}
 @media (min-width:641px){
-  .sec{margin:28px 0 0}
-  .sec h2{font-size:13px}
+  .sec{margin:18px 0 0}
+  .tally{font-size:13px;margin-top:18px}
   a.item{padding:12px 14px;margin:9px 0;gap:13px}
   .pos{width:54px;height:81px}
   .t{font-size:17px}
@@ -340,11 +331,12 @@ def _item(row, today):
               if row["poster"] else '<span class="pos"></span>')
     provs = "".join(ui.chip(p) for p in row["providers"])
     return (
-        '<a class="item" href="%s" target="_blank" rel="noopener">%s'
+        '<a class="item%s" href="%s" target="_blank" rel="noopener">%s'
         '<span class="body"><span class="t">%s%s</span>'
         '<span class="s">%s</span>%s</span>'
         '<span class="when"><span class="d">%s</span><span class="w">%s</span></span></a>'
     ) % (
+        " past" if row["date"] < today else "",
         ui.esc(TMDB_PAGE % (row["kind"], row["id"])),
         poster,
         ui.esc(row["title"]),
@@ -357,26 +349,25 @@ def _item(row, today):
 
 def render(data):
     today = data["today"]
-    out = []
-    for key, title in SECTIONS:
-        rows = data["buckets"][key]
-        if not rows and key != "now":
-            continue
-        out.append('<div class="sec"><h2>%s <b>%d</b></h2>' % (ui.esc(title), len(rows)))
-        if rows:
-            out.extend(_item(r, today) for r in rows)
-        else:
-            out.append('<div class="empty">Nothing this week.</div>')
-        out.append("</div>")
+    rows = data["rows"]
+    if not rows:
+        return '<div class="empty">Nothing scheduled.</div>'
+
+    out = ['<div class="sec">']
+    out.extend(_item(r, today) for r in rows)
+    out.append("</div>")
+    # Says why the list is shorter than the slate, without listing the slate.
+    if data.get("waiting"):
+        out.append('<div class="tally">%d tracked · %d waiting on a date</div>'
+                   % (data["tracked"], data["waiting"]))
     return "".join(out)
 
 
 if __name__ == "__main__":
     data = build(record=False)
-    for key, title in SECTIONS:
-        rows = data["buckets"][key]
-        print("\n== %s (%d)" % (title, len(rows)))
-        for r in rows:
-            print("  %-11s %-42s %-18s %s" % (
-                r["date"] or "TBA", r["title"][:42], r["when"][:18],
-                ", ".join(r["providers"]) or "-"))
+    for r in data["rows"]:
+        print("  %-11s %-42s %-18s %s" % (
+            r["date"], r["title"][:42], r["when"][:18],
+            ", ".join(r["providers"]) or "-"))
+    print("\n%d shown, %d tracked, %d waiting on a date"
+          % (len(data["rows"]), data["tracked"], data["waiting"]))

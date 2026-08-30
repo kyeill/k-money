@@ -198,12 +198,15 @@ def main():
 
     if "--fixtures" in sys.argv:
         # Styling work should not need a key, a network, or a real morning's
-        # data. Renders the same canned payloads selftest.py asserts against.
+        # data. Renders the same canned payloads selftest.py asserts against --
+        # including its config, so that adding a title to the real watchlist
+        # does not break this mode until a fixture is written for it.
         import json as _json
         import tmdb
         with open(os.path.join(HERE, "fixtures", "tmdb.json"), encoding="utf-8") as fh:
             tmdb.use_fixtures(_json.load(fh))
         built, record = "2026-08-29", False
+        os.environ["KMONEY_CONFIG"] = os.path.join(HERE, "fixtures", "config.json")
 
     panes = []
     for tab in tabs.TABS:

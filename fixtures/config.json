@@ -1,0 +1,16 @@
+{
+  "_comment": "The config selftest.py and `site.py --fixtures` run against. Deliberately NOT the real config.json -- otherwise adding a title to the watchlist breaks every test until a fixture is written for it.",
+  "region": "US",
+  "language": "en-US",
+  "franchises": [
+    { "key": "mcu", "label": "Marvel", "company": "Marvel Studios", "company_id": 420 },
+    { "key": "dcu", "label": "DC", "company": "DC Studios", "company_id": null }
+  ],
+  "watchlist": [
+    { "type": "movie", "title": "Frankenstein", "id": 1005, "label": "Mine" },
+    { "type": "tv", "title": "Ended But Pinned", "id": 2005, "label": "Mine" }
+  ],
+  "ignore": [],
+  "keep_released_days": 14,
+  "exclude_animation": true
+}

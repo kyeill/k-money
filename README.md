@@ -9,24 +9,25 @@ tabs are meant to be added beside it later.
 
 ## What it shows
 
-One list, five horizons:
-
-| Section | What lands there |
-| --- | --- |
-| This week | today through the next 7 days — always shown, even when empty |
-| Next 30 days | the rest of the month |
-| Later | anything dated beyond that |
-| No date yet | announced and alive, but unscheduled — labelled Announced / Filming / Post-production / Returning |
-| Just out | released in the last 14 days, so nothing gets missed |
+**One list, ordered by when each thing is next out.** No sections, no buckets.
+Something released in the last 14 days stays on, dimmed, at the top — so a
+release is not missed by looking a day late.
 
 Every row carries a poster, the title, where it came from (Marvel / DC / your
 own), what the date actually *is* — `In theaters`, `Streaming`, `S2 E4 · The
 Green Sea`, `Premiere` — and which services stream it. Rows link to TMDB.
 
-A title first seen within the last 7 days is flagged **NEW**, which is how a
-freshly announced project makes itself known. First-seen dates live in
+**Undated titles are tracked but not shown.** They stay in discovery so that a
+project sitting on the slate for two years appears the moment it is scheduled;
+dropping them outright would mean never noticing it got a date. The footer
+tally says how many are waiting.
+
+A title flagged **NEW** reached the *list* within the last 7 days — which,
+since undated things are not listed, usually means it just got a date. That is
+the moment it is actually news. First-seen is therefore recorded when a title
+becomes showable, not when discovery first saw it. The dates live in
 `output/history/seen.json`, committed by the workflow, and cannot be
-backfilled. The first run backdates its whole batch, so nothing is badged until
+backfilled; the first run backdates its whole batch so nothing is badged until
 something genuinely arrives.
 
 ## Where the titles come from
@@ -64,7 +65,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         72 assertions, no key and no network needed
+python selftest.py         69 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
@@ -105,7 +106,7 @@ collide. The nav bar hides itself while there is only one tab.
 
 ```
 tmdb.py     the only thing that talks to the network; disk-cached
-watch.py    the Watch tab -- date logic, buckets, and its own render
+watch.py    the Watch tab -- date logic, ordering, and its own render
 ui.py       shared render helpers
 tabs.py     the registry
 site.py     the shell: frame, nav, service worker, manifest
