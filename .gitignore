@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+cache/
+secrets.json
+# The built app is published from the workflow, not committed.
+output/*
+!output/history/

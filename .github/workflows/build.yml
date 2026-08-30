@@ -1,0 +1,90 @@
+name: Build K Money
+
+# Publishes the app to Pages each morning.
+
+on:
+  schedule:
+    # Three slots, because GitHub delivers scheduled runs late -- sometimes by
+    # hours. The gate below asks whether TODAY has been built, not what time it
+    # is, so whichever slot actually arrives first does the work.
+    - cron: "0 10 * * *"
+    - cron: "0 11 * * *"
+    - cron: "0 12 * * *"
+  workflow_dispatch:
+  push:
+    branches: [main, master]
+    paths-ignore: ["**.md"]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    # Tells the deploy job whether anything was actually produced. Without it a
+    # catch-up slot skips the build, uploads no artifact, and deploy fails on
+    # "No artifacts named github-pages" every single morning.
+    outputs:
+      built: ${{ steps.gate.outputs.run }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+      - run: pip install requests
+      - name: Self-test
+        run: python selftest.py
+      - name: Skip if already built today
+        id: gate
+        run: |
+          today=$(TZ=America/New_York date +%F)
+          last=$(cat output/history/_last_build.txt 2>/dev/null || echo none)
+          # The stamp only exists to stop the three scheduled slots building the
+          # same day three times. It must not block a manual run or a push: a
+          # code change shipped after the morning build would otherwise
+          # redeploy the old page and look like it had worked.
+          if [ "${{ github.event_name }}" != "schedule" ]; then
+            echo "run=yes" >> "$GITHUB_OUTPUT"
+          elif [ "$today" = "$last" ]; then
+            echo "run=no" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=yes" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Build
+        if: steps.gate.outputs.run == 'yes'
+        env:
+          TMDB_API_KEY: ${{ secrets.TMDB_API_KEY }}
+        run: |
+          python site.py
+          TZ=America/New_York date +%F > output/history/_last_build.txt
+      - name: Commit first-seen history
+        if: steps.gate.outputs.run == 'yes'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -f output/history
+          # [skip ci] is essential: this repo builds on push, so without it the
+          # commit retriggers the workflow forever.
+          git diff --staged --quiet || git commit -m "Record first-seen dates [skip ci]"
+          git push
+      - uses: actions/upload-pages-artifact@v3
+        if: steps.gate.outputs.run == 'yes'
+        with:
+          path: output/site
+
+  deploy:
+    needs: build
+    if: needs.build.outputs.built == 'yes'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4

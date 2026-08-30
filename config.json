@@ -1,0 +1,20 @@
+{
+  "region": "US",
+  "language": "en-US",
+
+  "_comment_franchises": "Auto-discovery. Anything a listed company has coming is picked up without you adding it. company_id is resolved from the name on first run and cached in cache/companies.json -- set it here to pin one.",
+  "franchises": [
+    { "key": "mcu", "label": "Marvel", "company": "Marvel Studios", "company_id": 420 },
+    { "key": "dcu", "label": "DC",     "company": "DC Studios",     "company_id": null }
+  ],
+
+  "_comment_watchlist": "Hand-edited. type is movie or tv. Leave id null and run `python resolve.py` to fill it in from the title -- then eyeball it, because a title search can pick the wrong show.",
+  "watchlist": [],
+
+  "_comment_ignore": "tmdb ids that auto-discovery keeps surfacing and you do not care about.",
+  "ignore": [],
+
+  "soon_days": 7,
+  "near_days": 30,
+  "keep_released_days": 14
+}
