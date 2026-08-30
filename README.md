@@ -80,6 +80,31 @@ side, and a browser cross-check runs both over the same CSV across month ends,
 quarter boundaries and a leap year, comparing the rendered HTML exactly. See
 NOTES before touching either.
 
+### Setting the reminders up
+
+In the Sheet: **Extensions → Apps Script**, paste `apps-script/reminders.gs`,
+fill in the Pushover keys at the top, run `setup()`. That installs the
+5-minute trigger, creates the `Done` tab, and sends one message to prove the
+credentials work.
+
+Then, for the checkboxes, deploy the same script as a web app:
+
+1. **Deploy → New deployment**
+2. "Select type" has a **gear icon** beside it — choose **Web app**
+3. **Execute as: Me**, **Who has access: Anyone** (not "Anyone with Google
+   account", or the page cannot call it without a login)
+4. **Deploy**, authorise (the "Google hasn't verified this app" warning is
+   expected for your own script), and copy the `/exec` URL into
+   `reminders_webapp` in `config.json`
+
+Open that URL in a browser to check it: `{"ok":false,"error":"unknown action"}`
+means it is live and reachable anonymously, which is exactly right.
+
+**Editing the script does not update the deployment.** The `/exec` URL keeps
+serving whatever was deployed. After any edit: **Deploy → Manage deployments →
+pencil → Version: New version → Deploy**. Paste and run `setup()` BEFORE
+deploying, or the web app goes live without `doGet` and ticks fail silently.
+
 ## Watchlist
 
 **One list, ordered by when each thing is next out.** No horizon buckets.
