@@ -207,9 +207,11 @@ var MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
 // Columns up to and including nth are fixed. The Weekday column after them is
 // OPTIONAL -- both layouts are accepted, because the sheet gets edited while
 // this is live and a schema change must not take the notifications down.
-var EXPECT = ['title', 'time', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun',
-              'nth'];
-var WEEKDAY_COL = EXPECT.length;   // 10, when the column is present
+// Title, Time and the seven day columns are positional. EVERYTHING after them
+// is located BY NAME, so columns can be added, removed or reordered without
+// breaking anything -- hard-coded indices have taken this system down twice.
+var EXPECT = ['title', 'time', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
+var OPTIONAL = ['nth', 'weekday', 'every', 'starting', 'months'];
 
 function readRules() {
   var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
@@ -234,21 +236,27 @@ function readRules() {
                       '", expected "' + EXPECT[i] + '"');
     }
   }
-  var hasWeekday = header[WEEKDAY_COL] === 'weekday';
-  var monthsCol = hasWeekday ? WEEKDAY_COL + 1 : WEEKDAY_COL;
-  if (header[monthsCol] !== 'months') {
-    throw new Error('expected a Months column at position ' + (monthsCol + 1) +
-                    ', found "' + header[monthsCol] + '"');
+  var COL = {};
+  for (var h = EXPECT.length; h < header.length; h++) {
+    if (OPTIONAL.indexOf(header[h]) >= 0 && COL[header[h]] === undefined) {
+      COL[header[h]] = h;
+    }
+  }
+  function cell(row, name) {
+    var i = COL[name];
+    return (i === undefined || i >= row.length) ? '' : row[i];
   }
 
   var rules = [];
   for (var r = 1; r < grid.length; r++) {
     var c = grid[r].map(function (x) { return String(x == null ? '' : x).trim(); });
-    while (c.length <= monthsCol) c.push('');
+    while (c.length < header.length) c.push('');
     var at = parseTime(c[1]);
     if (!c[0] || !at) continue;          // a reminder with no time cannot fire
-    var nths = parseNths(c[9]);
-    var weekday = hasWeekday ? title3(c[WEEKDAY_COL]) : '';
+    var nths = parseNths(cell(c, 'nth'));
+    var weekday = title3(cell(c, 'weekday'));
+    var every = parseEvery(cell(c, 'every'));
+    var start = parseDate(cell(c, 'starting'));
     var days = [];
     for (var d = 0; d < 7; d++) if (c[2 + d]) days.push(d);
     // "4th" with Sun ticked and Weekday left blank is the obvious intent, and
@@ -263,7 +271,8 @@ function readRules() {
     rules.push({
       title: c[0], hour: at[0], minute: at[1], days: days,
       nths: nths, weekday: weekday,
-      months: parseMonths(c[monthsCol]),
+      every: every, start: start,
+      months: parseMonths(cell(c, 'months')),
       monthly: (nths.length > 0 && weekday !== '')
     });
   }
@@ -288,6 +297,34 @@ function parseTime(t) {
   if (suffix === 'PM' && h < 12) h += 12;
   else if (suffix === 'AM' && h === 12) h = 0;
   return (h >= 0 && h < 24) ? [h, m] : null;
+}
+
+/** "4 weeks" -> 28. A unit is required; a bare number could mean either. */
+function parseEvery(t) {
+  t = String(t || '').trim().toLowerCase();
+  var d = t.replace(/[^0-9]/g, '');
+  if (!d) return null;
+  var n = parseInt(d, 10);
+  if (n < 1) return null;
+  var letters = t.replace(/[^a-z]/g, '');
+  if (letters.charAt(0) === 'w') return n * 7;
+  if (letters.charAt(0) === 'd') return n;
+  return null;
+}
+
+/** Sheets renders dates in the viewer's locale, so ISO and US slash both. */
+function parseDate(t) {
+  t = String(t || '').trim();
+  if (!t) return null;
+  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  m = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(t);
+  if (m) { var y = +m[3]; if (y < 100) y += 2000; return new Date(y, +m[1] - 1, +m[2]); }
+  return null;
+}
+
+function dayNum(d) {
+  return Math.floor(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()) / 864e5);
 }
 
 function parseMonths(t) {
@@ -332,6 +369,12 @@ function firesOn(rule, date) {
   // so existing rows are unaffected.
   if (rule.months.indexOf(m) < 0) return false;
 
+  // Interval beats everything; whole days from the anchor, so DST cannot
+  // drift it.
+  if (rule.every && rule.start) {
+    var a = dayNum(rule.start), b = dayNum(local);
+    return b >= a && ((b - a) % rule.every) === 0;
+  }
   if (rule.monthly) {
     // A row with both a monthly rule and weekly ticks is monthly. One row,
     // one schedule.

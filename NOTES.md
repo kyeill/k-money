@@ -3,6 +3,27 @@
 Each of these is encoded in the code and asserted in `selftest.py`. Do not
 rediscover them.
 
+## Columns after the day grid are located BY NAME
+
+Title, Time and the seven day columns are positional -- the tick grid has to be
+in weekday order. Everything after them (`nth`, `weekday`, `every`, `starting`,
+`months`) is found by heading. **Hard-coded indices have taken this system down
+twice**, and the schema keeps changing while the page and the notifications are
+live.
+
+An unrecognised heading is REPORTED on the page rather than skipped: a typo in
+"Starting" would otherwise drop the column silently and stop every interval
+reminder, which is the exact failure mode this project keeps producing.
+
+## Interval cadences are whole days from an anchor
+
+`Every` + `Starting` is the third kind of rule and beats the other two. The
+arithmetic is in whole days from the anchor date, never timestamps, so DST
+cannot drift it. `Every` requires a unit -- a bare "4" could be days or weeks.
+
+Note "every 4 weeks" is NOT "every 4th Monday": the latter gaps to five weeks
+across some month boundaries.
+
 ## The Weekday column is optional, and the layout is detected
 
 Columns through `nth` are fixed; `Weekday` after them may or may not be there,

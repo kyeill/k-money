@@ -47,8 +47,12 @@ QUARTERLY = {1, 4, 7, 10}
 # Columns up to and including nth are fixed. After that the sheet may or may not
 # carry a Weekday column, and BOTH layouts are accepted -- the schema has to
 # survive being edited while the page and the notifications are live.
-EXPECT = ["title", "time"] + [d.lower() for d in WEEKDAYS] + ["nth"]
-WEEKDAY_COL = len(EXPECT)          # index 10, when the column is present
+# Title, Time and the seven day columns are positional -- the tick grid has to
+# be in weekday order. EVERYTHING after them is located BY NAME, so columns can
+# be added, removed or reordered without breaking anything. Hard-coded indices
+# have already taken this system down twice.
+EXPECT = ["title", "time"] + [d.lower() for d in WEEKDAYS]
+OPTIONAL = ["nth", "weekday", "every", "starting", "months"]
 
 
 class SheetError(Exception):
@@ -60,25 +64,30 @@ def _first_words(header):
 
 
 def layout(header):
-    """(ok, index of Months, does a Weekday column exist).
+    """(ok, {name: index}, [unrecognised headings]).
 
     Headings match on their FIRST WORD: he labels sections in the sheet and put
     one in the header cell itself -- A1 read "Title DAILY", which broke every
     reader at once. Being forgiving about a label costs nothing and still
     refuses the Done tab, whose first heading is "date".
+
+    Anything after the day columns is found by NAME. A heading we do not know
+    is reported rather than ignored: a typo in "Starting" would otherwise mean
+    the column is silently dropped and every interval reminder stops.
     """
     words = _first_words(header)
-    if len(words) <= WEEKDAY_COL:
-        return (False, None, False)
     if words[:len(EXPECT)] != EXPECT:
-        return (False, None, False)
-    if words[WEEKDAY_COL] == "weekday":
-        if len(words) <= WEEKDAY_COL + 1 or words[WEEKDAY_COL + 1] != "months":
-            return (False, None, True)
-        return (True, WEEKDAY_COL + 1, True)
-    if words[WEEKDAY_COL] == "months":
-        return (True, WEEKDAY_COL, False)
-    return (False, None, False)
+        return (False, {}, [])
+    where, unknown = {}, []
+    for i in range(len(EXPECT), len(words)):
+        name = words[i]
+        if not name:
+            continue
+        if name in OPTIONAL and name not in where:
+            where[name] = i
+        else:
+            unknown.append(header[i])
+    return (True, where, unknown)
 
 
 def header_ok(header):
@@ -198,6 +207,48 @@ def parse_nths(text):
     return out
 
 
+def parse_every(text):
+    """"4 weeks" -> 28 days. Also "10 days", "2w", "3d".
+
+    A unit is REQUIRED. A bare "4" could mean days or weeks and guessing would
+    be wrong half the time -- it is reported as unreadable instead.
+    """
+    text = (text or "").strip().lower()
+    if not text:
+        return None
+    digits = "".join(ch for ch in text if ch.isdigit())
+    if not digits:
+        return None
+    count = int(digits)
+    if count < 1:
+        return None
+    letters = "".join(ch for ch in text if ch.isalpha())
+    if letters.startswith("w"):
+        return count * 7
+    if letters.startswith("d"):
+        return count
+    return None
+
+
+def parse_date(text):
+    """A date from a Sheets cell.
+
+    Sheets renders dates in the viewer's locale, so the CSV can hand back
+    "9/7/2026" rather than ISO -- the same trap the time column sets. Both are
+    accepted; US month-first is assumed for the slash form, which is what this
+    sheet is in.
+    """
+    text = (text or "").strip()
+    if not text:
+        return None
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y", "%Y/%m/%d"):
+        try:
+            return dt.datetime.strptime(text, fmt).date()
+        except ValueError:
+            pass
+    return None
+
+
 def parse_months(text):
     """Blank or 'All' -> every month. 'Quarterly' -> Jan/Apr/Jul/Oct. Otherwise
     a list of month names, so semi-annual and annual need no new syntax."""
@@ -214,17 +265,33 @@ def parse_months(text):
     return out or set(range(1, 13))
 
 
+def header_issues(text):
+    """Headings after the day columns that we do not recognise.
+
+    A typo in "Starting" would otherwise mean the column is quietly dropped and
+    every interval reminder stops, with nothing anywhere saying so.
+    """
+    rows = list(csv.reader(io.StringIO(text or "")))
+    if not rows:
+        return []
+    return layout([h.strip().lower() for h in rows[0]])[2]
+
+
 def read_rules(text):
     """CSV -> rules. Raises SheetError if the header is not what we expect."""
     rows = list(csv.reader(io.StringIO(text)))
     if not rows:
         raise SheetError("the sheet is empty")
     header = [h.strip().lower() for h in rows[0]]
-    good, months_col, has_weekday = layout(header)
+    good, col, unknown = layout(header)
     if not good:
-        raise SheetError("unexpected header %r; expected %r then Weekday "
-                         "(optional) then Months" % (header, EXPECT))
-    width = months_col + 1
+        raise SheetError("unexpected header %r; expected %r then any of %r"
+                         % (header, EXPECT, OPTIONAL))
+    width = len(header)
+
+    def cell(cells, name):
+        i = col.get(name)
+        return cells[i] if i is not None and i < len(cells) else ""
 
     rules = []
     for line in rows[1:]:
@@ -234,11 +301,19 @@ def read_rules(text):
         # A time is required, by his call: a reminder with no time cannot fire.
         if not title or not at:
             continue
-        nths = parse_nths(cells[9])
+        nths = parse_nths(cell(cells, "nth"))
         # A cell with text in it that yields nothing is a typo, not a blank --
         # and used to fail silently. It is counted and surfaced on the page.
-        unreadable = bool(cells[9].strip()) and not nths
-        weekday = cells[WEEKDAY_COL].strip().title() if has_weekday else ""
+        every = parse_every(cell(cells, "every"))
+        start = parse_date(cell(cells, "starting"))
+        # A cell with text in it that yields nothing is a typo, not a blank --
+        # and used to fail silently. Counted and surfaced on the page.
+        unreadable = ((bool(cell(cells, "nth").strip()) and not nths)
+                      or (bool(cell(cells, "every").strip()) and not every)
+                      or (bool(cell(cells, "starting").strip()) and not start)
+                      # Half an interval rule is no rule at all.
+                      or (every is not None) != (start is not None))
+        weekday = cell(cells, "weekday").strip().title()
         # Any non-empty mark counts, so x / X / TRUE / a tick all work.
         days = {i for i, d in enumerate(WEEKDAYS) if cells[2 + i]}
         # "4th" with Sun ticked and Weekday left blank is the obvious intent,
@@ -264,7 +339,9 @@ def read_rules(text):
             "nths": nths,
             "unreadable": unreadable,
             "weekday": weekday,
-            "months": parse_months(cells[months_col]),
+            "months": parse_months(cell(cells, "months")),
+            "every": every,
+            "start": start,
             "monthly": monthly,
         })
     return rules
@@ -297,6 +374,13 @@ def fires_on(rule, day):
     # twelve, so every existing row is unaffected by this being here.
     if day.month not in rule["months"]:
         return False
+    # Interval beats everything: "every 4 weeks from the 7th" is its own
+    # schedule and the tick grid, if any, is not consulted. One row, one
+    # schedule. Counted in whole days from the anchor, so DST cannot drift it.
+    if rule.get("every") and rule.get("start"):
+        if day < rule["start"]:
+            return False
+        return (day - rule["start"]).days % rule["every"] == 0
     if rule["monthly"]:
         # A row carrying both a monthly rule and weekly ticks is monthly. One
         # row, one schedule -- a row firing on both would be unreadable later.
@@ -366,7 +450,29 @@ JS = """
 (function(){
   var SHEET=%%SHEET%%, DAYS=%%DAYS%%, WEBAPP=%%WEBAPP%%;
   var WD=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  var OPTIONAL=['nth','weekday','every','starting','months'];
   var WORDN={first:1,second:2,third:3,fourth:4,fifth:5,last:-1};
+  // "4 weeks" -> 28. A unit is required; a bare number could mean either.
+  function parseEvery(t){
+    t=(t||'').trim().toLowerCase();
+    var d=t.replace(/[^0-9]/g,'');
+    if(!d) return null;
+    var n=parseInt(d,10); if(n<1) return null;
+    var L=t.replace(/[^a-z]/g,'');
+    if(L.charAt(0)==='w') return n*7;
+    if(L.charAt(0)==='d') return n;
+    return null;
+  }
+  // Sheets renders dates in the viewer's locale, so ISO and US slash both.
+  function parseDate(t){
+    t=(t||'').trim(); if(!t) return null;
+    var m=/^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(t);
+    if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+    m=/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})$/.exec(t);
+    if(m){ var y=+m[3]; if(y<100) y+=2000; return new Date(y,+m[1]-1,+m[2]); }
+    return null;
+  }
+  function dayNum(d){ return Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/864e5); }
   // A LIST: "1st, 3rd" is two occurrences. Stripping non-digits made it 13.
   function parseNths(t){
     t=(t||'').trim().toLowerCase();
@@ -428,19 +534,26 @@ JS = """
   function readRules(text){
     var rows=splitCSV(text);
     if(!rows.length) throw new Error('empty sheet');
-    // The Weekday column is optional; Months sits at 10 or 11 accordingly.
+    // Everything after the day columns is located BY NAME, so columns can be
+    // added, removed or reordered without breaking anything.
     var head=rows[0].map(function(x){
       return (x||'').trim().toLowerCase().split(/\\s+/)[0]; });
-    var hasWd = head[10]==='weekday';
-    var monthsCol = hasWd ? 11 : 10;
+    var COL={}, oi;
+    for(oi=9;oi<head.length;oi++)
+      if(OPTIONAL.indexOf(head[oi])>=0&&COL[head[oi]]===undefined) COL[head[oi]]=oi;
+    function cell(c,name){
+      var i=COL[name];
+      return (i===undefined||i>=c.length)?'':c[i];
+    }
     var rules=[],i;
     for(i=1;i<rows.length;i++){
       var c=rows[i].map(function(x){return (x||'').trim();});
-      while(c.length<=monthsCol) c.push('');
+      while(c.length<head.length) c.push('');
       var at=parseTime(c[1]);
       if(!c[0]||!at) continue;
-      var nths=parseNths(c[9]);
-      var wd=hasWd?(c[10]||'').trim():'';
+      var nths=parseNths(cell(c,'nth'));
+      var every=parseEvery(cell(c,'every')), start=parseDate(cell(c,'starting'));
+      var wd=(cell(c,'weekday')||'').trim();
       wd=wd?wd.charAt(0).toUpperCase()+wd.slice(1).toLowerCase():'';
       var days=[],d;
       for(d=0;d<7;d++) if(c[2+d]) days.push(d);
@@ -449,8 +562,8 @@ JS = """
         if(days.length===1) wd=WD[days[0]];
         else if(!days.length) wd='Day';
       }
-      rules.push({title:c[0],at:at,days:days,nths:nths,
-                  weekday:wd,months:parseMonths(c[monthsCol]),
+      rules.push({title:c[0],at:at,days:days,nths:nths,every:every,start:start,
+                  weekday:wd,months:parseMonths(cell(c,'months')),
                   monthly:(nths.length>0&&wd!=='')});
     }
     return rules;
@@ -468,6 +581,12 @@ JS = """
     var y=date.getFullYear(), m=date.getMonth()+1, dd=date.getDate();
     // Months gates weekly rows too, so a weekly rule can have a season.
     if(r.months.indexOf(m)<0) return false;
+    // Interval beats everything; whole days from the anchor, so DST cannot
+    // drift it.
+    if(r.every&&r.start){
+      var a=dayNum(r.start), b=dayNum(date);
+      return b>=a && ((b-a)%r.every)===0;
+    }
     if(r.monthly){
       var i;
       if(r.weekday==='Day'){
@@ -683,6 +802,10 @@ def render(data):
             out.append(row_html(rule, first))
         out.append("</div>")
     out.append("</div>")
+    cols = data.get("unknown_cols") or []
+    if cols:
+        out.append('<div class="rerr">Column heading not recognised: %s</div>'
+                   % ui.esc(", ".join(cols)))
     bad = data.get("unreadable") or []
     if bad:
         # These parse to no cadence at all, so they would simply never fire.
@@ -705,7 +828,8 @@ def build(today=None, cfg=None, record=True):
         return {"today": today, "days": [], "count": 0,
                 "error": "no reminders_sheet in config.json", "sheet": ""}
     try:
-        rules = read_rules(fetch_csv(sheet))
+        sheet_csv = fetch_csv(sheet)
+        rules = read_rules(sheet_csv)
     except Exception as exc:          # a bad sheet must not kill the build
         return {"today": today, "days": [], "count": 0,
                 "error": "%s" % exc, "sheet": sheet}
@@ -715,12 +839,14 @@ def build(today=None, cfg=None, record=True):
         # Ticks are a convenience. Losing them must never cost the schedule.
         done = set()
     unreadable = [r["title"] for r in rules if r.get("unreadable")]
+    unknown_cols = header_issues(sheet_csv)
     days = upcoming(rules, today)
     iso = today.isoformat()
     for rule in days[0][1]:
         rule["done"] = (iso, done_key(rule)) in done
     return {"today": today, "days": days, "sheet": sheet,
             "count": len(rules), "error": None, "unreadable": unreadable,
+            "unknown_cols": unknown_cols,
             "webapp": (cfg.get("reminders_webapp") or "").strip()}
 
 

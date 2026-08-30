@@ -276,11 +276,26 @@ def test_reminder_parsing():
     eleven = ["title", "time", "mon", "tue", "wed", "thu", "fri", "sat", "sun",
               "nth", "months"]
     ok("a sheet with no Weekday column is fine",
-       reminders.layout(eleven), (True, 10, False))
+       reminders.layout(eleven)[1], {"nth": 9, "months": 10})
     ok("and one with it puts Months a column later",
-       reminders.layout(eleven[:10] + ["weekday", "months"]), (True, 11, True))
-    ok("Months missing entirely is refused",
-       reminders.layout(eleven[:10] + ["weekday"])[0], False)
+       reminders.layout(eleven[:10] + ["weekday", "months"])[1],
+       {"nth": 9, "weekday": 10, "months": 11})
+
+    # His proposed layout: nth, Every, Starting, Months.
+    ok("interval columns are found by name",
+       reminders.layout(eleven[:10] + ["every", "starting", "months"])[1],
+       {"nth": 9, "every": 10, "starting": 11, "months": 12})
+    ok("order among them does not matter",
+       reminders.layout(eleven[:10] + ["months", "starting", "every"])[1],
+       {"nth": 9, "months": 10, "starting": 11, "every": 12})
+    ok("a missing Months column just means every month",
+       reminders.layout(eleven[:10])[0], True)
+
+    # A typo would otherwise drop the column silently and stop every interval
+    # reminder, with nothing anywhere saying so.
+    ok("an unrecognised heading is reported",
+       reminders.layout(eleven[:10] + ["every", "startng", "months"])[2],
+       ["startng"])
 
     # Day-of-month with no Weekday column at all: nth and no ticked day can
     # only mean the day of the month. Without this it was not monthly, had no
@@ -415,6 +430,56 @@ def test_reminder_rules():
     ok("September 2026 has no 5th Sunday",
        any(reminders.fires_on(fifth, dt.date(2026, 9, d)) for d in range(1, 31)),
        False)
+
+
+def test_interval_rules():
+    """"Every 4 weeks from the 7th" -- a cadence neither weekly nor monthly can
+    express. "Every 4th Sunday" is NOT the same thing: that one gaps to five
+    weeks across some month boundaries, an interval never varies."""
+    import reminders
+    head = ('"Title","Time","Mon","Tue","Wed","Thu","Fri","Sat","Sun",'
+            '"nth","Every","Starting","Months"')
+    csv = "\n".join([
+        head,
+        '"Bins","7:00 AM","","","","","","","","","4 weeks","2026-09-07",""',
+        '"Haircut","10:00 AM","","","","","","","","","6 weeks","9/12/2026",""',
+        '"Water","8:00 AM","","","","","","","","","3 days","2026-09-01",""',
+        '"Later","9:00 AM","","","","","","","","","2 weeks","2026-12-01",""',
+        '"Half","9:00 AM","","","","","","","","","4 weeks","",""',
+        '"Seasonal","9:00 AM","","","","","","","","","1 week","2026-01-05","Jun"'])
+    by = {r["title"]: r for r in reminders.read_rules(csv)}
+
+    ok("weeks become days", by["Bins"]["every"], 28)
+    ok("and the anchor parses", by["Bins"]["start"], dt.date(2026, 9, 7))
+    ok("a US-formatted date parses too -- Sheets renders dates by locale",
+       by["Haircut"]["start"], dt.date(2026, 9, 12))
+
+    def fires(title, iso):
+        return reminders.fires_on(by[title], dt.date.fromisoformat(iso))
+
+    true("fires on the anchor itself", fires("Bins", "2026-09-07"))
+    ok("not a week later", fires("Bins", "2026-09-14"), False)
+    true("four weeks later", fires("Bins", "2026-10-05"))
+    true("and again, across a month end", fires("Bins", "2026-11-02"))
+    true("a day interval works", fires("Water", "2026-09-04"))
+    ok("and not between", fires("Water", "2026-09-05"), False)
+
+    ok("nothing fires before its anchor", fires("Later", "2026-09-01"), False)
+    true("but does once it arrives", fires("Later", "2026-12-01"))
+
+    # Half a rule is no rule -- and must say so rather than doing nothing.
+    ok("Every with no Starting does not fire",
+       fires("Half", "2026-09-07"), False)
+    ok("and is reported", by["Half"]["unreadable"], True)
+
+    # Months still gates, so an interval can have a season.
+    ok("an interval outside its months is silent",
+       fires("Seasonal", "2026-09-07"), False)
+
+    ok("a bare number is not a unit", reminders.parse_every("4"), None)
+    ok("weeks", reminders.parse_every("4 weeks"), 28)
+    ok("shorthand", reminders.parse_every("2w"), 14)
+    ok("days", reminders.parse_every("10 days"), 10)
 
 
 def test_reminder_render():
