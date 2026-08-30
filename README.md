@@ -16,7 +16,7 @@ One list, five horizons:
 | This week | today through the next 7 days — always shown, even when empty |
 | Next 30 days | the rest of the month |
 | Later | anything dated beyond that |
-| No date yet | announced and alive, but unscheduled |
+| No date yet | announced and alive, but unscheduled — labelled Announced / Filming / Post-production / Returning |
 | Just out | released in the last 14 days, so nothing gets missed |
 
 Every row carries a poster, the title, where it came from (Marvel / DC / your
@@ -26,7 +26,8 @@ Green Sea`, `Premiere` — and which services stream it. Rows link to TMDB.
 A title first seen within the last 7 days is flagged **NEW**, which is how a
 freshly announced project makes itself known. First-seen dates live in
 `output/history/seen.json`, committed by the workflow, and cannot be
-backfilled.
+backfilled. The first run backdates its whole batch, so nothing is badged until
+something genuinely arrives.
 
 ## Where the titles come from
 
@@ -35,7 +36,13 @@ Two sources, one list.
 **Franchises** are discovered by studio, so nothing has to be added by hand.
 `config.json` lists them; `company_id` is resolved from the studio name on
 first run if it is left `null`. Marvel Studios is pinned at 420, which is
-folklore-stable; DC Studios is new enough to be worth resolving.
+folklore-stable; DC Studios resolves to 184898.
+
+Discovery deliberately excludes **animation** (`exclude_animation`, on) and,
+for series, the studios' own **making-of podcasts**. Series are found by
+`air_date` rather than first air date, so a show already running or between
+seasons is caught — that is what puts Daredevil and Lanterns on the list at
+all.
 
 **The watchlist** is hand-edited in `config.json` and is only for the one-offs.
 Entries need `type` (`movie` or `tv`) and `id`. Write the title, leave the id
@@ -45,14 +52,19 @@ title search will happily pick the wrong show.
 `ignore` takes `"movie/1234"` or a bare id, for anything discovery keeps
 surfacing that you do not care about.
 
+A watchlist entry is **pinned**: it is never dropped for its status. TMDB calls
+Peacemaker "Ended" while season 3 is announced, and a title you added by hand
+silently disappearing is indistinguishable from a bug.
+
 ## Running it
 
 ```
 python site.py             build output/site/
+python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         59 assertions, no key and no network needed
+python selftest.py         72 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

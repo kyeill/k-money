@@ -129,27 +129,58 @@ def company_id(name):
     return hits[0]["id"]
 
 
-def discover(kind, cid, today, language="en-US", region="US"):
-    """Everything a company has dated in the future, plus its undated slate.
+ANIMATION = 16
+TALK = 10767              # TV-only genre; a studio's own podcast lands here
+SCRIPTED = "2|4"          # discover/tv with_type: miniseries or scripted
 
-    Two passes on purpose. A date-gated discover cannot return a title with no
-    date at all, and the undated ones are exactly the announced-but-unscheduled
-    projects worth knowing about -- so the second pass sorts by popularity and
-    keeps the blanks.
+
+def discover(kind, cid, today, language="en-US", region="US",
+             exclude_animation=True):
+    """Everything a company has coming, plus the slate it has only announced.
+
+    Two passes, for different reasons per kind.
+
+    MOVIES gate on `primary_release_date.gte`. A film has one date and it is
+    either ahead or behind, so the second pass only needs the blanks -- the
+    announced-but-unscheduled projects a date-gated query cannot return.
+
+    SERIES gate on `air_date.gte`, NOT `first_air_date.gte`. Gating on the
+    first air date asks "did this show premiere in the future", which is false
+    for every show currently running or returning -- it made Daredevil,
+    Peacemaker and a mid-run Lanterns all invisible. `air_date` matches on ANY
+    episode, which is the actual question.
+
+    That still misses a series renewed but not yet scheduled, which has no
+    episode date at all and a first air date in the past. So the second pass
+    for series keeps EVERYTHING and lets status do the filtering downstream:
+    Ended and Canceled shows fall out in `watch.bucket`, and what is left is
+    the renewed-but-undated slate that belongs in "No date yet".
     """
-    date_field = "primary_release_date" if kind == "movie" else "first_air_date"
     common = {
         "with_companies": cid,
         "include_adult": "false",
         "language": language,
         "region": region,
     }
-    out, seen = [], set()
+    drop = [ANIMATION] if exclude_animation else []
+    if kind == "tv":
+        # Studios file their own making-of podcasts under the same company, and
+        # TMDB types them Miniseries, so with_type alone does not catch them.
+        # The Talk genre does.
+        common["with_type"] = SCRIPTED
+        drop.append(TALK)
+        gate, date_field = "air_date", "first_air_date"
+    else:
+        gate = date_field = "primary_release_date"
+    if drop:
+        # A pipe is OR here: exclude anything carrying ANY of these.
+        common["without_genres"] = "|".join(str(g) for g in drop)
 
+    out, seen = [], set()
     for page in (1, 2):
         data = get(f"discover/{kind}", ttl=TTL_DISCOVER, page=page,
                    sort_by=f"{date_field}.asc",
-                   **{f"{date_field}.gte": today}, **common)
+                   **{f"{gate}.gte": today}, **common)
         for row in data.get("results") or []:
             if row["id"] not in seen:
                 seen.add(row["id"])
@@ -157,12 +188,15 @@ def discover(kind, cid, today, language="en-US", region="US"):
         if page >= (data.get("total_pages") or 1):
             break
 
-    undated = get(f"discover/{kind}", ttl=TTL_DISCOVER,
-                  sort_by="popularity.desc", **common)
-    for row in undated.get("results") or []:
-        if not (row.get(date_field) or "").strip() and row["id"] not in seen:
-            seen.add(row["id"])
-            out.append(row)
+    more = get(f"discover/{kind}", ttl=TTL_DISCOVER,
+               sort_by="popularity.desc", **common)
+    for row in more.get("results") or []:
+        if row["id"] in seen:
+            continue
+        if kind == "movie" and (row.get(date_field) or "").strip():
+            continue
+        seen.add(row["id"])
+        out.append(row)
     return out
 
 

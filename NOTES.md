@@ -30,6 +30,40 @@ special becomes the thing you are waiting for.
 Which is exactly what the `S2 E4` label already said. Episode names starting
 `Episode ` are dropped.
 
+## `first_air_date.gte` asks the wrong question about a series
+
+It means "did this show *premiere* in the future", which is false for every
+show currently running or returning — the first live run had no Daredevil, no
+Peacemaker and no mid-run Lanterns because of it. `air_date.gte` matches on ANY
+episode, which is the actual question. Films are fine on
+`primary_release_date.gte`: a film has one date and it is either ahead or
+behind.
+
+## A studio files its own podcasts under its own company
+
+And TMDB types them **Miniseries**, so `with_type=2|4` does not catch them.
+The **Talk** genre (10767, TV only) does. Animation is genre 16 and applies to
+both kinds. `without_genres` takes a pipe for OR.
+
+## TMDB called Peacemaker "Ended" while season 3 was announced
+
+Which the status filter below then dropped. A studio-discovered title
+disappearing on that basis is fine; a **hand-added watchlist entry vanishing is
+indistinguishable from a bug**, so pinned rows are exempt from the status drop.
+
+## Everything is "first seen today" on the first run
+
+Badging the whole list says nothing, and stamping today would keep it badged
+for a week. The seed batch is written with a backdated `1970-01-01` instead, so
+only what actually arrives later is ever NEW.
+
+## DC Studios is 184898
+
+Not 128064, which is what guessing produced. It is resolved from the name at
+build time for exactly this reason — Marvel Studios' 420 is folklore-stable,
+DC Studios is new. The resolver prefers an **exact** name match, because
+`search/company` returns DC Entertainment first.
+
 ## A date-gated `discover` cannot return an undated title
 
 `primary_release_date.gte` excludes anything with a blank date — which is
@@ -41,7 +75,19 @@ whose blanks are kept.
 
 A cancelled or long-ended show also has no future date. Only titles whose
 `status` is *not* Released / Ended / Canceled reach the TBA bucket, or the list
-fills with dead projects.
+fills with dead projects — unless the row is pinned, see above.
+
+## "Release" and "Series" are not labels
+
+They are what the date functions fall back to when there is no date, and in a
+TBA list neither says anything. Undated rows show the production status
+instead: Announced / Filming / Post-production / Returning.
+
+## The date column is 64px because it was measured
+
+The widest string it ever holds is "Tomorrow" at 60px. At 58px it was two
+pixels over and sat against the title. Dates in another year drop the day
+rather than the year — "Dec 2027", not "Dec 17 2027", which did not fit.
 
 ## Rent and buy providers are noise
 

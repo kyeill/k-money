@@ -21,6 +21,17 @@ LABEL = "Watch"
 # TMDB release_dates types. 3 is a wide theatrical run, 2 a limited one.
 THEATRICAL, DIGITAL, PREMIERE, ON_TV = (2, 3), 4, 1, 6
 NEW_FOR_DAYS = 7
+SEED = "1970-01-01"       # backdate for the very first run; see collect()
+
+# What to say instead of a date. "Release" and "Series" are what the date
+# functions fall back to, and neither tells you anything in a TBA list.
+UNDATED = {
+    "Planned": "Announced",
+    "Rumored": "Rumored",
+    "In Production": "Filming",
+    "Post Production": "Post-production",
+    "Returning Series": "Returning",
+}
 
 
 def load_config(path=None):
@@ -126,6 +137,8 @@ def make_row(kind, detail, source, region="US", today=None):
     else:
         day, when = tv_date(detail, today)
         title = detail.get("name") or detail.get("original_name") or "?"
+    if not day:
+        when = UNDATED.get(detail.get("status") or "", "Announced")
     return {
         "key": "%s/%s" % (kind, detail["id"]),
         "kind": kind,
@@ -142,10 +155,11 @@ def make_row(kind, detail, source, region="US", today=None):
 
 
 def _load_seen():
+    """Returns (first-seen dates, had we ever run before)."""
     if os.path.exists(SEEN):
         with open(SEEN, encoding="utf-8") as fh:
-            return json.load(fh)
-    return {}
+            return json.load(fh), True
+    return {}, False
 
 
 def _save_seen(seen):
@@ -163,33 +177,39 @@ def collect(cfg, today, record=True):
     lang = cfg.get("language", "en-US")
     region = cfg.get("region", "US")
     ignore = {str(x) for x in cfg.get("ignore") or []}
-    wanted = {}          # "kind/id" -> source label
+    wanted = {}          # "kind/id" -> (source label, pinned by hand?)
 
     for fr in cfg.get("franchises") or []:
         cid = fr.get("company_id") or tmdb.company_id(fr["company"])
         if not cid:
             continue
         for kind in ("movie", "tv"):
-            for row in tmdb.discover(kind, cid, today, lang, region):
+            for row in tmdb.discover(kind, cid, today, lang, region,
+                                     cfg.get("exclude_animation", True)):
                 wanted.setdefault("%s/%s" % (kind, row["id"]),
-                                  fr.get("label") or fr["key"])
+                                  (fr.get("label") or fr["key"], False))
 
     for item in cfg.get("watchlist") or []:
         if item.get("id"):
-            wanted["%s/%s" % (item["type"], item["id"])] = item.get("label") or "Mine"
+            wanted["%s/%s" % (item["type"], item["id"])] = (item.get("label") or "Mine", True)
 
     rows = []
-    for key, source in sorted(wanted.items()):
+    for key, (source, pinned) in sorted(wanted.items()):
         kind, tid = key.split("/")
         if key in ignore or tid in ignore:
             continue
-        rows.append(make_row(kind, tmdb.detail(kind, tid, lang), source,
-                             region, today))
+        row = make_row(kind, tmdb.detail(kind, tid, lang), source, region, today)
+        row["pinned"] = pinned
+        rows.append(row)
 
-    seen = _load_seen()
+    seen, ran_before = _load_seen()
     cutoff = _shift(today, -NEW_FOR_DAYS)
+    # On the very first run every title is "first seen today", which would badge
+    # the whole list -- and stamping today would keep badging it for a week.
+    # The seed batch is backdated instead, so only what arrives later is new.
+    stamp = today if ran_before else SEED
     for row in rows:
-        row["first_seen"] = seen.setdefault(row["key"], today)
+        row["first_seen"] = seen.setdefault(row["key"], stamp)
         row["is_new"] = row["first_seen"] > cutoff
     if record:
         _save_seen(seen)
@@ -207,8 +227,11 @@ def bucket(rows, cfg, today):
         day = row["date"]
         if not day:
             # A released, ended or cancelled title with no date is not
-            # upcoming, it is just gone. Only live projects belong in TBA.
-            if row["status"] in ("Released", "Ended", "Canceled"):
+            # upcoming, it is just gone. Only live projects belong in TBA --
+            # EXCEPT one added by hand, which must never vanish silently.
+            # TMDB calls Peacemaker "Ended" while season 3 is announced, and a
+            # watchlist entry disappearing on that basis looks like a bug.
+            if row["status"] in ("Released", "Ended", "Canceled") and not row.get("pinned"):
                 continue
             out["tba"].append(row)
         elif day < today:
@@ -272,7 +295,9 @@ a.item{display:flex;gap:11px;align-items:flex-start;text-decoration:none;
 .new{background:var(--accent);color:#16161a;font-weight:700;font-size:10px;
      letter-spacing:.04em;border-radius:4px;padding:1px 5px;margin-left:6px;
      vertical-align:2px}
-.when{flex:0 0 auto;width:58px;text-align:right;font-variant-numeric:tabular-nums}
+/* 64px, not 58: measured, the widest string this column ever holds is
+   "Tomorrow" at 60px. At 58 it was 2px over and sat against the title. */
+.when{flex:0 0 auto;width:64px;text-align:right;font-variant-numeric:tabular-nums}
 .when .d{font-size:13.5px;font-weight:600;line-height:1.2}
 .when .w{font-size:11.5px;color:var(--muted)}
 .empty{color:var(--muted);font-size:13px;padding:2px 0 4px}

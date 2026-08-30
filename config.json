@@ -1,20 +1,39 @@
 {
   "region": "US",
   "language": "en-US",
-
   "_comment_franchises": "Auto-discovery. Anything a listed company has coming is picked up without you adding it. company_id is resolved from the name on first run and cached in cache/companies.json -- set it here to pin one.",
   "franchises": [
-    { "key": "mcu", "label": "Marvel", "company": "Marvel Studios", "company_id": 420 },
-    { "key": "dcu", "label": "DC",     "company": "DC Studios",     "company_id": null }
+    {
+      "key": "mcu",
+      "label": "Marvel",
+      "company": "Marvel Studios",
+      "company_id": 420
+    },
+    {
+      "key": "dcu",
+      "label": "DC",
+      "company": "DC Studios",
+      "company_id": null
+    }
   ],
-
   "_comment_watchlist": "Hand-edited. type is movie or tv. Leave id null and run `python resolve.py` to fill it in from the title -- then eyeball it, because a title search can pick the wrong show.",
-  "watchlist": [],
-
+  "watchlist": [
+    {
+      "type": "tv",
+      "title": "Shrinking",
+      "id": 136311
+    },
+    {
+      "type": "tv",
+      "title": "Severance",
+      "id": 95396
+    }
+  ],
   "_comment_ignore": "tmdb ids that auto-discovery keeps surfacing and you do not care about.",
   "ignore": [],
-
   "soon_days": 7,
   "near_days": 30,
-  "keep_released_days": 14
+  "keep_released_days": 14,
+  "exclude_animation": true,
+  "_comment_animation": "Animated series and films are dropped from studio discovery (TMDB genre 16). Flip to false to let DC/Marvel animation back in."
 }

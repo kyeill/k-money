@@ -13,16 +13,20 @@ def chip(text, cls="chip"):
 
 
 def day_parts(iso, today=None):
-    """('Sep 3', 'Wed') -- or ('Sep 3 2027', '') once the year stops being
-    obvious, because a bare 'Sep 3' three years out reads as this September."""
+    """('Sep 3', 'Wed') this year, ('Sep 2027', '') in any other.
+
+    A bare 'Sep 3' three years out reads as this September, so the year has to
+    appear -- but 'Sep 3 2027' does not fit the date column, and nobody plans
+    around which weekday a film in 2028 opens on. Past the turn of the year the
+    day of the month is dropped instead of the year.
+    """
     if not iso:
         return ("TBA", "")
     day = dt.date.fromisoformat(iso)
     now = dt.date.fromisoformat(today) if today else dt.date.today()
-    label = "%s %d" % (day.strftime("%b"), day.day)
     if day.year != now.year:
-        return ("%s %d" % (label, day.year), "")
-    return (label, day.strftime("%a"))
+        return ("%s %d" % (day.strftime("%b"), day.year), "")
+    return ("%s %d" % (day.strftime("%b"), day.day), day.strftime("%a"))
 
 
 def relative(iso, today):

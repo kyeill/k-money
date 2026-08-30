@@ -45,7 +45,8 @@ CFG = {
         {"key": "mcu", "label": "Marvel", "company": "Marvel Studios", "company_id": 420},
         {"key": "dcu", "label": "DC", "company": "DC Studios", "company_id": None},
     ],
-    "watchlist": [{"type": "movie", "id": 1005, "title": "Frankenstein", "label": "Mine"}],
+    "watchlist": [{"type": "movie", "id": 1005, "title": "Frankenstein", "label": "Mine"},
+                  {"type": "tv", "id": 2005, "title": "Ended But Pinned", "label": "Mine"}],
     "ignore": [],
     "soon_days": 7, "near_days": 30, "keep_released_days": 14,
 }
@@ -121,12 +122,19 @@ def test_buckets():
     ok("this week", titles["now"], ["Avengers: Doomsday", "Daredevil: Born Again"])
     ok("next 30 days", titles["soon"], ["Frankenstein", "Spider-Man: Brand New Day"])
     ok("later", titles["later"], ["Lanterns", "Wonder Man"])
-    ok("no date yet", titles["tba"], ["Peacemaker", "Untitled Marvel Event Film"])
+    ok("no date yet", titles["tba"],
+       ["Ended But Pinned", "Peacemaker", "Untitled Marvel Event Film"])
     ok("just out", titles["out"], ["Thunderbolts"])
 
     every = [t for v in titles.values() for t in v]
     true("an ended show with no date is dropped", "Loki" not in every)
     true("a film released last year is dropped", "Last Year's Marvel Film" not in every)
+    # The popularity pass keeps every SERIES, because a renewed-but-unscheduled
+    # show has no date to gate on -- but for FILMS it keeps only the blanks.
+    true("a returning series with no date is picked up", "Peacemaker" in every)
+    true("the popularity pass does not add dated films",
+         "Should Not Appear" not in every)
+    true("a pinned title survives an Ended status", "Ended But Pinned" in every)
     ok("nothing is listed twice", len(every), len(set(every)))
 
     src = {r["title"]: r["source"] for v in b.values() for r in v}
@@ -138,6 +146,37 @@ def test_buckets():
     ok("sections sort by date", ordered, sorted(ordered))
     ok("just out sorts newest first", [r["date"] for r in b["out"]],
        sorted([r["date"] for r in b["out"]], reverse=True))
+
+
+def test_discover_queries():
+    """The gate field is the whole reason mid-run shows were invisible."""
+    seen = []
+    real = tmdb.get
+
+    def spy(path, ttl=None, **params):
+        seen.append((path, params))
+        return real(path, ttl, **params)
+
+    tmdb.use_fixtures(fixtures())
+    tmdb.get = spy
+    try:
+        tmdb.discover("tv", 420, TODAY)
+        tmdb.discover("movie", 420, TODAY)
+    finally:
+        tmdb.get = real
+
+    tv = [p for path, p in seen if path == "discover/tv"]
+    mv = [p for path, p in seen if path == "discover/movie"]
+    true("series gate on any episode air date, not the first",
+         any("air_date.gte" in p and "first_air_date.gte" not in p for p in tv))
+    true("series exclude podcasts by type", all(p.get("with_type") for p in tv))
+    true("series exclude animation and talk",
+         all("16" in str(p.get("without_genres")) and "10767" in str(p.get("without_genres"))
+             for p in tv))
+    true("films gate on their release date",
+         any("primary_release_date.gte" in p for p in mv))
+    true("films exclude animation but have no type filter",
+         all(str(p.get("without_genres")) == "16" and "with_type" not in p for p in mv))
 
 
 def test_ignore():
@@ -174,9 +213,34 @@ def test_new_badge():
 
 # ------------------------------------------------------------ formatting
 
+def test_first_run_badges_nothing():
+    """Everything is first-seen-today on run one; badging it all says nothing."""
+    tmdb.use_fixtures(fixtures())
+    with tempfile.TemporaryDirectory() as tmp:
+        saved, watch.SEEN = watch.SEEN, os.path.join(tmp, "seen.json")
+        try:
+            rows = watch.collect(CFG, TODAY, record=True)
+        finally:
+            watch.SEEN = saved
+    ok("nothing is new before there is a before",
+       sorted({r["is_new"] for r in rows}), [False])
+    ok("and the seed batch is backdated, so it is not new tomorrow either",
+       sorted({r["first_seen"] for r in rows}), [watch.SEED])
+
+
+def test_undated_labels():
+    data = run_build()
+    by = {r["title"]: r["when"] for r in data["buckets"]["tba"]}
+    ok("an undated film says what stage it is at", by["Untitled Marvel Event Film"], "Announced")
+    ok("an undated series says it is returning", by["Peacemaker"], "Returning")
+    true("nothing undated says 'Release' or 'Series'",
+         not {v for v in by.values()} & {"Release", "Series"})
+
+
 def test_ui():
     ok("this year needs no year", ui.day_parts("2026-09-02", TODAY), ("Sep 2", "Wed"))
-    ok("another year says so", ui.day_parts("2027-09-02", TODAY), ("Sep 2 2027", ""))
+    ok("another year drops the day, not the year",
+       ui.day_parts("2027-09-02", TODAY), ("Sep 2027", ""))
     ok("no date", ui.day_parts(None, TODAY), ("TBA", ""))
     ok("today", ui.relative("2026-08-29", TODAY), "Today")
     ok("tomorrow", ui.relative("2026-08-30", TODAY), "Tomorrow")

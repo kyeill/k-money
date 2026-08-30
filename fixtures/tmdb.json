@@ -1,122 +1,512 @@
 [
- { "path": "search/company", "when": {"query": "DC Studios"},
-   "data": {"results": [{"id": 9993, "name": "DC Entertainment"},
-                        {"id": 128064, "name": "DC Studios"}]} },
-
- { "path": "discover/movie", "when": {"with_companies": 420, "sort_by": "primary_release_date.asc"},
-   "data": {"total_pages": 1, "results": [
-     {"id": 1000, "primary_release_date": "2026-09-02"},
-     {"id": 1001, "primary_release_date": "2026-09-20"},
-     {"id": 1003, "primary_release_date": "2026-08-25"},
-     {"id": 1004, "primary_release_date": "2025-05-02"}]} },
- { "path": "discover/movie", "when": {"with_companies": 420, "sort_by": "popularity.desc"},
-   "data": {"total_pages": 1, "results": [
-     {"id": 1000, "primary_release_date": "2026-09-02"},
-     {"id": 1002, "primary_release_date": ""}]} },
-
- { "path": "discover/tv", "when": {"with_companies": 420, "sort_by": "first_air_date.asc"},
-   "data": {"total_pages": 1, "results": [
-     {"id": 2000, "first_air_date": "2025-03-04"},
-     {"id": 2001, "first_air_date": "2026-12-01"},
-     {"id": 2002, "first_air_date": "2022-01-13"},
-     {"id": 2003, "first_air_date": "2021-06-09"}]} },
- { "path": "discover/tv", "when": {"with_companies": 420, "sort_by": "popularity.desc"},
-   "data": {"total_pages": 1, "results": []} },
-
- { "path": "discover/movie", "when": {"with_companies": 128064},
-   "data": {"total_pages": 1, "results": []} },
- { "path": "discover/tv", "when": {"with_companies": 128064, "sort_by": "first_air_date.asc"},
-   "data": {"total_pages": 1, "results": [{"id": 2004, "first_air_date": "2026-09-10"}]} },
- { "path": "discover/tv", "when": {"with_companies": 128064, "sort_by": "popularity.desc"},
-   "data": {"total_pages": 1, "results": []} },
-
- { "path": "movie/1000",
-   "_note": "Global release_date is a foreign premiere ten days before the US run.",
-   "data": {"id": 1000, "title": "Avengers: Doomsday", "status": "Post Production",
-     "release_date": "2026-08-20", "poster_path": "/a.jpg",
-     "release_dates": {"results": [
-       {"iso_3166_1": "GB", "release_dates": [{"type": 3, "release_date": "2026-08-20T00:00:00.000Z"}]},
-       {"iso_3166_1": "US", "release_dates": [
-         {"type": 1, "release_date": "2026-08-31T00:00:00.000Z"},
-         {"type": 3, "release_date": "2026-09-02T00:00:00.000Z"},
-         {"type": 4, "release_date": "2026-11-10T00:00:00.000Z"}]}]},
-     "watch/providers": {"results": {}}} },
-
- { "path": "movie/1001",
-   "_note": "Digital only -- no theatrical run at all.",
-   "data": {"id": 1001, "title": "Spider-Man: Brand New Day", "status": "Post Production",
-     "release_date": "2026-09-20", "poster_path": "/b.jpg",
-     "release_dates": {"results": [{"iso_3166_1": "US", "release_dates": [
-       {"type": 4, "release_date": "2026-09-20T00:00:00.000Z"}]}]},
-     "watch/providers": {"results": {}}} },
-
- { "path": "movie/1002",
-   "data": {"id": 1002, "title": "Untitled Marvel Event Film", "status": "Planned",
-     "release_date": "", "poster_path": null,
-     "release_dates": {"results": []}, "watch/providers": {"results": {}}} },
-
- { "path": "movie/1003",
-   "_note": "Out four days ago, and streaming -- rent/buy must be ignored.",
-   "data": {"id": 1003, "title": "Thunderbolts", "status": "Released",
-     "release_date": "2026-08-25", "poster_path": "/c.jpg",
-     "release_dates": {"results": [{"iso_3166_1": "US", "release_dates": [
-       {"type": 3, "release_date": "2026-08-25T00:00:00.000Z"}]}]},
-     "watch/providers": {"results": {"US": {
-       "flatrate": [{"provider_name": "Disney Plus"}],
-       "rent": [{"provider_name": "Apple TV"}],
-       "buy": [{"provider_name": "Amazon Video"}]}}}} },
-
- { "path": "movie/1004",
-   "data": {"id": 1004, "title": "Last Year's Marvel Film", "status": "Released",
-     "release_date": "2025-05-02", "poster_path": "/d.jpg",
-     "release_dates": {"results": [{"iso_3166_1": "US", "release_dates": [
-       {"type": 3, "release_date": "2025-05-02T00:00:00.000Z"}]}]},
-     "watch/providers": {"results": {"US": {"flatrate": [{"provider_name": "Disney Plus"}]}}}} },
-
- { "path": "movie/1005",
-   "_note": "A hand-added one-off, not from any tracked studio.",
-   "data": {"id": 1005, "title": "Frankenstein", "status": "Post Production",
-     "release_date": "2026-09-10", "poster_path": "/e.jpg",
-     "release_dates": {"results": [{"iso_3166_1": "US", "release_dates": [
-       {"type": 3, "release_date": "2026-09-10T00:00:00.000Z"}]}]},
-     "watch/providers": {"results": {"US": {"flatrate": [{"provider_name": "Netflix"}]}}}} },
-
- { "path": "tv/2000",
-   "_note": "Mid-run. The episode NAME is TMDB's filler and must be dropped.",
-   "data": {"id": 2000, "name": "Daredevil: Born Again", "status": "Returning Series",
-     "first_air_date": "2025-03-04", "poster_path": "/f.jpg", "seasons": [],
-     "next_episode_to_air": {"air_date": "2026-09-02", "season_number": 2,
-                             "episode_number": 4, "name": "Episode 4"},
-     "watch/providers": {"results": {"US": {"flatrate": [{"provider_name": "Disney Plus"}]}}}} },
-
- { "path": "tv/2001",
-   "_note": "Never aired. first_air_date is the premiere.",
-   "data": {"id": 2001, "name": "Wonder Man", "status": "Planned",
-     "first_air_date": "2026-12-01", "poster_path": "/g.jpg",
-     "seasons": [{"season_number": 1, "air_date": "2026-12-01"}],
-     "next_episode_to_air": null, "watch/providers": {"results": {}}} },
-
- { "path": "tv/2002",
-   "_note": "Renewed with no date -- the TBA case that matters.",
-   "data": {"id": 2002, "name": "Peacemaker", "status": "Returning Series",
-     "first_air_date": "2022-01-13", "poster_path": "/h.jpg",
-     "seasons": [{"season_number": 1, "air_date": "2022-01-13"},
-                 {"season_number": 3, "air_date": null}],
-     "next_episode_to_air": null,
-     "watch/providers": {"results": {"US": {"flatrate": [{"provider_name": "HBO Max"}]}}}} },
-
- { "path": "tv/2003",
-   "_note": "Finished. Undated AND over, so it belongs nowhere.",
-   "data": {"id": 2003, "name": "Loki", "status": "Ended",
-     "first_air_date": "2021-06-09", "poster_path": "/i.jpg", "seasons": [],
-     "next_episode_to_air": null, "watch/providers": {"results": {}}} },
-
- { "path": "tv/2004",
-   "_note": "Between seasons: no next episode, but a dated season ahead.",
-   "data": {"id": 2004, "name": "Lanterns", "status": "Returning Series",
-     "first_air_date": "2026-09-10", "poster_path": "/j.jpg",
-     "seasons": [{"season_number": 1, "air_date": "2026-09-10"}],
-     "next_episode_to_air": {"air_date": "2026-10-15", "season_number": 1,
-                             "episode_number": 6, "name": "The Green Sea"},
-     "watch/providers": {"results": {"US": {"flatrate": [{"provider_name": "HBO Max"}]}}}} }
+ {
+  "path": "search/company",
+  "when": {
+   "query": "DC Studios"
+  },
+  "data": {
+   "results": [
+    {
+     "id": 9993,
+     "name": "DC Entertainment"
+    },
+    {
+     "id": 184898,
+     "name": "DC Studios"
+    }
+   ]
+  }
+ },
+ {
+  "path": "discover/movie",
+  "when": {
+   "with_companies": 420,
+   "sort_by": "primary_release_date.asc"
+  },
+  "data": {
+   "total_pages": 1,
+   "results": [
+    {
+     "id": 1000,
+     "primary_release_date": "2026-09-02"
+    },
+    {
+     "id": 1001,
+     "primary_release_date": "2026-09-20"
+    },
+    {
+     "id": 1003,
+     "primary_release_date": "2026-08-25"
+    },
+    {
+     "id": 1004,
+     "primary_release_date": "2025-05-02"
+    }
+   ]
+  }
+ },
+ {
+  "path": "discover/movie",
+  "when": {
+   "with_companies": 420,
+   "sort_by": "popularity.desc"
+  },
+  "data": {
+   "total_pages": 1,
+   "results": [
+    {
+     "id": 1002,
+     "primary_release_date": ""
+    },
+    {
+     "id": 1006,
+     "primary_release_date": "2026-11-05"
+    }
+   ]
+  }
+ },
+ {
+  "path": "discover/tv",
+  "when": {
+   "with_companies": 420,
+   "sort_by": "first_air_date.asc"
+  },
+  "data": {
+   "total_pages": 1,
+   "results": [
+    {
+     "id": 2000,
+     "first_air_date": "2025-03-04"
+    },
+    {
+     "id": 2001,
+     "first_air_date": "2026-12-01"
+    }
+   ]
+  }
+ },
+ {
+  "path": "discover/tv",
+  "when": {
+   "with_companies": 420,
+   "sort_by": "popularity.desc"
+  },
+  "data": {
+   "total_pages": 1,
+   "results": [
+    {
+     "id": 2002,
+     "first_air_date": "2022-01-13"
+    },
+    {
+     "id": 2003,
+     "first_air_date": "2021-06-09"
+    }
+   ]
+  }
+ },
+ {
+  "path": "discover/movie",
+  "when": {
+   "with_companies": 184898
+  },
+  "data": {
+   "total_pages": 1,
+   "results": []
+  }
+ },
+ {
+  "path": "discover/tv",
+  "when": {
+   "with_companies": 184898,
+   "sort_by": "first_air_date.asc"
+  },
+  "data": {
+   "total_pages": 1,
+   "results": [
+    {
+     "id": 2004,
+     "first_air_date": "2026-09-10"
+    }
+   ]
+  }
+ },
+ {
+  "path": "discover/tv",
+  "when": {
+   "with_companies": 184898,
+   "sort_by": "popularity.desc"
+  },
+  "data": {
+   "total_pages": 1,
+   "results": []
+  }
+ },
+ {
+  "path": "movie/1000",
+  "_note": "Global release_date is a foreign premiere ten days before the US run.",
+  "data": {
+   "id": 1000,
+   "title": "Avengers: Doomsday",
+   "status": "Post Production",
+   "release_date": "2026-08-20",
+   "poster_path": "/a.jpg",
+   "release_dates": {
+    "results": [
+     {
+      "iso_3166_1": "GB",
+      "release_dates": [
+       {
+        "type": 3,
+        "release_date": "2026-08-20T00:00:00.000Z"
+       }
+      ]
+     },
+     {
+      "iso_3166_1": "US",
+      "release_dates": [
+       {
+        "type": 1,
+        "release_date": "2026-08-31T00:00:00.000Z"
+       },
+       {
+        "type": 3,
+        "release_date": "2026-09-02T00:00:00.000Z"
+       },
+       {
+        "type": 4,
+        "release_date": "2026-11-10T00:00:00.000Z"
+       }
+      ]
+     }
+    ]
+   },
+   "watch/providers": {
+    "results": {}
+   }
+  }
+ },
+ {
+  "path": "movie/1001",
+  "_note": "Digital only -- no theatrical run at all.",
+  "data": {
+   "id": 1001,
+   "title": "Spider-Man: Brand New Day",
+   "status": "Post Production",
+   "release_date": "2026-09-20",
+   "poster_path": "/b.jpg",
+   "release_dates": {
+    "results": [
+     {
+      "iso_3166_1": "US",
+      "release_dates": [
+       {
+        "type": 4,
+        "release_date": "2026-09-20T00:00:00.000Z"
+       }
+      ]
+     }
+    ]
+   },
+   "watch/providers": {
+    "results": {}
+   }
+  }
+ },
+ {
+  "path": "movie/1002",
+  "data": {
+   "id": 1002,
+   "title": "Untitled Marvel Event Film",
+   "status": "Planned",
+   "release_date": "",
+   "poster_path": null,
+   "release_dates": {
+    "results": []
+   },
+   "watch/providers": {
+    "results": {}
+   }
+  }
+ },
+ {
+  "path": "movie/1003",
+  "_note": "Out four days ago, and streaming -- rent/buy must be ignored.",
+  "data": {
+   "id": 1003,
+   "title": "Thunderbolts",
+   "status": "Released",
+   "release_date": "2026-08-25",
+   "poster_path": "/c.jpg",
+   "release_dates": {
+    "results": [
+     {
+      "iso_3166_1": "US",
+      "release_dates": [
+       {
+        "type": 3,
+        "release_date": "2026-08-25T00:00:00.000Z"
+       }
+      ]
+     }
+    ]
+   },
+   "watch/providers": {
+    "results": {
+     "US": {
+      "flatrate": [
+       {
+        "provider_name": "Disney Plus"
+       }
+      ],
+      "rent": [
+       {
+        "provider_name": "Apple TV"
+       }
+      ],
+      "buy": [
+       {
+        "provider_name": "Amazon Video"
+       }
+      ]
+     }
+    }
+   }
+  }
+ },
+ {
+  "path": "movie/1004",
+  "data": {
+   "id": 1004,
+   "title": "Last Year's Marvel Film",
+   "status": "Released",
+   "release_date": "2025-05-02",
+   "poster_path": "/d.jpg",
+   "release_dates": {
+    "results": [
+     {
+      "iso_3166_1": "US",
+      "release_dates": [
+       {
+        "type": 3,
+        "release_date": "2025-05-02T00:00:00.000Z"
+       }
+      ]
+     }
+    ]
+   },
+   "watch/providers": {
+    "results": {
+     "US": {
+      "flatrate": [
+       {
+        "provider_name": "Disney Plus"
+       }
+      ]
+     }
+    }
+   }
+  }
+ },
+ {
+  "path": "movie/1005",
+  "_note": "A hand-added one-off, not from any tracked studio.",
+  "data": {
+   "id": 1005,
+   "title": "Frankenstein",
+   "status": "Post Production",
+   "release_date": "2026-09-10",
+   "poster_path": "/e.jpg",
+   "release_dates": {
+    "results": [
+     {
+      "iso_3166_1": "US",
+      "release_dates": [
+       {
+        "type": 3,
+        "release_date": "2026-09-10T00:00:00.000Z"
+       }
+      ]
+     }
+    ]
+   },
+   "watch/providers": {
+    "results": {
+     "US": {
+      "flatrate": [
+       {
+        "provider_name": "Netflix"
+       }
+      ]
+     }
+    }
+   }
+  }
+ },
+ {
+  "path": "tv/2000",
+  "_note": "Mid-run. The episode NAME is TMDB's filler and must be dropped.",
+  "data": {
+   "id": 2000,
+   "name": "Daredevil: Born Again",
+   "status": "Returning Series",
+   "first_air_date": "2025-03-04",
+   "poster_path": "/f.jpg",
+   "seasons": [],
+   "next_episode_to_air": {
+    "air_date": "2026-09-02",
+    "season_number": 2,
+    "episode_number": 4,
+    "name": "Episode 4"
+   },
+   "watch/providers": {
+    "results": {
+     "US": {
+      "flatrate": [
+       {
+        "provider_name": "Disney Plus"
+       }
+      ]
+     }
+    }
+   }
+  }
+ },
+ {
+  "path": "tv/2001",
+  "_note": "Never aired. first_air_date is the premiere.",
+  "data": {
+   "id": 2001,
+   "name": "Wonder Man",
+   "status": "Planned",
+   "first_air_date": "2026-12-01",
+   "poster_path": "/g.jpg",
+   "seasons": [
+    {
+     "season_number": 1,
+     "air_date": "2026-12-01"
+    }
+   ],
+   "next_episode_to_air": null,
+   "watch/providers": {
+    "results": {}
+   }
+  }
+ },
+ {
+  "path": "tv/2002",
+  "_note": "Renewed with no date -- the TBA case that matters.",
+  "data": {
+   "id": 2002,
+   "name": "Peacemaker",
+   "status": "Returning Series",
+   "first_air_date": "2022-01-13",
+   "poster_path": "/h.jpg",
+   "seasons": [
+    {
+     "season_number": 1,
+     "air_date": "2022-01-13"
+    },
+    {
+     "season_number": 3,
+     "air_date": null
+    }
+   ],
+   "next_episode_to_air": null,
+   "watch/providers": {
+    "results": {
+     "US": {
+      "flatrate": [
+       {
+        "provider_name": "HBO Max"
+       }
+      ]
+     }
+    }
+   }
+  }
+ },
+ {
+  "path": "tv/2003",
+  "_note": "Finished. Undated AND over, so it belongs nowhere.",
+  "data": {
+   "id": 2003,
+   "name": "Loki",
+   "status": "Ended",
+   "first_air_date": "2021-06-09",
+   "poster_path": "/i.jpg",
+   "seasons": [],
+   "next_episode_to_air": null,
+   "watch/providers": {
+    "results": {}
+   }
+  }
+ },
+ {
+  "path": "tv/2004",
+  "_note": "Between seasons: no next episode, but a dated season ahead.",
+  "data": {
+   "id": 2004,
+   "name": "Lanterns",
+   "status": "Returning Series",
+   "first_air_date": "2026-09-10",
+   "poster_path": "/j.jpg",
+   "seasons": [
+    {
+     "season_number": 1,
+     "air_date": "2026-09-10"
+    }
+   ],
+   "next_episode_to_air": {
+    "air_date": "2026-10-15",
+    "season_number": 1,
+    "episode_number": 6,
+    "name": "The Green Sea"
+   },
+   "watch/providers": {
+    "results": {
+     "US": {
+      "flatrate": [
+       {
+        "provider_name": "HBO Max"
+       }
+      ]
+     }
+    }
+   }
+  }
+ },
+ {
+  "path": "movie/1006",
+  "_note": "Dated, and reachable only through the popularity pass, which keeps blanks only.",
+  "data": {
+   "id": 1006,
+   "title": "Should Not Appear",
+   "status": "Post Production",
+   "release_date": "2026-11-05",
+   "poster_path": null,
+   "release_dates": {
+    "results": []
+   },
+   "watch/providers": {
+    "results": {}
+   }
+  }
+ },
+ {
+  "path": "tv/2005",
+  "_note": "TMDB says Ended while a new season is announced. Pinned by hand, so it must survive.",
+  "data": {
+   "id": 2005,
+   "name": "Ended But Pinned",
+   "status": "Ended",
+   "first_air_date": "2021-01-01",
+   "poster_path": null,
+   "seasons": [],
+   "next_episode_to_air": null,
+   "watch/providers": {
+    "results": {}
+   }
+  }
+ }
 ]
