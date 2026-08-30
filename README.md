@@ -4,8 +4,13 @@ A rolling list of what is coming out — Marvel, DC and Star Wars by default,
 plus whatever one-offs are worth following — built once a morning by GitHub
 Actions and published as an installable page.
 
-It is a **tab shell**. Two tabs today — **Reminders** and **Watchlist** — and
-`tabs.py` is the only file that knows that.
+It is a **tab shell**. Three tabs — **Reminders**, **Church** and
+**Watchlist** — and `tabs.py` is the only file that knows that; its order is
+the nav order.
+
+Reminders and Church both read the same Google Sheet, **by tab name**. Asking a
+Sheet for a tab that does not exist returns the FIRST one, so position would
+mean a reorder silently redirects everything.
 
 ## Reminders
 
@@ -132,6 +137,22 @@ serving whatever was deployed. After any edit: **Deploy → Manage deployments �
 pencil → Version: New version → Deploy**. Paste and run `setup()` BEFORE
 deploying, or the web app goes live without `doGet` and ticks fail silently.
 
+## Church
+
+Dated events from the `Church` tab: `Title | Date`, nothing else. Grouped by
+day, soonest first, and only days that actually have something on them — most
+days do not, and a column of empty headings would bury the handful that matter.
+Dates in the past are dropped.
+
+Much simpler than Reminders on purpose. Every row carries its own date, so
+there is no cadence to recompute, nothing to notify, and nothing that has to
+stay in step with the Apps Script. Dates parse as US or ISO; one that cannot be
+read is named on the page rather than the event just never appearing.
+
+This one is baked at build time only — no live re-fetch — so an edit shows up
+on the next morning's build. Adding the live refresh is small if it turns out
+to matter.
+
 ## Watchlist
 
 **One list, ordered by when each thing is next out.** No horizon buckets.
@@ -204,7 +225,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         228 assertions, no key and no network needed
+python selftest.py         243 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
@@ -274,6 +295,7 @@ bar made the app look like it had none.
 ```
 tmdb.py      the only thing that talks to TMDB; disk-cached
 watch.py     the Watchlist tab -- date logic, ordering, and its own render
+church.py    the Church tab -- dated events, no cadences, no notifications
 reminders.py the Reminders tab -- sheet rules, and the same rules again in JS
 ui.py        shared render helpers
 tabs.py      the registry; this list's ORDER is the nav order

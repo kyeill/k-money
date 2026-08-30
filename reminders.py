@@ -34,6 +34,7 @@ AFTERNOON_HOUR = 13
 # Ticks live in a second tab so every device sees the same state and the Apps
 # Script can read it too -- that one decision is what makes ticking something
 # off both sync across devices AND stop the notification.
+REMINDERS_TAB = "Reminders"
 DONE_TAB = "Done"
 DONE_HEADER = ["date", "key", "done", "updated"]
 
@@ -102,7 +103,8 @@ def header_ok(header):
 def fetch_csv(sheet_id, tab=None):
     """KMONEY_REMINDERS_CSV / _DONE point at local files instead, for tests and
     for `site.py --fixtures`."""
-    env = "KMONEY_REMINDERS_DONE" if tab else "KMONEY_REMINDERS_CSV"
+    env = ("KMONEY_REMINDERS_DONE" if tab == DONE_TAB
+           else "KMONEY_REMINDERS_CSV")
     local = os.environ.get(env)
     if local:
         if not os.path.exists(local):
@@ -233,23 +235,8 @@ def parse_every(text):
     return None
 
 
-def parse_date(text):
-    """A date from a Sheets cell.
-
-    Sheets renders dates in the viewer's locale, so the CSV can hand back
-    "9/7/2026" rather than ISO -- the same trap the time column sets. Both are
-    accepted; US month-first is assumed for the slash form, which is what this
-    sheet is in.
-    """
-    text = (text or "").strip()
-    if not text:
-        return None
-    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y", "%Y/%m/%d"):
-        try:
-            return dt.datetime.strptime(text, fmt).date()
-        except ValueError:
-            pass
-    return None
+# Shared with the Church tab, so the two cannot drift apart on date parsing.
+parse_date = ui.sheet_date
 
 
 def parse_months(text):
@@ -695,7 +682,8 @@ JS = """
     // pull-down can show an edit made a minute ago rather than this morning's
     // build. cache-busted, or the browser hands back its own copy.
     return 'https://docs.google.com/spreadsheets/d/'+SHEET+
-           '/gviz/tq?tqx=out:csv'+(tab?'&sheet='+tab:'')+'&_='+Date.now();
+           '/gviz/tq?tqx=out:csv'+(tab?'&sheet='+encodeURIComponent(tab):'')+
+           '&_='+Date.now();
   }
   function readDone(text){
     var rows=splitCSV(text||''), out={}, i;
@@ -714,7 +702,7 @@ JS = """
     if(busy||!SHEET) return;
     busy=true;
     var rules=null;
-    fetch(sheetCsv(null),{cache:'no-store'})
+    fetch(sheetCsv('Reminders'),{cache:'no-store'})
       .then(function(r){ if(!r.ok) throw new Error(r.status); return r.text(); })
       .then(function(t){
         rules=readRules(t);
@@ -775,13 +763,8 @@ def clock(at):
     return "%d:%02d %s" % (hour, at[1], "am" if at[0] < 12 else "pm")
 
 
-def day_label(day, today):
-    """Only today is named. "Tomorrow" reads fine in isolation but sits oddly
-    above a column of real dates, and it is one more thing to translate in your
-    head when you are looking for a particular day."""
-    if day == today:
-        return "Today"
-    return day.strftime("%A, %b ") + str(day.day)
+# "Tomorrow" read fine alone but sat oddly above a column of real dates.
+day_label = ui.day_heading
 
 
 def starts_afternoon(due, i):
@@ -851,7 +834,7 @@ def build(today=None, cfg=None, record=True):
         return {"today": today, "days": [], "count": 0,
                 "error": "no reminders_sheet in config.json", "sheet": ""}
     try:
-        sheet_csv = fetch_csv(sheet)
+        sheet_csv = fetch_csv(sheet, cfg.get("reminders_tab", REMINDERS_TAB))
         rules = read_rules(sheet_csv)
     except Exception as exc:          # a bad sheet must not kill the build
         return {"today": today, "days": [], "count": 0,

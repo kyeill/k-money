@@ -591,6 +591,51 @@ def test_afternoon_gap():
         for i in range(4)], [False, True, False, False])
 
 
+def test_church():
+    """Dated events, grouped, from today onward. Much simpler than Reminders:
+    every row carries its own date, so there is no cadence to recompute and
+    nothing for the Apps Script to stay in step with."""
+    import church
+    text = open(os.path.join(HERE, "fixtures", "church.csv"),
+                encoding="utf-8").read()
+    days, bad = church.read_events(text, dt.date(2026, 8, 30))
+
+    ok("grouped by date, soonest first", [str(d) for d, _ in days],
+       ["2026-09-08", "2026-09-20", "2026-10-13"])
+    ok("two on the same day come through together",
+       days[1][1], ["C Group: Lesson 1", "Sunday School: Lesson 2"])
+    ok("US and ISO dates both parse", days[2][1], ["ISO form"])
+
+    flat = [t for _, ts in days for t in ts]
+    true("a past date is dropped", "Lead Worship" not in flat)
+    true("a row with no date is dropped", "No date row" not in flat)
+    true("a row with no title is dropped", "" not in flat)
+    # A date we cannot read must be visible, not just absent -- otherwise the
+    # event silently never appears.
+    ok("an unreadable date is reported", bad, ["Bad date"])
+
+    html = church.render({"today": dt.date(2026, 8, 30), "days": days,
+                          "unreadable": bad, "error": None})
+    ok("a heading per day", html.count('class="cday"'), 3)
+    ok("an entry per event", html.count('class="cev"'), 4)
+    true("headings carry the date", "<h2>Tuesday, Sep 8</h2>" in html)
+    true("the bad row is named", "Bad date" in html)
+    true("no checkboxes here", "checkbox" not in html)
+
+    empty = church.render({"today": dt.date(2026, 8, 30), "days": [],
+                           "unreadable": [], "error": None})
+    true("an empty list says so", "Nothing coming up." in empty)
+    true("a broken tab renders an error, not a traceback",
+         'class="rerr"' in church.render(
+             {"today": dt.date(2026, 8, 30), "days": [], "error": "boom"}))
+
+    try:
+        church.read_events('"Nope","Nah"\n"x","y"', dt.date(2026, 8, 30))
+        ok("a wrong header is refused", "no error", "SheetError")
+    except Exception:
+        ok("a wrong header is refused", "SheetError", "SheetError")
+
+
 def test_maskable_icon():
     """The manifest promises "any maskable". Android then masks the icon to the
     launcher's shape and crops toward a circle of 80% diameter, so the artwork

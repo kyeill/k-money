@@ -43,6 +43,7 @@ var GRACE_MINUTES = 15;        // how late a reminder may fire before it is skip
 
 // Ticks live in a second tab so every device sees them and this script can too.
 // setup() creates it; nothing to do by hand.
+var REMINDERS_TAB = 'Reminders';
 var DONE_TAB = 'Done';
 var DONE_HEADER = ['Date', 'Key', 'Done', 'Updated'];
 var KEEP_DONE_DAYS = 30;       // older rows are pruned on write
@@ -214,7 +215,13 @@ var EXPECT = ['title', 'time', 'mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'];
 var OPTIONAL = ['nth', 'weekday', 'every', 'starting', 'months'];
 
 function readRules() {
-  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheets()[0];
+  // BY NAME, not position. There are other tabs in this spreadsheet now, and
+  // reordering them would otherwise silently point this at the wrong one. The
+  // fallback keeps it working if the tab is renamed -- the header check below
+  // is what actually guarantees we are reading reminders and not something
+  // else.
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(REMINDERS_TAB) || ss.getSheets()[0];
   // Display values, not raw ones: a time cell read raw comes back as a Date on
   // the 1899-12-30 epoch, which is a different parsing problem in every
   // timezone. The displayed "12:30 PM" is also exactly what the CSV endpoint

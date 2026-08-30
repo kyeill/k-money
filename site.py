@@ -248,7 +248,7 @@ def render(built, panes):
         "%(font)s<style>%(css)s</style></head><body><div class=\"wrap\">"
         "<header><h1>%(app)s<span>%(pretty)s</span></h1></header>"
         "<nav>%(nav)s</nav>%(body)s"
-        "<footer>Built %(pretty)s · data from TMDB</footer>"
+        "<footer>Built %(pretty)s · film data from TMDB</footer>"
         "</div><script>%(js)s</script></body></html>"
     ) % {
         "app": ui.esc(APP), "font": FONT, "css": css, "nav": nav, "body": body,
@@ -283,6 +283,8 @@ def main():
             HERE, "fixtures", "reminders.csv")
         os.environ["KMONEY_REMINDERS_DONE"] = os.path.join(
             HERE, "fixtures", "reminders-done.csv")
+        os.environ["KMONEY_CHURCH_CSV"] = os.path.join(
+            HERE, "fixtures", "church.csv")
 
     panes = []
     for tab in tabs.TABS:

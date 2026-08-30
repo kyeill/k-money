@@ -29,6 +29,32 @@ def day_parts(iso, today=None):
     return ("%s %d" % (day.strftime("%b"), day.day), day.strftime("%A"))
 
 
+def sheet_date(text):
+    """A date out of a Sheets cell.
+
+    Sheets renders dates in the viewer's locale, so the CSV hands back
+    "9/8/26" rather than ISO -- the same trap the time column sets. Every
+    plausible form is accepted rather than assuming one.
+    """
+    text = (text or "").strip()
+    if not text:
+        return None
+    for fmt in ("%Y-%m-%d", "%m/%d/%Y", "%m/%d/%y", "%Y/%m/%d"):
+        try:
+            return dt.datetime.strptime(text, fmt).date()
+        except ValueError:
+            pass
+    return None
+
+
+def day_heading(day, today):
+    """Only today is named; everything else carries its date. Shared so the
+    tabs cannot drift into two different date formats."""
+    if day == today:
+        return "Today"
+    return day.strftime("%A, %b ") + str(day.day)
+
+
 def relative(iso, today):
     """'Today', 'Tomorrow', or ''. Only worth saying inside the near horizon."""
     if not iso:

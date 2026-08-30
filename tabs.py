@@ -13,10 +13,11 @@ Nothing else in the app knows what a tab is. A new tab is a module plus one
 line here -- and this list's ORDER is the nav order.
 """
 
+import church
 import reminders
 import watch
 
-TABS = [reminders, watch]
+TABS = [reminders, church, watch]
 
 
 def by_key(key):
