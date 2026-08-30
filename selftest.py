@@ -568,6 +568,25 @@ def test_done_render():
          "example.invalid" in reminders.page_js(data))
     true("no unreplaced placeholders", "%%" not in reminders.page_js(data))
 
+    # Today's unticked rows are shaded the Church orange. This is CSS alone --
+    # `.tick` is only ever on today's rows and `.done` is already toggled by
+    # the checkbox handler, so ticking clears the shading with no JS involved,
+    # and a future day (no `.tick`) is never shaded at all.
+    true("the shading targets today's unticked rows only",
+         "label.rem.tick:not(.done){" in reminders.CSS)
+    true("it is the Church orange, not a second one",
+         ui.COLORS["orange"] + ";" in reminders.CSS)
+    true("laid over the card, like the Church rows",
+         "linear-gradient(%s,%s),var(--card)"
+         % (ui.wash(ui.COLORS["orange"]), ui.wash(ui.COLORS["orange"]))
+         in reminders.CSS)
+    # Every row carries the transparent edge, so shading one does not shunt its
+    # contents 3px sideways.
+    true("the coloured edge is reserved on every row",
+         "border-left:4px solid transparent" in reminders.CSS)
+    true("no placeholder survived the CSS substitution",
+         "%(tint)s" not in reminders.CSS and "%(wash)s" not in reminders.CSS)
+
 
 def test_afternoon_gap():
     """A day reads as morning then the rest, so the first thing at or after 1pm
@@ -644,7 +663,7 @@ def test_church():
     # The bubble is washed in the same colour, not just edged with it.
     ok("a wash goes with every stripe", html.count("--wash:"), 4)
     ok("the wash is the stripe colour, made faint",
-       church.wash("#8b93a0"), "rgba(139,147,160,0.13)")
+       ui.wash("#8b93a0"), "rgba(139,147,160,0.13)")
     true("the wash is laid OVER the card, not instead of it -- a translucent "
          "colour on the page background would sit darker than a plain row",
          "linear-gradient(var(--wash),var(--wash)),var(--card)" in church.CSS)

@@ -25,17 +25,9 @@ TAB = "Church"
 REQUIRED = ["title", "date"]
 OPTIONAL = ["details", "color"]
 
-# Named rather than hex, because the Sheet gets edited from a phone and
-# "Orange" is a thing you can type. Every value is picked to show against the
-# dark card: black and white say nothing as a stripe, so those two are bent
-# towards a slate and a bone rather than rejected.
-COLORS = {
-    "red": "#e03a3e", "orange": "#e8730c", "amber": "#e0a72b",
-    "yellow": "#e0c341", "green": "#3aab5c", "teal": "#25a1a1",
-    "blue": "#3d8ee0", "navy": "#5a7fd6", "purple": "#9a6ee0",
-    "pink": "#e05c96", "brown": "#b07a52", "gray": "#8b93a0",
-    "grey": "#8b93a0", "black": "#6d7480", "white": "#d6d3cd",
-}
+# The palette lives in ui.py: Reminders shades today's unticked rows in the
+# same orange, and church.py imports reminders.py, so it cannot live here.
+COLORS = ui.COLORS
 
 
 def color_of(text):
@@ -48,17 +40,7 @@ def color_of(text):
     return COLORS.get(text)
 
 
-# The wash under the row. Faint on purpose: at full strength the colour fights
-# the text it sits behind, and a page of saturated cards stops distinguishing
-# anything. Mixed here rather than with CSS color-mix(), which the phone
-# browsers this is read on do not all have.
-WASH = 0.13
-
-
-def wash(hex_color):
-    """`#e8730c` -> the same colour laid over the card at WASH strength."""
-    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
-    return "rgba(%d,%d,%d,%.2f)" % (r, g, b, WASH)
+wash = ui.wash
 
 
 def layout(header):
@@ -180,8 +162,7 @@ def render(data):
             tint = ev.get("color")
             out.append('<div class="cev%s"%s><span class="t">%s</span>%s</div>' % (
                 " tint" if tint else "",
-                ' style="--tint:%s;--wash:%s"' % (ui.esc(tint), wash(tint))
-                if tint else "",
+                ' style="%s"' % ui.esc(ui.shade(tint)) if tint else "",
                 ui.esc(ev["title"]),
                 '<span class="s">%s</span>' % ui.esc(ev["details"])
                 if ev["details"] else "",

@@ -12,6 +12,48 @@ def chip(text, cls="chip"):
     return '<span class="%s">%s</span>' % (cls, esc(text))
 
 
+# ------------------------------------------------------------------ colour
+
+# Named rather than hex, because the Sheet gets edited from a phone and
+# "Orange" is a thing you can type. Every value is picked to show against the
+# dark card: black and white say nothing as a stripe, so those two are bent
+# towards a slate and a bone rather than rejected.
+#
+# Lives here, not in church.py, because Reminders shades today's unticked rows
+# in the same orange -- and church.py imports reminders.py, so the dependency
+# cannot run the other way.
+COLORS = {
+    "red": "#e03a3e", "orange": "#e8730c", "amber": "#e0a72b",
+    "yellow": "#e0c341", "green": "#3aab5c", "teal": "#25a1a1",
+    "blue": "#3d8ee0", "navy": "#5a7fd6", "purple": "#9a6ee0",
+    "pink": "#e05c96", "brown": "#b07a52", "gray": "#8b93a0",
+    "grey": "#8b93a0", "black": "#6d7480", "white": "#d6d3cd",
+}
+
+# The strength of the wash under a shaded row. Faint on purpose: at full
+# strength the colour fights the text it sits behind, and a page of saturated
+# cards stops distinguishing anything. Mixed here rather than with CSS
+# color-mix(), which the phone browsers this is read on do not all have.
+WASH = 0.13
+
+
+def wash(hex_color, strength=WASH):
+    """`#e8730c` -> the same colour laid over the card at WASH strength."""
+    r, g, b = (int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    return "rgba(%d,%d,%d,%.2f)" % (r, g, b, strength)
+
+
+def shade(hex_color):
+    """The two custom properties a shaded row needs: the edge and the wash.
+
+    The card colour has to be painted UNDERNEATH the wash -- a translucent
+    colour laid straight on the page background makes a shaded row come out
+    DARKER than a plain one, which is backwards. See the `background` rule that
+    consumes these.
+    """
+    return "--tint:%s;--wash:%s" % (hex_color, wash(hex_color))
+
+
 def day_parts(iso, today=None):
     """('Sep 3', 'Wed') this year, ('Sep 2027', '') in any other.
 
