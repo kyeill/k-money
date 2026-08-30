@@ -3,6 +3,23 @@
 Each of these is encoded in the code and asserted in `selftest.py`. Do not
 rediscover them.
 
+## `nth` is a LIST, and it accepts words
+
+Two natural spellings both failed silently in his real sheet:
+
+* **`1st, 3rd`** had its digits stripped and glued into **13**. No month has a
+  thirteenth Tuesday, so those reminders fired **never** -- two rows dead.
+* **`First` / `Second`** parsed to nothing, which dropped the row out of
+  monthly, fell back to its weekly ticks, and fired it **four or five times a
+  month instead of once** -- six rows.
+
+Eight of forty rows, no error anywhere. `parse_nths` now returns a list and
+understands `first`..`fifth`, `last`, ordinals and bare numbers.
+
+**A cell with text that parses to nothing is now surfaced on the page** rather
+than falling back to weekly. That fallback is what made these invisible: a
+typo did not look like a typo, it looked like a different schedule.
+
 ## `nth` is a day number, not a lookup of five ordinals
 
 It parses `1st`..`31st`, a bare number, or `Last`. It used to be a dict of

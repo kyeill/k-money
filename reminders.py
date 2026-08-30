@@ -146,24 +146,36 @@ def parse_time(text):
     return (hour, minute) if 0 <= hour < 24 else None
 
 
-def parse_nth(text):
-    """'1st'..'31st', a bare number, or 'Last' (-1).
+WORD_NTH = {"first": 1, "second": 2, "third": 3, "fourth": 4, "fifth": 5,
+            "last": -1}
 
-    Anything past 5 only means something with `Weekday = Day` -- no month has a
-    sixth Tuesday -- and `nth_weekday` returns nothing for those, so a nonsense
-    combination is silent rather than wrong. Allowing the full range is what
-    makes "the 25th" expressible at all.
+
+def parse_nths(text):
+    """A LIST of occurrences: "1st, 3rd" is two of them.
+
+    It used to return a single number by stripping non-digits, which turned
+    "1st, 3rd" into **13** -- a thirteenth Tuesday does not exist, so those
+    reminders fired NEVER. Word forms were not understood either, so "Second"
+    parsed to nothing, the row stopped being monthly, and it fell back to the
+    weekly ticks and fired four or five times a month instead of once.
+
+    Both are natural things to type and both failed in silence.
     """
     text = (text or "").strip().lower()
     if not text:
-        return None
-    if text == "last":
-        return -1
-    digits = "".join(ch for ch in text if ch.isdigit())
-    if not digits:
-        return None
-    value = int(digits)
-    return value if 1 <= value <= 31 else None
+        return []
+    out = []
+    for piece in text.replace(",", " ").split():
+        if piece in WORD_NTH:
+            value = WORD_NTH[piece]
+        else:
+            digits = "".join(ch for ch in piece if ch.isdigit())
+            value = int(digits) if digits else None
+            if value is not None and not 1 <= value <= 31:
+                value = None
+        if value is not None and value not in out:
+            out.append(value)
+    return out
 
 
 def parse_months(text):
@@ -199,7 +211,10 @@ def read_rules(text):
         # A time is required, by his call: a reminder with no time cannot fire.
         if not title or not at:
             continue
-        nth = parse_nth(cells[9])
+        nths = parse_nths(cells[9])
+        # A cell with text in it that yields nothing is a typo, not a blank --
+        # and used to fail silently. It is counted and surfaced on the page.
+        unreadable = bool(cells[9].strip()) and not nths
         weekday = cells[10].strip().title()
         # Any non-empty mark counts, so x / X / TRUE / a tick all work.
         days = {i for i, d in enumerate(WEEKDAYS) if cells[2 + i]}
@@ -207,14 +222,15 @@ def read_rules(text):
         # and it is the natural way to write it. Without this the nth is
         # silently dropped and the row fires EVERY Sunday -- four times too
         # often, with nothing anywhere to say so.
-        if nth is not None and not weekday and len(days) == 1:
+        if nths and not weekday and len(days) == 1:
             weekday = WEEKDAYS[next(iter(days))]
-        monthly = nth is not None and weekday != ""
+        monthly = bool(nths) and weekday != ""
         rules.append({
             "title": title,
             "at": at,
             "days": days,
-            "nth": nth,
+            "nths": nths,
+            "unreadable": unreadable,
             "weekday": weekday,
             "months": parse_months(cells[11]),
             "monthly": monthly,
@@ -253,11 +269,13 @@ def fires_on(rule, day):
         # A row carrying both a monthly rule and weekly ticks is monthly. One
         # row, one schedule -- a row firing on both would be unreadable later.
         if rule["weekday"] == "Day":
-            return nth_day(day.year, day.month, rule["nth"]) == day
+            return any(nth_day(day.year, day.month, n) == day
+                       for n in rule["nths"])
         if rule["weekday"] not in WEEKDAYS:
             return False
         target = WEEKDAYS.index(rule["weekday"])
-        return nth_weekday(day.year, day.month, target, rule["nth"]) == day
+        return any(nth_weekday(day.year, day.month, target, n) == day
+                   for n in rule["nths"])
     return day.weekday() in rule["days"]
 
 
@@ -316,14 +334,21 @@ JS = """
 (function(){
   var SHEET=%%SHEET%%, DAYS=%%DAYS%%, WEBAPP=%%WEBAPP%%;
   var WD=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
-  function parseNth(t){
+  var WORDN={first:1,second:2,third:3,fourth:4,fifth:5,last:-1};
+  // A LIST: "1st, 3rd" is two occurrences. Stripping non-digits made it 13.
+  function parseNths(t){
     t=(t||'').trim().toLowerCase();
-    if(!t) return null;
-    if(t==='last') return -1;
-    var d=t.replace(/[^0-9]/g,'');
-    if(!d) return null;
-    var n=parseInt(d,10);
-    return (n>=1&&n<=31)? n : null;
+    if(!t) return [];
+    var out=[];
+    t.replace(/,/g,' ').split(/\s+/).forEach(function(p){
+      if(!p) return;
+      var v;
+      if(WORDN[p]!==undefined) v=WORDN[p];
+      else { var d=p.replace(/[^0-9]/g,''); v=d?parseInt(d,10):null;
+             if(v!==null&&(v<1||v>31)) v=null; }
+      if(v!==null&&v!==undefined&&out.indexOf(v)<0) out.push(v);
+    });
+    return out;
   }
   var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
@@ -377,17 +402,17 @@ JS = """
       while(c.length<12) c.push('');
       var at=parseTime(c[1]);
       if(!c[0]||!at) continue;
-      var nth=parseNth(c[9]);
+      var nths=parseNths(c[9]);
       var wd=(c[10]||'').trim();
       wd=wd?wd.charAt(0).toUpperCase()+wd.slice(1).toLowerCase():'';
       var days=[],d;
       for(d=0;d<7;d++) if(c[2+d]) days.push(d);
       // "4th" with one day ticked and Weekday blank means that day; without
       // this the nth is dropped and the row fires every week instead.
-      if(nth!==null&&wd===''&&days.length===1) wd=WD[days[0]];
-      rules.push({title:c[0],at:at,days:days,nth:nth,
+      if(nths.length&&wd===''&&days.length===1) wd=WD[days[0]];
+      rules.push({title:c[0],at:at,days:days,nths:nths,
                   weekday:wd,months:parseMonths(c[11]),
-                  monthly:(nth!==null&&wd!=='')});
+                  monthly:(nths.length>0&&wd!=='')});
     }
     return rules;
   }
@@ -405,13 +430,18 @@ JS = """
     // Months gates weekly rows too, so a weekly rule can have a season.
     if(r.months.indexOf(m)<0) return false;
     if(r.monthly){
+      var i;
       if(r.weekday==='Day'){
-        var want=(r.nth===-1)?daysIn(y,m):r.nth;
-        return want>=1&&want<=daysIn(y,m)&&want===dd;
+        for(i=0;i<r.nths.length;i++){
+          var want=(r.nths[i]===-1)?daysIn(y,m):r.nths[i];
+          if(want>=1&&want<=daysIn(y,m)&&want===dd) return true;
+        }
+        return false;
       }
       var t=WD.indexOf(r.weekday);
       if(t<0) return false;
-      return nthWeekday(y,m,t,r.nth)===dd;
+      for(i=0;i<r.nths.length;i++) if(nthWeekday(y,m,t,r.nths[i])===dd) return true;
+      return false;
     }
     return r.days.indexOf(wd(date))>=0;
   }
@@ -614,6 +644,12 @@ def render(data):
             out.append(row_html(rule, first))
         out.append("</div>")
     out.append("</div>")
+    bad = data.get("unreadable") or []
+    if bad:
+        # These parse to no cadence at all, so they would simply never fire.
+        # Silence is the one thing a reminders app must not do.
+        out.append('<div class="rerr">Could not read the cadence for: %s</div>'
+                   % ui.esc(", ".join(bad)))
     out.append('<div class="rfoot">%d reminder%s in the sheet · '
                'notifications are sent by the sheet, not this page</div>'
                % (data["count"], "" if data["count"] == 1 else "s"))
@@ -639,12 +675,13 @@ def build(today=None, cfg=None, record=True):
     except Exception:
         # Ticks are a convenience. Losing them must never cost the schedule.
         done = set()
+    unreadable = [r["title"] for r in rules if r.get("unreadable")]
     days = upcoming(rules, today)
     iso = today.isoformat()
     for rule in days[0][1]:
         rule["done"] = (iso, done_key(rule)) in done
     return {"today": today, "days": days, "sheet": sheet,
-            "count": len(rules), "error": None,
+            "count": len(rules), "error": None, "unreadable": unreadable,
             "webapp": (cfg.get("reminders_webapp") or "").strip()}
 
 

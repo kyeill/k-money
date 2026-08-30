@@ -230,7 +230,7 @@ def test_reminder_parsing():
     ok("a row with no time is dropped -- it could never fire",
        "No time row" not in titles, True)
     ok("a row with no title is dropped", "" not in titles, True)
-    ok("everything else parses", len(rules), 14)
+    ok("everything else parses", len(rules), 17)
 
     ok("12-hour times", reminders.parse_time("12:30 PM"), (12, 30))
     ok("midnight is 00, not 12", reminders.parse_time("12:00 AM"), (0, 0))
@@ -311,7 +311,7 @@ def test_reminder_rules():
        fires("Mixed both", "2026-09-07"), False)
 
     # Leap year, because "last day of February" is where date maths goes wrong.
-    leap = {"title": "x", "at": (9, 0), "days": set(), "nth": -1,
+    leap = {"title": "x", "at": (9, 0), "days": set(), "nths": [-1],
             "weekday": "Day", "months": set(range(1, 13)), "monthly": True}
     true("last day of Feb 2028 is the 29th",
          reminders.fires_on(leap, dt.date(2028, 2, 29)))
@@ -335,12 +335,21 @@ def test_reminder_rules():
     true("the 25th fires on the 25th", fires("Rent 25th", "2026-09-25"))
     ok("and not the 24th", fires("Rent 25th", "2026-09-24"), False)
     true("and again next month", fires("Rent 25th", "2026-10-25"))
-    ok("nth parses a bare number", reminders.parse_nth("25"), 25)
-    ok("and an ordinal", reminders.parse_nth("25th"), 25)
-    ok("Last is -1", reminders.parse_nth("Last"), -1)
-    ok("blank is nothing", reminders.parse_nth(""), None)
-    ok("nonsense is nothing", reminders.parse_nth("soon"), None)
-    ok("out of range is nothing", reminders.parse_nth("32nd"), None)
+    ok("a bare number", reminders.parse_nths("25"), [25])
+    ok("an ordinal", reminders.parse_nths("25th"), [25])
+    ok("Last is -1", reminders.parse_nths("Last"), [-1])
+    ok("blank is nothing", reminders.parse_nths(""), [])
+    ok("nonsense is nothing", reminders.parse_nths("soon"), [])
+    ok("out of range is nothing", reminders.parse_nths("32nd"), [])
+    # Both of these were in his real sheet and both failed silently: "1st, 3rd"
+    # had its digits glued into 13 (a month has no 13th Tuesday, so it fired
+    # NEVER) and word forms parsed to nothing, dropping the row back to its
+    # weekly ticks and firing it four or five times a month.
+    ok("two occurrences, not thirteen", reminders.parse_nths("1st, 3rd"), [1, 3])
+    ok("spaces instead of a comma", reminders.parse_nths("1st 3rd"), [1, 3])
+    ok("word ordinals", reminders.parse_nths("Second"), [2])
+    ok("mixed forms", reminders.parse_nths("First, 3rd, Last"), [1, 3, -1])
+    ok("duplicates collapse", reminders.parse_nths("1st, 1st"), [1])
 
     # A short month simply has no 30th, so the rule is silent rather than
     # firing on some other day.
@@ -369,7 +378,7 @@ def test_reminder_rules():
          fires("Laundry", "2026-08-30") and fires("Laundry", "2027-01-03"))
 
     # A 5th weekday exists in some months and not others.
-    fifth = {"title": "x", "at": (9, 0), "days": set(), "nth": 5,
+    fifth = {"title": "x", "at": (9, 0), "days": set(), "nths": [5],
              "weekday": "Sun", "months": set(range(1, 13)), "monthly": True}
     true("August 2026 has a 5th Sunday", reminders.fires_on(fifth, dt.date(2026, 8, 30)))
     ok("September 2026 has no 5th Sunday",

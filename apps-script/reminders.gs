@@ -173,20 +173,34 @@ function preview() {
 // ------------------------------------------------------------------ input
 
 var WD = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+var WORDN = {first: 1, second: 2, third: 3, fourth: 4, fifth: 5, last: -1};
+
 /**
- * '1st'..'31st', a bare number, or 'Last' (-1). Anything past 5 only means
- * something with Weekday = Day -- no month has a sixth Tuesday -- and
- * nthWeekday returns null for those, so a nonsense pairing is silent rather
- * than wrong. The full range is what makes "the 25th" expressible.
+ * A LIST of occurrences: "1st, 3rd" is two of them, "Second" is one.
+ *
+ * This used to return a single number by stripping non-digits, which made
+ * "1st, 3rd" into 13 -- and no month has a thirteenth Tuesday, so those
+ * reminders fired NEVER. Word forms parsed to nothing, which dropped the row
+ * out of monthly entirely and fell back to its weekly ticks, firing four or
+ * five times a month instead of once. Both failed in silence.
  */
-function parseNth(t) {
+function parseNths(t) {
   t = String(t || '').trim().toLowerCase();
-  if (!t) return null;
-  if (t === 'last') return -1;
-  var d = t.replace(/[^0-9]/g, '');
-  if (!d) return null;
-  var n = parseInt(d, 10);
-  return (n >= 1 && n <= 31) ? n : null;
+  if (!t) return [];
+  var out = [];
+  t.replace(/,/g, ' ').split(/\s+/).forEach(function (p) {
+    if (!p) return;
+    var v;
+    if (WORDN[p] !== undefined) {
+      v = WORDN[p];
+    } else {
+      var d = p.replace(/[^0-9]/g, '');
+      v = d ? parseInt(d, 10) : null;
+      if (v !== null && (v < 1 || v > 31)) v = null;
+    }
+    if (v !== null && v !== undefined && out.indexOf(v) < 0) out.push(v);
+  });
+  return out;
 }
 var MO = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
           'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
@@ -223,21 +237,21 @@ function readRules() {
     while (c.length < EXPECT.length) c.push('');
     var at = parseTime(c[1]);
     if (!c[0] || !at) continue;          // a reminder with no time cannot fire
-    var nth = parseNth(c[9]);
+    var nths = parseNths(c[9]);
     var weekday = title3(c[10]);
     var days = [];
     for (var d = 0; d < 7; d++) if (c[2 + d]) days.push(d);
     // "4th" with Sun ticked and Weekday left blank is the obvious intent, and
     // it is the natural way to write it. Without this the nth is silently
     // dropped and the row fires EVERY Sunday -- four times too often.
-    if (nth !== null && weekday === '' && days.length === 1) {
+    if (nths.length && weekday === '' && days.length === 1) {
       weekday = WD[days[0]];
     }
     rules.push({
       title: c[0], hour: at[0], minute: at[1], days: days,
-      nth: nth, weekday: weekday,
+      nths: nths, weekday: weekday,
       months: parseMonths(c[11]),
-      monthly: (nth !== null && weekday !== '')
+      monthly: (nths.length > 0 && weekday !== '')
     });
   }
   return rules;
@@ -308,13 +322,20 @@ function firesOn(rule, date) {
   if (rule.monthly) {
     // A row with both a monthly rule and weekly ticks is monthly. One row,
     // one schedule.
+    var i;
     if (rule.weekday === 'Day') {
-      var want = (rule.nth === -1) ? daysIn(y, m) : rule.nth;
-      return want >= 1 && want <= daysIn(y, m) && want === d;
+      for (i = 0; i < rule.nths.length; i++) {
+        var want = (rule.nths[i] === -1) ? daysIn(y, m) : rule.nths[i];
+        if (want >= 1 && want <= daysIn(y, m) && want === d) return true;
+      }
+      return false;
     }
     var target = WD.indexOf(rule.weekday);
     if (target < 0) return false;
-    return nthWeekday(y, m, target, rule.nth) === d;
+    for (i = 0; i < rule.nths.length; i++) {
+      if (nthWeekday(y, m, target, rule.nths[i]) === d) return true;
+    }
+    return false;
   }
   return rule.days.indexOf(weekdayOf(local)) >= 0;
 }

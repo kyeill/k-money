@@ -20,7 +20,10 @@ A Google Sheet is the source of truth, and the tab shows the next seven days.
 
 Any non-empty mark ticks a weekday.
 
-`nth` takes **`1st` to `31st`** (or a bare number) **or `Last`**. `Weekday`
+`nth` takes **`1st` to `31st`**, a bare number, the words **`First`–`Fifth`**,
+or **`Last`** — and **a list**: `1st, 3rd` fires on both. A cell that parses to
+no cadence at all is called out on the page rather than silently reverting to
+the weekly ticks. `Weekday`
 takes `Mon`–`Sun`, or **`Day`** for day-of-month — `25th` + `Day` is the 25th,
 `Last` + `Day` is the last day. A day that a month does not have simply does
 not fire: `30th` skips February rather than landing somewhere else.
@@ -177,7 +180,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         181 assertions, no key and no network needed
+python selftest.py         191 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
