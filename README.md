@@ -139,19 +139,40 @@ deploying, or the web app goes live without `doGet` and ticks fail silently.
 
 ## Church
 
-Dated events from the `Church` tab: `Title | Date`, nothing else. Grouped by
-day, soonest first, and only days that actually have something on them — most
-days do not, and a column of empty headings would bury the handful that matter.
-Dates in the past are dropped.
+Dated events from the `Church` tab. Grouped by day, soonest first, and only
+days that actually have something on them — most days do not, and a column of
+empty headings would bury the handful that matter. Dates in the past are
+dropped.
+
+```
+Title   Details   Date   Color
+```
+
+**Every column here is found by NAME, and only `Title` and `Date` are
+required.** Details and Color arrived *between* the two original columns, which
+under position would have read the details as the date and dropped every row.
+Order them however you like; a heading nobody recognises is named on the page,
+because an ignored column should not be invisible.
+
+A row is the Watchlist's shape — title above, quieter detail below — so the app
+reads as one app rather than three. A `Details` cell that just repeats the
+`Title` is dropped: the same line twice reads as a bug, not as detail.
+
+`Color` is a 3px left stripe, the shape Sports Daily uses, so a glance sorts
+meetings from worship without tinting whole cards and shouting. It takes a
+name — red, orange, amber, yellow, green, teal, blue, navy, purple, pink,
+brown, gray, black, white — or a literal `#rrggbb`. The named values are picked
+to show against the dark card; black and white are bent towards a slate and a
+bone, since neither says anything as a stripe here. A blank or unrecognised
+colour is simply no stripe.
 
 Much simpler than Reminders on purpose. Every row carries its own date, so
 there is no cadence to recompute, nothing to notify, and nothing that has to
 stay in step with the Apps Script. Dates parse as US or ISO; one that cannot be
 read is named on the page rather than the event just never appearing.
 
-This one is baked at build time only — no live re-fetch — so an edit shows up
-on the next morning's build. Adding the live refresh is small if it turns out
-to matter.
+Baked at build time only — no live re-fetch, unlike Reminders. It changes
+rarely enough that next morning is soon enough.
 
 ## Watchlist
 
@@ -225,7 +246,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         243 assertions, no key and no network needed
+python selftest.py         260 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

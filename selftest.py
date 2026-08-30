@@ -598,32 +598,60 @@ def test_church():
     import church
     text = open(os.path.join(HERE, "fixtures", "church.csv"),
                 encoding="utf-8").read()
-    days, bad = church.read_events(text, dt.date(2026, 8, 30))
+    days, bad, unknown = church.read_events(text, dt.date(2026, 8, 30))
 
     ok("grouped by date, soonest first", [str(d) for d, _ in days],
-       ["2026-09-08", "2026-09-20", "2026-10-13"])
+       ["2026-09-08", "2026-09-20", "2026-10-13", "2026-10-14", "2026-10-15"])
     ok("two on the same day come through together",
-       days[1][1], ["C Group: Lesson 1", "Sunday School: Lesson 2"])
-    ok("US and ISO dates both parse", days[2][1], ["ISO form"])
+       [e["title"] for e in days[1][1]],
+       ["C Group: Lesson 1", "Sunday School: Lesson 2"])
+    ok("US and ISO dates both parse",
+       [e["title"] for e in days[2][1]], ["ISO form"])
 
-    flat = [t for _, ts in days for t in ts]
+    flat = [e["title"] for _, evs in days for e in evs]
     true("a past date is dropped", "Lead Worship" not in flat)
     true("a row with no date is dropped", "No date row" not in flat)
     true("a row with no title is dropped", "" not in flat)
     # A date we cannot read must be visible, not just absent -- otherwise the
     # event silently never appears.
     ok("an unreadable date is reported", bad, ["Bad date"])
+    # Same reasoning one level up: a column heading nobody recognises means a
+    # whole column is being ignored, which should not be invisible either.
+    ok("an unrecognised column is reported", unknown, ["notes"])
+
+    # Details and Color arrived BETWEEN Title and Date. Reading by position
+    # would have taken the details for the date and dropped every row.
+    ok("columns are found by name, not position",
+       days[1][1][0]["details"], "Lesson 1")
+    ok("a colour name becomes a hex", days[1][1][0]["color"], "#8b93a0")
+    ok("colour names are case-insensitive",
+       days[1][1][1]["color"], days[1][1][0]["color"])
+    ok("a literal hex passes through", days[2][1][0]["color"], "#4488ff")
+    ok("no colour is no stripe, not an error",
+       days[3][1][0]["color"], None)
+    ok("an unknown colour name is no stripe", days[4][1][0]["color"], None)
+    # Repeating the title in Details renders the same line twice, which reads
+    # as a bug rather than as detail.
+    ok("details that repeat the title are dropped",
+       days[0][1][0]["details"], "")
 
     html = church.render({"today": dt.date(2026, 8, 30), "days": days,
-                          "unreadable": bad, "error": None})
-    ok("a heading per day", html.count('class="cday"'), 3)
-    ok("an entry per event", html.count('class="cev"'), 4)
+                          "unreadable": bad, "unknown": unknown, "error": None})
+    ok("a heading per day", html.count('class="cday"'), 5)
+    ok("an entry per event", html.count('class="cev'), 6)
+    ok("only the coloured rows carry a stripe", html.count("--tint:"), 4)
+    true("the stripe is the colour from the Sheet", '--tint:#8b93a0' in html)
     true("headings carry the date", "<h2>Tuesday, Sep 8</h2>" in html)
+    true("the title is the big line", '<span class="t">ISO form</span>' in html)
+    true("the details are the small line", '<span class="s">Lesson 1</span>' in html)
+    true("a row with no details renders no second line",
+         '<span class="t">Session Meeting</span></div>' in html)
     true("the bad row is named", "Bad date" in html)
+    true("the unknown column is named", "Notes" in html or "notes" in html)
     true("no checkboxes here", "checkbox" not in html)
 
     empty = church.render({"today": dt.date(2026, 8, 30), "days": [],
-                           "unreadable": [], "error": None})
+                           "unreadable": [], "unknown": [], "error": None})
     true("an empty list says so", "Nothing coming up." in empty)
     true("a broken tab renders an error, not a traceback",
          'class="rerr"' in church.render(
@@ -634,6 +662,15 @@ def test_church():
         ok("a wrong header is refused", "no error", "SheetError")
     except Exception:
         ok("a wrong header is refused", "SheetError", "SheetError")
+
+    # Only the two required columns are required. Dropping Details or Color
+    # from the Sheet should cost those rows their extras, not the whole tab.
+    bare, _, _ = church.read_events(
+        '"Date","Title"\n"9/8/26","Bare"', dt.date(2026, 8, 30))
+    ok("Title and Date can be in either order", bare[0][1][0]["title"], "Bare")
+    ok("a missing Details column is not an error",
+       bare[0][1][0]["details"], "")
+    ok("a missing Color column is not an error", bare[0][1][0]["color"], None)
 
 
 def test_maskable_icon():

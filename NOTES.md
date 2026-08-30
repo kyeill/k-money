@@ -457,6 +457,24 @@ minutes. Navigations are fetched with `cache:'no-store'`, and the cache name
 carries the build **time**, not just the date — two builds in one day would
 otherwise share a cache name and the old entries would survive.
 
+## A Sheet tab is addressed by NAME, and a column is too
+
+Both readers used to take the first tab — `gviz` with no `&sheet=`, Apps Script
+with `getSheets()[0]`. That was fine with one tab and became a trap the moment
+`Church` was added: dragging it to the front would have pointed the
+**notifications** at the wrong data, with no error anywhere. Both name the tab
+now, and `config.json` holds the names.
+
+The same lesson one level down. Church started as `Title | Date`, and `Details`
+and `Color` were later inserted **between them** — under positional reading that
+is not a missing column, it is the details being parsed as the date, so every
+row vanishes. Nothing on that tab is positional. Reminders keeps Title/Time/days
+positional only because they predate the rule; everything after them is by name.
+
+The general shape: **a column that cannot be read must be named on the page.**
+Silence here has cost two debugging passes — eight reminders on the wrong
+cadence, and a whole tab reading empty.
+
 ## Expected noise, not bugs
 
 Studio discovery picks up **making-of specials** (Marvel's *Assembled*) and the
