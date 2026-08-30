@@ -26,7 +26,7 @@ def day_parts(iso, today=None):
     now = dt.date.fromisoformat(today) if today else dt.date.today()
     if day.year != now.year:
         return ("%s %d" % (day.strftime("%b"), day.year), "")
-    return ("%s %d" % (day.strftime("%b"), day.day), day.strftime("%a"))
+    return ("%s %d" % (day.strftime("%b"), day.day), day.strftime("%A"))
 
 
 def relative(iso, today):

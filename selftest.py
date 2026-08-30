@@ -273,7 +273,7 @@ def test_undated_labels():
 
 
 def test_ui():
-    ok("this year needs no year", ui.day_parts("2026-09-02", TODAY), ("Sep 2", "Wed"))
+    ok("this year needs no year", ui.day_parts("2026-09-02", TODAY), ("Sep 2", "Wednesday"))
     ok("another year drops the day, not the year",
        ui.day_parts("2027-09-02", TODAY), ("Sep 2027", ""))
     ok("no date", ui.day_parts(None, TODAY), ("TBA", ""))
@@ -306,7 +306,7 @@ def test_page():
     true("the tab's own CSS is included", ".pos{" in page)
     ok("one section per tab", page.count("<section "), 1)
     ok("one nav button per tab", page.count("<button data-k="), 1)
-    true("a single tab hides the tab bar", '<nav class="solo">' in page)
+    true("the tab bar shows even with one tab", "<nav><button data-k=" in page)
 
     ok("tags balance", page.count("<div"), page.count("</div>"))
     ok("links balance", page.count("<a "), page.count("</a>"))

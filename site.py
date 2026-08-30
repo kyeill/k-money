@@ -45,8 +45,6 @@ nav button{flex:0 0 auto;background:none;border:0;color:var(--muted);
     font:inherit;font-size:14px;padding:11px 12px;cursor:pointer;
     border-bottom:2px solid transparent;white-space:nowrap}
 nav button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
-/* One tab needs no tab bar taking up a sticky row. */
-nav.solo{display:none}
 section{display:none;padding-top:6px}
 section.on{display:block}
 footer{margin-top:34px;color:var(--muted);font-size:12px;
@@ -164,7 +162,6 @@ def render(built, panes):
         for k, lbl, _ in panes)
     body = "".join(
         '<section data-k="%s">%s</section>' % (ui.esc(k), html) for k, _, html in panes)
-    solo = " class=\"solo\"" if len(panes) < 2 else ""
     return (
         "<!doctype html><html lang=\"en\"><head><meta charset=\"utf-8\">"
         "<meta name=\"viewport\" content=\"width=device-width,initial-scale=1,"
@@ -175,12 +172,12 @@ def render(built, panes):
         "<link rel=\"icon\" href=\"./icon.svg\">"
         "%(font)s<style>%(css)s</style></head><body><div class=\"wrap\">"
         "<header><h1>%(app)s<span>%(pretty)s</span></h1></header>"
-        "<nav%(solo)s>%(nav)s</nav>%(body)s"
+        "<nav>%(nav)s</nav>%(body)s"
         "<footer>Built %(pretty)s · data from TMDB</footer>"
         "</div><script>%(js)s</script></body></html>"
     ) % {
         "app": ui.esc(APP), "font": FONT, "css": css, "nav": nav, "body": body,
-        "solo": solo, "pretty": pretty(built),
+        "pretty": pretty(built),
         "js": JS.replace("%%BUILT%%", built),
     }
 
