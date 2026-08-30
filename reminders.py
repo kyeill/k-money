@@ -122,12 +122,19 @@ def read_rules(text):
             continue
         nth = NTH.get(cells[9].strip().lower())
         weekday = cells[10].strip().title()
+        # Any non-empty mark counts, so x / X / TRUE / a tick all work.
+        days = {i for i, d in enumerate(WEEKDAYS) if cells[2 + i]}
+        # "4th" with Sun ticked and Weekday left blank is the obvious intent,
+        # and it is the natural way to write it. Without this the nth is
+        # silently dropped and the row fires EVERY Sunday -- four times too
+        # often, with nothing anywhere to say so.
+        if nth is not None and not weekday and len(days) == 1:
+            weekday = WEEKDAYS[next(iter(days))]
         monthly = nth is not None and weekday != ""
         rules.append({
             "title": title,
             "at": at,
-            # Any non-empty mark counts, so x / X / TRUE / a tick all work.
-            "days": {i for i, d in enumerate(WEEKDAYS) if cells[2 + i]},
+            "days": days,
             "nth": nth,
             "weekday": weekday,
             "months": parse_months(cells[11]),
@@ -281,6 +288,9 @@ JS = """
       wd=wd?wd.charAt(0).toUpperCase()+wd.slice(1).toLowerCase():'';
       var days=[],d;
       for(d=0;d<7;d++) if(c[2+d]) days.push(d);
+      // "4th" with one day ticked and Weekday blank means that day; without
+      // this the nth is dropped and the row fires every week instead.
+      if(nth!==undefined&&wd===''&&days.length===1) wd=WD[days[0]];
       rules.push({title:c[0],at:at,days:days,nth:(nth===undefined?null:nth),
                   weekday:wd,months:parseMonths(c[11]),
                   monthly:(nth!==undefined&&wd!=='')});

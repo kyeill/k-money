@@ -3,6 +3,17 @@
 Each of these is encoded in the code and asserted in `selftest.py`. Do not
 rediscover them.
 
+## An `nth` with no `Weekday` used to fire every week
+
+Setting `4th` and ticking Sun, leaving the Weekday column blank, is the obvious
+way to write "every 4th Sunday" -- and it used to drop the `nth` silently and
+fire on EVERY Sunday. Four times too often, with nothing anywhere to say so.
+
+`read_rules` now infers the weekday from the tick grid when exactly one day is
+ticked. Two or more ticked days with an `nth` is genuinely ambiguous, so that
+is left weekly rather than guessing which day the `nth` applies to -- the one
+remaining way to write a cadence that does not do what it looks like.
+
 ## The tab always opens on the first tab
 
 It used to restore the last tab from localStorage, which meant the app could

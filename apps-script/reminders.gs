@@ -195,6 +195,12 @@ function readRules() {
     var weekday = title3(c[10]);
     var days = [];
     for (var d = 0; d < 7; d++) if (c[2 + d]) days.push(d);
+    // "4th" with Sun ticked and Weekday left blank is the obvious intent, and
+    // it is the natural way to write it. Without this the nth is silently
+    // dropped and the row fires EVERY Sunday -- four times too often.
+    if (nth !== undefined && weekday === '' && days.length === 1) {
+      weekday = WD[days[0]];
+    }
     rules.push({
       title: c[0], hour: at[0], minute: at[1], days: days,
       nth: (nth === undefined ? null : nth), weekday: weekday,

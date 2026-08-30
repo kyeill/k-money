@@ -230,7 +230,7 @@ def test_reminder_parsing():
     ok("a row with no time is dropped -- it could never fire",
        "No time row" not in titles, True)
     ok("a row with no title is dropped", "" not in titles, True)
-    ok("everything else parses", len(rules), 10)
+    ok("everything else parses", len(rules), 12)
 
     ok("12-hour times", reminders.parse_time("12:30 PM"), (12, 30))
     ok("midnight is 00, not 12", reminders.parse_time("12:00 AM"), (0, 0))
@@ -301,6 +301,21 @@ def test_reminder_rules():
        reminders.fires_on(leap, dt.date(2028, 2, 28)), False)
     true("last day of Feb 2027 is the 28th",
          reminders.fires_on(leap, dt.date(2027, 2, 28)))
+
+    # "4th" + Sun ticked + Weekday blank. Without the inference the nth is
+    # dropped and this fires EVERY Sunday -- four times too often, silently.
+    true("4th Sunday of August is the 23rd", fires("Fourth Sun", "2026-08-23"))
+    ok("the 30th is a 5th Sunday, not a 4th",
+       fires("Fourth Sun", "2026-08-30"), False)
+    true("4th Sunday of September is the 27th", fires("Fourth Sun", "2026-09-27"))
+    ok("the 20th is the 3rd Sunday", fires("Fourth Sun", "2026-09-20"), False)
+    ok("it is treated as monthly, not weekly", by["Fourth Sun"]["monthly"], True)
+    ok("and the weekday was inferred from the tick", by["Fourth Sun"]["weekday"], "Sun")
+
+    # Two days ticked with an nth is genuinely ambiguous, so no inference: it
+    # stays weekly rather than guessing which day the nth applies to.
+    ok("an ambiguous nth does not become monthly",
+       by["Ambiguous nth"]["monthly"], False)
 
     # Months gates WEEKLY rows too, which is how a weekly rule gets a season.
     true("weekly-with-season fires inside its months (Sat 3 Oct)",
