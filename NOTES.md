@@ -212,6 +212,28 @@ from local `date` output**. On ubuntu-latest it works correctly: the run at
 2026-08-30T01:02Z stamped `2026-08-29`, which is the right Eastern date, and is
 how the conversion was confirmed to work where it matters.
 
+## "any maskable" is a promise about the artwork, not just a manifest string
+
+Declaring `"purpose": "any maskable"` tells Android to treat the icon as
+adaptive and mask it to the launcher's shape — circle, squircle, teardrop —
+cropping roughly **20% off each edge**. Two things follow, and the string alone
+without them makes the icon *worse*, not better:
+
+1. **Full bleed.** The background must reach every corner. The old SVG drew a
+   rounded rectangle; masked, that rounds an already-rounded corner and leaves
+   a notch of launcher wallpaper.
+2. **Glyph inside the safe zone**, the centred circle of 80% diameter. The K
+   spans 0.29–0.71 vertically and its furthest pixel sits 0.31 of the icon
+   width from centre, against a 0.40 limit.
+
+Both are asserted in `selftest.py` by decoding the generated PNG — corners
+must be background, and no foreground pixel may fall outside the safe radius.
+Do not change the geometry without re-running it.
+
+Icons are drawn by pixel maths with `zlib` + `struct` because there is no image
+library on this machine — the same approach, palette and sizes as
+`sports-daily`, whose structure this deliberately follows.
+
 ## GitHub Pages serves index.html with `max-age=600`
 
 So after a rebuild the browser hands the service worker a stale copy for ten

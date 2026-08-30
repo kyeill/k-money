@@ -80,7 +80,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         89 assertions, no key and no network needed
+python selftest.py         96 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
@@ -110,6 +110,21 @@ broke every test until someone wrote a TMDB payload for it.
 The override is the `KMONEY_CONFIG` environment variable, which `load_config`
 honours ahead of the default path. It is generic on purpose: any future tab
 reading config gets pointed at the fixture set the same way.
+
+## Installing it
+
+Open the site on a phone and use "Add to Home Screen" / "Install app". It then
+runs standalone, and the self-refresh matters most there: a page left open on a
+home screen otherwise shows its last render for as long as the phone keeps it
+alive.
+
+The icons follow `sports-daily`'s structure — PNGs at 180/192/512 drawn by
+pixel maths (there is no image library on this machine), with the manifest
+declaring `"purpose": "any maskable"` so Android treats them as adaptive and
+masks them to the launcher's shape. That declaration constrains the artwork:
+full bleed to every corner, glyph inside the centred 80% safe zone. Both are
+asserted in `selftest.py` by decoding the generated PNG — see NOTES before
+changing the geometry.
 
 ## Adding a tab
 

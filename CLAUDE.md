@@ -14,7 +14,7 @@ python site.py           build the app into output/site/
 python site.py --tab X   build one tab, while working on it
 python watch.py          print the list as text (writes no history)
 python resolve.py --write fill watchlist ids in from titles
-python selftest.py       89 assertions -- run before trusting any change
+python selftest.py       96 assertions -- run before trusting any change
 ```
 
 Python is not on PATH:
@@ -72,7 +72,7 @@ add the rule itself.
 
 ## Validation routine — run all of it before trusting a change
 
-`python selftest.py` (89 assertions), plus: compile every module, run every
+`python selftest.py` (96 assertions), plus: compile every module, run every
 entry point (`site.py`, `site.py --fixtures`, `site.py --tab watch`,
 `watch.py`, `resolve.py`), a dead-code sweep (every `def` and module constant
 cross-referenced across all files; CSS classes checked against the built page,

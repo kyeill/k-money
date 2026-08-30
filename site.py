@@ -7,7 +7,9 @@
 import datetime as dt
 import json
 import os
+import struct
 import sys
+import zlib
 
 import tabs
 import ui
@@ -16,6 +18,10 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 SITE = os.path.join(HERE, "output", "site")
 
 APP = "K Money"
+
+# Same two colours as the page, and as sports-daily's icon.
+BG = (0x16, 0x16, 0x1A)
+FG = (0xE0, 0x83, 0x4F)
 
 FONT = ('<link rel="preconnect" href="https://fonts.googleapis.com">'
         '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
@@ -141,17 +147,76 @@ window.addEventListener('pageshow',e=>{if(e.persisted&&stale())location.reload()
 """
 
 MANIFEST = {
-    "name": APP, "short_name": APP, "start_url": "./",
+    "name": APP, "short_name": APP,
+    "start_url": ".", "scope": ".",
     "display": "standalone", "background_color": "#16161a",
     "theme_color": "#16161a",
-    "icons": [{"src": "./icon.svg", "sizes": "any", "type": "image/svg+xml"}],
+    # "any maskable" tells Android to treat these as adaptive icons and mask
+    # them to the launcher's shape, as sports-daily does. That is a promise
+    # about the artwork -- see _png.
+    "icons": [{"src": "icon-%d.png" % s, "sizes": "%dx%d" % (s, s),
+               "type": "image/png",
+               "purpose": "any maskable"} for s in (192, 512)],
 }
 
-ICON = ('<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
-        '<rect width="64" height="64" rx="13" fill="#16161a"/>'
-        '<text x="32" y="45" font-family="Source Sans 3,Segoe UI,sans-serif" '
-        'font-size="38" font-weight="700" fill="#e0834f" text-anchor="middle">K</text>'
-        '</svg>')
+
+def _seg_dist(px, py, ax, ay, bx, by):
+    """Distance from a point to a line segment, for drawing the K's arms."""
+    dx, dy = bx - ax, by - ay
+    t = ((px - ax) * dx + (py - ay) * dy) / (dx * dx + dy * dy)
+    t = max(0.0, min(1.0, t))
+    return ((px - (ax + t * dx)) ** 2 + (py - (ay + t * dy)) ** 2) ** 0.5
+
+
+def _png(size):
+    """A flat 'K' on a dark ground, drawn by pixel maths.
+
+    No image library on this machine, so this is the same zlib+struct approach
+    sports-daily uses for its ring.
+
+    Two rules follow from the manifest declaring **maskable**: Android masks
+    the icon to the launcher's shape (circle, squircle, teardrop) and may crop
+    roughly 20% off each edge.
+
+    1. FULL BLEED. The background must reach every corner -- no rounded
+       rectangle of its own, or the mask rounds an already-rounded corner and
+       leaves a notch.
+    2. The glyph must sit inside the SAFE ZONE, the centred circle of 80%
+       diameter. This K spans 0.29-0.71 vertically and reaches x=0.71, putting
+       its furthest corner 0.30 from centre against a safe radius of 0.40.
+    """
+    stem_x0, stem_x1 = 0.31, 0.39
+    top, bottom = 0.29, 0.71
+    junction = (0.39, 0.50)
+    arm_end_y = (top, bottom)
+    arm_x = 0.67
+    half = 0.042
+
+    rows = []
+    for y in range(size):
+        row = bytearray([0])            # filter byte: none
+        fy = (y + 0.5) / size
+        for x in range(size):
+            fx = (x + 0.5) / size
+            on = stem_x0 <= fx <= stem_x1 and top <= fy <= bottom
+            if not on:
+                for end_y in arm_end_y:
+                    if _seg_dist(fx, fy, junction[0], junction[1],
+                                 arm_x, end_y) <= half:
+                        on = True
+                        break
+            row += bytes(FG if on else BG)
+        rows.append(bytes(row))
+    raw = b"".join(rows)
+
+    def chunk(tag, data):
+        return (struct.pack(">I", len(data)) + tag + data
+                + struct.pack(">I", zlib.crc32(tag + data) & 0xFFFFFFFF))
+
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", size, size, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw, 9))
+            + chunk(b"IEND", b""))
 
 
 def render(built, panes):
@@ -168,8 +233,13 @@ def render(built, panes):
         "viewport-fit=cover\">"
         "<title>%(app)s</title>"
         "<meta name=\"theme-color\" content=\"#16161a\">"
-        "<link rel=\"manifest\" href=\"./manifest.webmanifest\">"
-        "<link rel=\"icon\" href=\"./icon.svg\">"
+        "<link rel=\"manifest\" href=\"manifest.webmanifest\">"
+        "<meta name=\"apple-mobile-web-app-capable\" content=\"yes\">"
+        "<meta name=\"apple-mobile-web-app-status-bar-style\" content=\"black-translucent\">"
+        "<link rel=\"apple-touch-icon\" href=\"icon-180.png\">"
+        # Without this a desktop browser asks for /favicon.ico, which the site
+        # does not ship, and shows a blank tab icon after the 404.
+        "<link rel=\"icon\" href=\"icon-192.png\">"
         "%(font)s<style>%(css)s</style></head><body><div class=\"wrap\">"
         "<header><h1>%(app)s<span>%(pretty)s</span></h1></header>"
         "<nav>%(nav)s</nav>%(body)s"
@@ -217,8 +287,11 @@ def main():
     os.makedirs(SITE, exist_ok=True)
     page = render(built, panes)
     write(os.path.join(SITE, "index.html"), page)
-    write(os.path.join(SITE, "manifest.webmanifest"), json.dumps(MANIFEST, indent=1))
-    write(os.path.join(SITE, "icon.svg"), ICON)
+    write(os.path.join(SITE, "manifest.webmanifest"), json.dumps(MANIFEST, indent=2))
+    # 180 is Apple's touch icon; 192 and 512 are what the manifest declares.
+    for icon_size in (180, 192, 512):
+        with open(os.path.join(SITE, "icon-%d.png" % icon_size), "wb") as fh:
+            fh.write(_png(icon_size))
     # The build TIME, not just the date: two builds in one day would otherwise
     # share a cache name and the old entries would survive.
     stamp = built.replace("-", "") + dt.datetime.now().strftime("%H%M%S")

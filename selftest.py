@@ -214,6 +214,55 @@ def test_preschool_filter_end_to_end():
          "Skeleton Crew Shaped" in everything)
 
 
+def test_maskable_icon():
+    """The manifest promises "any maskable". Android then masks the icon to the
+    launcher's shape and crops toward a circle of 80% diameter, so the artwork
+    has to hold up its end: background to every corner, glyph inside that."""
+    mod = shell()
+    icons = mod.MANIFEST["icons"]
+    ok("both declared icons are maskable",
+       sorted(i["purpose"] for i in icons), ["any maskable"] * 2)
+    ok("declared at the two sizes Android wants",
+       sorted(i["sizes"] for i in icons), ["192x192", "512x512"])
+    ok("declared as PNG", {i["type"] for i in icons}, {"image/png"})
+
+    size = 128
+    data = mod._png(size)
+    true("it is a PNG", data.startswith(b"\x89PNG\r\n\x1a\n"))
+
+    pixels = _decode(data, size)
+    corners = [pixels(0, 0), pixels(size - 1, 0),
+               pixels(0, size - 1), pixels(size - 1, size - 1)]
+    ok("full bleed -- every corner is background", corners, [mod.BG] * 4)
+
+    fg = [(x, y) for y in range(size) for x in range(size)
+          if pixels(x, y) == mod.FG]
+    true("there is a glyph at all", len(fg) > size * size * 0.04)
+    centre = (size - 1) / 2.0
+    worst = max(((x - centre) ** 2 + (y - centre) ** 2) ** 0.5 for x, y in fg)
+    true("the glyph stays inside the 80%% safe zone (%.3f <= 0.400)"
+         % (worst / size), worst / size <= 0.40)
+
+
+def _decode(data, size):
+    """Enough PNG reader to check our own output: no filtering, RGB, one IDAT."""
+    import struct
+    import zlib
+    pos, idat = 8, b""
+    while pos < len(data):
+        length = struct.unpack(">I", data[pos:pos + 4])[0]
+        if data[pos + 4:pos + 8] == b"IDAT":
+            idat += data[pos + 8:pos + 8 + length]
+        pos += 12 + length
+    raw = zlib.decompress(idat)
+    stride = size * 3 + 1
+
+    def at(x, y):
+        off = y * stride + 1 + x * 3
+        return tuple(raw[off:off + 3])
+    return at
+
+
 def test_discover_queries():
     """The gate field is the whole reason mid-run shows were invisible."""
     seen = []
