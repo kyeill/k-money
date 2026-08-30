@@ -202,7 +202,14 @@ function readRules() {
   var grid = sheet.getDataRange().getDisplayValues();
   if (!grid.length) throw new Error('the sheet is empty');
 
-  var header = grid[0].map(function (h) { return String(h).trim().toLowerCase(); });
+  // Match on the FIRST WORD of each heading. He labels sections in the sheet
+  // and put one in the header cell itself -- A1 read "Title DAILY", which broke
+  // every reader at once: the page showed an error and nothing could fire.
+  // Being forgiving about a label costs nothing and still refuses the Done tab,
+  // whose first heading is "date".
+  var header = grid[0].map(function (h) {
+    return String(h).trim().toLowerCase().split(/\s+/)[0];
+  });
   for (var i = 0; i < EXPECT.length; i++) {
     if (header[i] !== EXPECT[i]) {
       throw new Error('unexpected column ' + (i + 1) + ': found "' + header[i] +
@@ -434,9 +441,14 @@ function tick() {
   try {
     rules = readRules();
   } catch (err) {
-    // Tell someone rather than failing silently every five minutes forever --
-    // but if the push fails too, report the sheet problem, not the push.
-    try { push('K Money: reminders sheet problem', String(err)); } catch (e) {}
+    // Tell someone rather than failing silently -- but ONCE A DAY, not every
+    // five minutes. The trigger runs 288 times a day, and a broken sheet would
+    // otherwise turn one problem into a notification storm.
+    var props = PropertiesService.getScriptProperties();
+    if (props.getProperty('lastComplaint') !== today) {
+      props.setProperty('lastComplaint', today);
+      try { push('K Money: reminders sheet problem', String(err)); } catch (e) {}
+    }
     throw err;
   }
 

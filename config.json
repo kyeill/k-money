@@ -62,6 +62,6 @@
   "_comment_animation": "true = animation is OUT (TMDB genre 16), his call 2026-08-30. He briefly had it in for official MCU/DCU animation, then reversed.",
   "reminders_sheet": "1v9ErfF8bZ-jpboTz6cHth1sZf8VlCQa2DOufH74OJmk",
   "_comment_reminders": "The Google Sheet behind the Reminders tab. Public read (anyone with the link), which is what lets the page fetch it in the browser. NOTIFICATIONS ARE NOT SENT FROM HERE -- the Apps Script bound to that sheet does that; see apps-script/reminders.gs.",
-  "reminders_webapp": "",
+  "reminders_webapp": "https://script.google.com/macros/s/AKfycbx4fnBrjHCQzscc2gMySo1LxsxMIZKCvl7i-9VIW4lP4GQ0-1PoRgyXuX0uBwujv15Z/exec",
   "_comment_webapp": "Apps Script web app /exec URL, from Deploy > New deployment > Web app (execute as me, access anyone). The page calls it to record a tick. It IS public -- the script validates the date and checks the key against a real reminder, so the worst a stranger can do is toggle a checkbox. Blank = ticking is disabled."
 }

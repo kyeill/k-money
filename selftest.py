@@ -257,6 +257,24 @@ def test_reminder_parsing():
     except reminders.SheetError:
         ok("a wrong header is refused", "SheetError", "SheetError")
 
+    # He labels sections in the sheet, and put one in the header cell itself:
+    # A1 read "Title DAILY". That broke the page AND every notification at
+    # once, so headings are matched on their first word.
+    full = ["Title DAILY", "Time ", "Mon ", "Tue ", "Wed ", "Thu ", "Fri ",
+            "Sat ", "Sun ", "nth ", "Weekday ", "Months "]
+    true("a labelled heading is still that heading",
+         reminders.header_ok([h.strip().lower() for h in full]))
+    true("trailing spaces are fine",
+         reminders.header_ok(["title", "time ", "mon", "tue", "wed", "thu",
+                              "fri", "sat", "sun", "nth", "weekday", "months"]))
+    ok("but the Done tab is still refused",
+       reminders.header_ok(["date", "key", "done", "updated"]), False)
+    ok("and a short header is refused", reminders.header_ok(["title"]), False)
+    ok("a heading that merely starts the same is refused",
+       reminders.header_ok(["titles", "time", "mon", "tue", "wed", "thu",
+                            "fri", "sat", "sun", "nth", "weekday", "months"]),
+       False)
+
 
 def test_reminder_rules():
     """Google silently returns the FIRST tab for an unknown one, so the header

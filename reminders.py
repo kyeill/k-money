@@ -17,6 +17,7 @@ import csv
 import datetime as dt
 import io
 import os
+import sys
 
 import ui
 
@@ -48,6 +49,20 @@ EXPECT = ["title", "time"] + [d.lower() for d in WEEKDAYS] + \
 
 class SheetError(Exception):
     pass
+
+
+def header_ok(header):
+    """Match on the FIRST WORD of each heading.
+
+    He labels sections in the sheet, and put one in the header cell itself --
+    A1 read "Title DAILY", which broke every reader at once: the page showed an
+    error and no notification could fire. Being forgiving about a label costs
+    nothing and still refuses the Done tab, whose first heading is "date".
+    """
+    if len(header) < len(EXPECT):
+        return False
+    return all(cell.split()[:1] == [want]
+               for cell, want in zip(header, EXPECT))
 
 
 # ------------------------------------------------------------------ input
@@ -83,7 +98,8 @@ def read_done(text):
     rows = list(csv.reader(io.StringIO(text or "")))
     if not rows:
         return out
-    header = [h.strip().lower() for h in rows[0]]
+    header = [h.strip().lower().split()[0] if h.strip() else ""
+              for h in rows[0]]
     if header[:len(DONE_HEADER)] != DONE_HEADER:
         return out
     for line in rows[1:]:
@@ -172,7 +188,7 @@ def read_rules(text):
     if not rows:
         raise SheetError("the sheet is empty")
     header = [h.strip().lower() for h in rows[0]]
-    if header[:len(EXPECT)] != EXPECT:
+    if not header_ok(header):
         raise SheetError("unexpected header %r; expected %r" % (header, EXPECT))
 
     rules = []
@@ -483,7 +499,7 @@ JS = """
   function readDone(text){
     var rows=splitCSV(text||''), out={}, i;
     if(!rows.length) return out;
-    var h=rows[0].map(function(x){return (x||'').trim().toLowerCase();});
+    var h=rows[0].map(function(x){return (x||'').trim().toLowerCase().split(/\\s+/)[0];});
     // An unknown tab returns the FIRST one, so without this the reminders
     // themselves would be parsed as ticks.
     if(h[0]!=='date'||h[1]!=='key'||h[2]!=='done') return out;
@@ -639,6 +655,12 @@ def page_js(data):
 
 
 if __name__ == "__main__":
+    # Reminder titles carry emoji and the Windows console is cp1252, which
+    # cannot encode them -- printing the list would die on its own output.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
     d = build()
     if d["error"]:
         raise SystemExit("error: " + d["error"])
