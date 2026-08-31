@@ -260,6 +260,13 @@ something genuinely arrives.
 
 Two sources, one list.
 
+**`TITLE_PREFIXES` in `watch.py` drops a franchise prefix from a title** when
+the source column beside it already says the same thing: `LOTR · The Rings of
+Power` beats `The Lord of the Rings: The Rings of Power`, which wraps to two
+lines on a phone in order to say LOTR twice. Only listed prefixes go —
+`Star Wars: Skeleton Crew` keeps its own, because that is how the show is
+known — and a title is never stripped to nothing.
+
 **`LABEL_NAMES` in `watch.py` decides what a source is CALLED** — `DC` renders
 as **DCU**, `Lord of the Rings` as **LOTR**. It is matched case-insensitively
 and applied to every label whatever its source, because the franchise list in
@@ -352,7 +359,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         320 assertions, no key and no network needed
+python selftest.py         325 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

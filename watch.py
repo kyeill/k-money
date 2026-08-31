@@ -144,6 +144,25 @@ def label_name(text):
     return LABEL_NAMES.get((text or "").strip().lower(), text)
 
 
+# Franchise prefixes worth dropping from a title, because the source column
+# beside it already says the same thing -- "LOTR . The Rings of Power" reads
+# better than "The Lord of the Rings: The Rings of Power", which wraps to two
+# lines on a phone to say LOTR twice. Only listed prefixes go; "Star Wars:
+# Skeleton Crew" keeps its own, because that one is how the show is known.
+TITLE_PREFIXES = ("The Lord of the Rings: ",)
+
+
+def short_title(text):
+    for prefix in TITLE_PREFIXES:
+        if text.startswith(prefix):
+            # Never strip a title down to nothing -- a row with no name is
+            # worse than a long one.
+            rest = text[len(prefix):].strip()
+            if rest:
+                return rest
+    return text
+
+
 def provider(detail, region="US"):
     """The ONE service to watch it on.
 
@@ -181,6 +200,7 @@ def make_row(kind, detail, source, region="US", today=None):
     else:
         day, when = tv_date(detail, today)
         title = detail.get("name") or detail.get("original_name") or "?"
+    title = short_title(title)
     if not day:
         when = UNDATED.get(detail.get("status") or "", "Announced")
     return {

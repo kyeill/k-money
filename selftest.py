@@ -159,6 +159,23 @@ def test_listing():
     ok("franchise items are labelled", src["Avengers: Doomsday"], "Marvel")
     ok("a label with no rename passes through", watch.label_name("Star Wars"),
        "Star Wars")
+    # The source column already says LOTR, so the title repeating it just wraps
+    # the row to two lines on a phone.
+    ok("the LOTR prefix comes off a series",
+       watch.short_title("The Lord of the Rings: The Rings of Power"),
+       "The Rings of Power")
+    ok("and off a film",
+       watch.short_title("The Lord of the Rings: The Hunt for Gollum"),
+       "The Hunt for Gollum")
+    ok("an unlisted franchise keeps its prefix -- that is how it is known",
+       watch.short_title("Star Wars: Skeleton Crew"), "Star Wars: Skeleton Crew")
+    ok("a title that only mentions it mid-string is untouched",
+       watch.short_title("Making The Lord of the Rings: A Documentary"),
+       "Making The Lord of the Rings: A Documentary")
+    # Stripping a title to nothing would be worse than leaving it long.
+    ok("a bare prefix is left alone",
+       watch.short_title("The Lord of the Rings: "),
+       "The Lord of the Rings: ")
     ok("renaming ignores case", watch.label_name("lord of THE rings"), "LOTR")
     ok("and tolerates stray spacing", watch.label_name("  DC "), "DCU")
 
