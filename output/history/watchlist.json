@@ -10,5 +10,17 @@
     "label": "Custom",
     "type": "tv",
     "id": "95396"
+  },
+  {
+    "title": "Rings of Power",
+    "label": "Lord of the Rings",
+    "type": "tv",
+    "id": "84773"
+  },
+  {
+    "title": "The Hunt for Gollum",
+    "label": "Lord of the Rings",
+    "type": "movie",
+    "id": "1090869"
   }
 ]

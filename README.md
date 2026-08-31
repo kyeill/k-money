@@ -14,7 +14,8 @@ mean a reorder silently redirects everything.
 
 ## Reminders
 
-A Google Sheet is the source of truth, and the tab shows the next seven days.
+A Google Sheet is the source of truth, and the tab shows the next **eight**
+days (`DAYS_SHOWN` in `reminders.py`, which feeds the browser copy too).
 
 ```
 A Title   B Time   C–I Mon…Sun   J nth   K Every   L Starting   M Months
@@ -297,10 +298,21 @@ response is not an empty list: a Watchlist tab with nothing on it still returns
 its header row, so nothing at all means the fetch failed, and honouring that
 would drop every hand-added title for the day.
 
-`config.json`'s `watchlist` still works and is merged in. Keep an entry there
-when it needs a **written reason** — Peacemaker's `_note` explains why it is
-pinned, and a note survives in JSON in a way it does not in a spreadsheet cell.
-Those entries need `type` and `id`; leave the id `null` and
+**`Type` is worth understanding.** It defaults to `tv`, and a film searched as
+a series finds *nothing* — so when the declared kind comes back empty the other
+kind is tried before giving up. That is what lets a one-column sheet hold *The
+Hunt for Gollum*: it is a film, and nobody should have to know a column exists
+to say so. The kind that actually matched is what gets remembered.
+
+**A title TMDB cannot place is named on the page**, not just missing. A show
+you added that never appears looks exactly like forgetting to add it.
+
+`config.json`'s `watchlist` still works and is merged in — it is **empty by
+choice**, not unused. Keep an entry there when it needs a *written reason* a
+spreadsheet cell cannot hold. Peacemaker used to be the example: TMDB marks it
+Ended while season 3 is announced, so discovery drops it and only a pin kept it
+visible. That pin is gone by his call — it comes back when TMDB updates the
+status. Entries here need `type` and `id`; leave the id `null` and
 `python resolve.py --write` fills it in.
 
 `ignore` takes `"movie/1234"` or a bare id, for anything discovery keeps
@@ -319,7 +331,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         293 assertions, no key and no network needed
+python selftest.py         299 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

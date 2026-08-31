@@ -289,7 +289,7 @@ def _save_pinned(rows):
         pass
 
 
-def hand_added(cfg, lang):
+def hand_added(cfg, lang, unresolved=None):
     """Everything pinned by hand: the Sheet's Watchlist tab, plus config.json.
 
     The Sheet gives only a title, so an id has to be resolved by search -- and
@@ -301,6 +301,10 @@ def hand_added(cfg, lang):
     That same file is the fallback if the Sheet cannot be read. A network blip
     should not quietly drop titles off the list for a day.
     """
+    # Titles the search could not place. They are named on the page: a title
+    # he added that simply never appears is the failure mode this whole file
+    # keeps trying to avoid.
+    unresolved = [] if unresolved is None else unresolved
     items = list(cfg.get("watchlist") or [])
     sheet = (cfg.get("reminders_sheet") or "").strip()
     if not sheet:
@@ -326,25 +330,34 @@ def hand_added(cfg, lang):
 
     kept = []
     for row in rows:
-        tid = row["id"] or remembered.get((row["type"], row["title"].lower()))
+        kind = row["type"]
+        tid = row["id"] or remembered.get((kind, row["title"].lower()))
         if not tid:
-            hits = tmdb.search(row["type"], row["title"], lang)
+            # Type defaults to tv, and a film typed as a series finds nothing
+            # at all -- so try the other kind before giving up. "The Hunt for
+            # Gollum" is a film, and nobody should have to know that a column
+            # exists to say so.
+            for kind in (row["type"], "movie" if row["type"] == "tv" else "tv"):
+                hits = tmdb.search(kind, row["title"], lang)
+                if hits:
+                    break
             if not hits:
-                print("watchlist: no match for %r" % row["title"])
+                unresolved.append(row["title"])
+                print("watchlist: NO MATCH for %r" % row["title"])
                 continue
-            tid = hits[0]["id"]
             top = hits[0]
-            print("watchlist: %r -> %s (%s) id %s" % (
-                row["title"], top.get("title") or top.get("name"),
+            tid = top["id"]
+            print("watchlist: %r -> %s %s (%s) id %s" % (
+                row["title"], kind, top.get("title") or top.get("name"),
                 (top.get("release_date") or top.get("first_air_date") or "?")[:4],
                 tid))
-        kept.append(dict(row, id=str(tid)))
+        kept.append(dict(row, id=str(tid), type=kind))
 
     _save_pinned(kept)
     return items + kept
 
 
-def collect(cfg, today, record=True):
+def collect(cfg, today, record=True, unresolved=None):
     """Every candidate title, deduped, as rows. Network-heavy; call once."""
     lang = cfg.get("language", "en-US")
     region = cfg.get("region", "US")
@@ -362,7 +375,7 @@ def collect(cfg, today, record=True):
                 wanted.setdefault("%s/%s" % (kind, row["id"]),
                                   (fr.get("label") or fr["key"], False))
 
-    for item in hand_added(cfg, lang):
+    for item in hand_added(cfg, lang, unresolved):
         if item.get("id"):
             wanted["%s/%s" % (item["type"], item["id"])] = (item.get("label") or "Custom", True)
 
@@ -439,13 +452,15 @@ def stamp_new(shown, today, record=True):
 def build(today=None, cfg=None, record=True):
     today = today or dt.date.today().isoformat()
     cfg = cfg or load_config()
-    rows = collect(cfg, today, record)
+    unresolved = []
+    rows = collect(cfg, today, record, unresolved)
     shown = stamp_new(listing(rows, cfg, today), today, record)
     return {
         "today": today,
         "rows": shown,
         "pending": pending(rows),
         "tracked": len(rows),
+        "unresolved": unresolved,
     }
 
 
@@ -487,6 +502,9 @@ a.item{display:flex;gap:11px;align-items:flex-start;text-decoration:none;
 .when .d{font-size:13.5px;font-weight:600;line-height:1.2}
 .when .w{font-size:11.5px;color:var(--muted)}
 .empty{color:var(--muted);font-size:13px;padding:2px 0 4px}
+.werr{color:var(--bad,#d4676a);font-size:13px;border:1px dashed var(--line);
+      border-radius:9px;padding:10px 12px;margin:12px 0}
+.werr b{color:var(--ink);font-weight:600}
 @media (min-width:641px){
   .sec{margin:18px 0 0}
   .sec h2{font-size:13px;margin-top:32px}
@@ -550,6 +568,12 @@ def _item(row, today):
 def render(data):
     today = data["today"]
     out = []
+    # A title on the sheet that TMDB could not place would otherwise just never
+    # appear, which looks exactly like forgetting to add it.
+    if data.get("unresolved"):
+        out.append('<div class="werr">Not found on TMDB: %s. '
+                   'Add an <b>Id</b> column to the sheet to pin it.</div>'
+                   % ui.esc(", ".join(data["unresolved"])))
     if data["rows"]:
         out.append('<div class="sec">')
         out.extend(_item(r, today) for r in data["rows"])

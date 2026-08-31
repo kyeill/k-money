@@ -16,7 +16,7 @@ python watch.py          print the list as text (writes no history)
 python reminders.py      print the next seven days of reminders
 python church.py         print upcoming church events
 python resolve.py --write fill watchlist ids in from titles
-python selftest.py       293 assertions -- run before trusting any change
+python selftest.py       299 assertions -- run before trusting any change
 ```
 
 Python is not on PATH:
@@ -74,7 +74,7 @@ add the rule itself.
 
 ## Validation routine — run all of it before trusting a change
 
-`python selftest.py` (293 assertions), plus: compile every module, run every
+`python selftest.py` (299 assertions), plus: compile every module, run every
 entry point (`site.py`, `site.py --fixtures`, `site.py --tab watch`,
 `watch.py`, `reminders.py`, `church.py`, `resolve.py`), a dead-code sweep (every `def` and module constant
 cross-referenced across all files; CSS classes checked against the built page,

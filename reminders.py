@@ -1,4 +1,4 @@
-"""The Reminders tab: what is due in the next seven days.
+"""The Reminders tab: what is due over the next eight days.
 
 The Google Sheet is the source of truth. Two things read it, and they must
 agree: this module, which renders the page, and the Apps Script in
@@ -26,7 +26,7 @@ LABEL = "Reminders"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CSV_URL = "https://docs.google.com/spreadsheets/d/%s/gviz/tq?tqx=out:csv"
-DAYS_SHOWN = 7
+DAYS_SHOWN = 8
 # A day reads as morning-then-rest, so the first thing at or after 1pm gets a
 # gap above it. Display only -- it changes nothing about what fires.
 AFTERNOON_HOUR = 13

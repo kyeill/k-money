@@ -238,12 +238,56 @@ def test_sheet_watchlist_merge():
             true("what the sheet resolved is written down",
                  os.path.exists(state))
 
-            # A network blip must not quietly shrink the list for a day.
+            # Type defaults to tv, so a FILM added with only a title finds
+            # nothing at all as a series. Searching the other kind before
+            # giving up is what lets a one-column sheet work -- "The Hunt for
+            # Gollum" is a film, and nobody should have to know a column exists
+            # to say so.
+            # A bare sheet: one title, no Id column, so it must be searched.
+            bare = os.path.join(tmp, "bare.csv")
+            with open(bare, "w", encoding="utf-8") as fh:
+                fh.write('"Title"\n"A Film"\n')
+            os.environ["KMONEY_WATCHLIST_CSV"] = bare
+            os.environ["KMONEY_WATCHLIST_STATE"] = os.path.join(tmp, "s1.json")
+
+            searched, real = [], tmdb.search
+
+            def only_movies(kind, title, lang):
+                searched.append(kind)
+                return [{"id": 1005, "title": title}] if kind == "movie" else []
+
+            tmdb.search = only_movies
+            try:
+                found = watch.hand_added(dict(CFG, watchlist=[]), "en-US")
+            finally:
+                tmdb.search = real
+            ok("a title typed tv falls back to movie", searched, ["tv", "movie"])
+            ok("and is kept, as a movie",
+               [(f["title"], f["type"]) for f in found], [("A Film", "movie")])
+
+            # A title nothing can place must be NAMED, not just absent -- that
+            # looks identical to forgetting to add it.
+            os.environ["KMONEY_WATCHLIST_STATE"] = os.path.join(tmp, "s2.json")
+            missing = []
+            tmdb.search = lambda kind, title, lang: []
+            try:
+                watch.hand_added(dict(CFG, watchlist=[]), "en-US", missing)
+            finally:
+                tmdb.search = real
+            ok("an unplaceable title is reported, not dropped in silence",
+               missing, ["A Film"])
+            true("the page says so",
+                 'class="werr"' in watch.render(
+                     {"today": TODAY, "rows": [], "pending": [],
+                      "tracked": 0, "unresolved": ["Nope"]}))
+
+            # A network blip must not quietly shrink the list for a day. s1
+            # remembers "A Film"; the sheet is now unreachable.
+            os.environ["KMONEY_WATCHLIST_STATE"] = os.path.join(tmp, "s1.json")
             os.environ["KMONEY_WATCHLIST_CSV"] = os.path.join(tmp, "gone.csv")
-            watch.read_sheet_watchlist("")     # the missing file reads as empty
-            fallback = watch.hand_added(CFG, "en-US")
-            true("an unreadable sheet falls back to the remembered rows",
-                 "Skeleton Crew Shaped" in [i["title"] for i in fallback])
+            fallback = watch.hand_added(dict(CFG, watchlist=[]), "en-US")
+            ok("an unreadable sheet falls back to the remembered rows",
+               [i["title"] for i in fallback], ["A Film"])
         finally:
             os.environ.pop("KMONEY_WATCHLIST_STATE", None)
             sheet_watchlist_env(tmp)
@@ -593,7 +637,13 @@ def test_reminder_render():
             "count": len(rules), "error": None, "sheet": "abc"}
     html = reminders.render(data)
 
-    ok("seven days are shown", html.count('class="rday"'), 7)
+    # Tied to the constant, not to the number 8: the horizon is a setting and
+    # a test that hard-codes it just has to be edited every time it moves.
+    ok("the horizon is however many days DAYS_SHOWN says",
+       html.count('class="rday"'), reminders.DAYS_SHOWN)
+    ok("and that is currently eight", reminders.DAYS_SHOWN, 8)
+    true("the page and its JS agree on the horizon",
+         "DAYS=%d," % reminders.DAYS_SHOWN in reminders.page_js(data))
     true("today is named, not dated", "<h2>Today</h2>" in html)
     # Only today is named. "Tomorrow" sat oddly above a column of real dates.
     true("every other day carries its date",
