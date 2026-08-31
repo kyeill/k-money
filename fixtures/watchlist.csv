@@ -1,0 +1,5 @@
+"Label","Title","Type","Id","Note"
+"Custom","Frankenstein","movie","1005","Label sits FIRST on purpose -- columns are by name, not position"
+"","Skeleton Crew Shaped","","2007","no Label falls back to Custom; no Type falls back to tv"
+"Custom","","tv","2000","no Title, so no row"
+"Lord of the Rings","Ended But Pinned","TV","2005","Type is case-insensitive"

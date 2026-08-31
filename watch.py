@@ -2,10 +2,14 @@
 
 Two sources feed one list. Franchises are discovered from TMDB by studio, so a
 newly announced Marvel or DC project appears without anyone adding it. The
-watchlist is hand-edited in config.json and is only for the one-offs.
+one-offs are hand-added: from the `Watchlist` tab of the Google Sheet, which is
+editable from a phone, and from `watchlist` in config.json, which is where an
+entry that needs a written reason belongs.
 """
 
+import csv
 import datetime as dt
+import io
 import json
 import os
 
@@ -14,6 +18,10 @@ import ui
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SEEN = os.path.join(HERE, "output", "history", "seen.json")
+# Beside seen.json because output/history is the one directory the build
+# commits: a title is searched once, and what it resolved to is then reviewable
+# in git rather than re-guessed every morning.
+PINNED = os.path.join(HERE, "output", "history", "watchlist.json")
 
 KEY = "watch"
 LABEL = "Watchlist"
@@ -198,6 +206,144 @@ def _shift(day, days):
     return (dt.date.fromisoformat(day) + dt.timedelta(days=days)).isoformat()
 
 
+SHEET_REQUIRED = ["title"]
+SHEET_OPTIONAL = ["label", "type", "id"]
+
+
+def read_sheet_watchlist(text):
+    """[{title, label, type, id}] from the Watchlist tab.
+
+    Columns are found BY NAME and only Title is required, so the sheet can be
+    a single column until it needs to be more. `Type` defaults to tv: almost
+    everything anyone follows week to week is a series, and a wrong guess is
+    visible on the page rather than silent.
+    """
+    rows = list(csv.reader(io.StringIO(text or "")))
+    if not rows:
+        return []
+    header = [h.strip().lower().split()[0] if h.strip() else "" for h in rows[0]]
+    where = {}
+    for i, name in enumerate(header):
+        if name in SHEET_REQUIRED + SHEET_OPTIONAL:
+            where.setdefault(name, i)
+    if "title" not in where:
+        raise ValueError("no Title column; the headings read %r"
+                         % [h for h in header if h])
+
+    def cell(cells, name):
+        i = where.get(name)
+        return cells[i] if i is not None and i < len(cells) else ""
+
+    out = []
+    for line in rows[1:]:
+        cells = [c.strip() for c in line]
+        title = cell(cells, "title")
+        if not title:
+            continue
+        kind = (cell(cells, "type") or "tv").lower()
+        out.append({
+            "title": title,
+            "label": cell(cells, "label") or "Custom",
+            "type": "movie" if kind.startswith("m") else "tv",
+            "id": cell(cells, "id") or None,
+        })
+    return out
+
+
+def fetch_watchlist_csv(sheet, tab):
+    """KMONEY_WATCHLIST_CSV points at a local file, for tests and --fixtures."""
+    local = os.environ.get("KMONEY_WATCHLIST_CSV")
+    if local:
+        if not os.path.exists(local):
+            return ""
+        with open(local, encoding="utf-8") as fh:
+            return fh.read()
+    import reminders          # the Sheet plumbing is shared, not re-written
+    import requests
+    r = requests.get(reminders.CSV_URL % sheet + "&sheet=" + tab, timeout=20)
+    r.raise_for_status()
+    return r.text
+
+
+def _pinned_path():
+    """KMONEY_WATCHLIST_STATE redirects it, so a test cannot read -- or
+    overwrite -- the real remembered ids."""
+    return os.environ.get("KMONEY_WATCHLIST_STATE") or PINNED
+
+
+def _load_pinned():
+    try:
+        with open(_pinned_path(), encoding="utf-8") as fh:
+            return json.load(fh)
+    except Exception:
+        return []
+
+
+def _save_pinned(rows):
+    try:
+        os.makedirs(os.path.dirname(_pinned_path()), exist_ok=True)
+        with open(_pinned_path(), "w", encoding="utf-8") as fh:
+            json.dump(rows, fh, indent=2, ensure_ascii=False)
+            fh.write("\n")
+    except Exception:
+        pass
+
+
+def hand_added(cfg, lang):
+    """Everything pinned by hand: the Sheet's Watchlist tab, plus config.json.
+
+    The Sheet gives only a title, so an id has to be resolved by search -- and
+    a search can pick the wrong thing, there being four productions called "The
+    Pitt". So it is resolved ONCE and remembered in output/history/watchlist.json,
+    which the build commits; after that the id is read, never guessed, and a bad
+    one is a visible line in a diff. Put the id in an `Id` column to overrule it.
+
+    That same file is the fallback if the Sheet cannot be read. A network blip
+    should not quietly drop titles off the list for a day.
+    """
+    items = list(cfg.get("watchlist") or [])
+    sheet = (cfg.get("reminders_sheet") or "").strip()
+    if not sheet:
+        return items
+
+    remembered = {}
+    for row in _load_pinned():
+        remembered[(row.get("type"), (row.get("title") or "").lower())] = row.get("id")
+
+    try:
+        text = fetch_watchlist_csv(sheet, cfg.get("watchlist_tab", "Watchlist"))
+        # Not the same as an empty list. A Watchlist tab with nothing on it
+        # still returns its header row, so nothing AT ALL means the fetch
+        # failed -- and honouring that as "he removed everything" would drop
+        # the titles for the day.
+        if not (text or "").strip():
+            raise ValueError("empty response")
+        rows = read_sheet_watchlist(text)
+    except Exception as exc:
+        # Keep what was there last time rather than shrinking the list.
+        print("watchlist sheet unreadable (%s); using the last known rows" % exc)
+        return items + _load_pinned()
+
+    kept = []
+    for row in rows:
+        tid = row["id"] or remembered.get((row["type"], row["title"].lower()))
+        if not tid:
+            hits = tmdb.search(row["type"], row["title"], lang)
+            if not hits:
+                print("watchlist: no match for %r" % row["title"])
+                continue
+            tid = hits[0]["id"]
+            top = hits[0]
+            print("watchlist: %r -> %s (%s) id %s" % (
+                row["title"], top.get("title") or top.get("name"),
+                (top.get("release_date") or top.get("first_air_date") or "?")[:4],
+                tid))
+        kept.append(dict(row, id=str(tid)))
+
+    _save_pinned(kept)
+    return items + kept
+
+
 def collect(cfg, today, record=True):
     """Every candidate title, deduped, as rows. Network-heavy; call once."""
     lang = cfg.get("language", "en-US")
@@ -216,7 +362,7 @@ def collect(cfg, today, record=True):
                 wanted.setdefault("%s/%s" % (kind, row["id"]),
                                   (fr.get("label") or fr["key"], False))
 
-    for item in cfg.get("watchlist") or []:
+    for item in hand_added(cfg, lang):
         if item.get("id"):
             wanted["%s/%s" % (item["type"], item["id"])] = (item.get("label") or "Custom", True)
 

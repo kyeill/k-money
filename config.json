@@ -23,18 +23,10 @@
       "_note": "PINNED on purpose: a bare \"Lucasfilm\" resolves to company 11928, which is not this one. Lucasfilm Ltd. (1) covers the animated shows too -- The Bad Batch is credited to both it and Lucasfilm Animation."
     }
   ],
-  "_comment_watchlist": "Hand-edited. type is movie or tv. Leave id null and run `python resolve.py` to fill it in from the title -- then eyeball it, because a title search can pick the wrong show.",
+  "watchlist_tab": "Watchlist",
+  "_comment_watchlist_tab": "The Watchlist tab of the reminders Sheet -- Title (required), plus optional Label, Type and Id, all found by NAME. Editable from a phone, which config.json is not. Ids are resolved by search ONCE and remembered in output/history/watchlist.json; that file is also the fallback if the Sheet cannot be read.",
+  "_comment_watchlist": "The list below is MERGED with the Sheet tab above. Keep an entry here when it needs a written reason -- a note survives here and does not survive a spreadsheet cell. type is movie or tv; leave id null and run `python resolve.py` to fill it in, then eyeball it, because a title search can pick the wrong show.",
   "watchlist": [
-    {
-      "type": "tv",
-      "title": "Shrinking",
-      "id": 136311
-    },
-    {
-      "type": "tv",
-      "title": "Severance",
-      "id": 95396
-    },
     {
       "type": "tv",
       "title": "The Lord of the Rings: The Rings of Power",

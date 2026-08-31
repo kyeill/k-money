@@ -285,6 +285,12 @@ def main():
             HERE, "fixtures", "reminders-done.csv")
         os.environ["KMONEY_CHURCH_CSV"] = os.path.join(
             HERE, "fixtures", "church.csv")
+        os.environ["KMONEY_WATCHLIST_CSV"] = os.path.join(
+            HERE, "fixtures", "watchlist.csv")
+        # Somewhere disposable: a fixture run must not overwrite the ids the
+        # real build resolved and committed.
+        os.environ["KMONEY_WATCHLIST_STATE"] = os.path.join(
+            HERE, "output", "fixtures-watchlist.json")
 
     panes = []
     for tab in tabs.TABS:

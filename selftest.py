@@ -101,6 +101,19 @@ def test_provider():
 
 # -------------------------------------------------------------- buckets
 
+def sheet_watchlist_env(tmp):
+    """Point the hand-added list at fixtures, and its remembered ids at a temp
+    file -- a test must not read, or overwrite, the real ones."""
+    os.environ["KMONEY_WATCHLIST_CSV"] = os.path.join(HERE, "fixtures",
+                                                      "watchlist.csv")
+    os.environ["KMONEY_WATCHLIST_STATE"] = os.path.join(tmp, "watchlist.json")
+
+
+def clear_watchlist_env():
+    os.environ.pop("KMONEY_WATCHLIST_CSV", None)
+    os.environ.pop("KMONEY_WATCHLIST_STATE", None)
+
+
 def run_build():
     tmdb.use_fixtures(fixtures())
     with tempfile.TemporaryDirectory() as tmp:
@@ -175,6 +188,85 @@ def test_tracking_survives_undated():
          "Untitled Marvel Event Film" in tracked)
     true("an Ended show is tracked but will never list (no date, ever)",
          "Loki" in tracked)
+
+
+def test_sheet_watchlist():
+    """The hand-added titles come from the Sheet's Watchlist tab. Columns are
+    by name, so the sheet can grow a column without breaking, and an id is
+    resolved once and then remembered rather than re-guessed every morning."""
+    text = open(os.path.join(HERE, "fixtures", "watchlist.csv"),
+                encoding="utf-8").read()
+    rows = watch.read_sheet_watchlist(text)
+
+    ok("a row per titled line", [r["title"] for r in rows],
+       ["Frankenstein", "Skeleton Crew Shaped", "Ended But Pinned"])
+    # Label sits in column A in the fixture and Title in column B, which is
+    # the whole point: nothing here is positional.
+    ok("columns are found by name, not position", rows[0]["label"], "Custom")
+    ok("a named label is kept", rows[2]["label"], "Lord of the Rings")
+    ok("no label falls back to Custom", rows[1]["label"], "Custom")
+    ok("no type falls back to tv", rows[1]["type"], "tv")
+    ok("type is case-insensitive", rows[2]["type"], "tv")
+    ok("an explicit movie is honoured", rows[0]["type"], "movie")
+    true("a row with no title is dropped",
+         all(r["title"] for r in rows))
+    ok("an unrecognised column is simply ignored", len(rows), 3)
+
+    ok("a one-column sheet is enough",
+       [r["title"] for r in watch.read_sheet_watchlist('"Title"\n"Solo"')],
+       ["Solo"])
+    ok("an empty sheet is not an error", watch.read_sheet_watchlist(""), [])
+    try:
+        watch.read_sheet_watchlist('"Name","When"\n"x","y"')
+        ok("a sheet with no Title column is refused", "no error", "ValueError")
+    except ValueError:
+        ok("a sheet with no Title column is refused", "ValueError", "ValueError")
+
+
+def test_sheet_watchlist_merge():
+    """config.json and the Sheet both feed the list, and the remembered ids
+    survive the Sheet being unreachable."""
+    with tempfile.TemporaryDirectory() as tmp:
+        state = os.path.join(tmp, "watchlist.json")
+        os.environ["KMONEY_WATCHLIST_STATE"] = state
+        try:
+            items = watch.hand_added(CFG, "en-US")
+            titles = [i["title"] for i in items]
+            true("config entries are kept", "Ended But Pinned" in titles)
+            true("sheet entries are added", "Skeleton Crew Shaped" in titles)
+            ok("nothing is lost from either source", len(titles), 5)
+            true("what the sheet resolved is written down",
+                 os.path.exists(state))
+
+            # A network blip must not quietly shrink the list for a day.
+            os.environ["KMONEY_WATCHLIST_CSV"] = os.path.join(tmp, "gone.csv")
+            watch.read_sheet_watchlist("")     # the missing file reads as empty
+            fallback = watch.hand_added(CFG, "en-US")
+            true("an unreadable sheet falls back to the remembered rows",
+                 "Skeleton Crew Shaped" in [i["title"] for i in fallback])
+        finally:
+            os.environ.pop("KMONEY_WATCHLIST_STATE", None)
+            sheet_watchlist_env(tmp)
+
+
+def test_no_refresh_flash():
+    """The tab opens on a baked copy and then refetches. Rebuilding identical
+    rows and assigning them anyway tears the list down and rebuilds it, which
+    is the flash -- so the DOM is only touched when something actually
+    differs."""
+    import reminders
+    js = reminders.page_js({"today": "2026-08-30", "days": [], "sheet": "S",
+                            "webapp": "", "error": None})
+    true("the refresh goes through the guard", "paint(build(" in js)
+    true("nothing else assigns the list wholesale",
+         js.count("body.innerHTML=") == 1)
+    true("the guard compares before it writes",
+         "if(scratch.innerHTML!==body.innerHTML)" in js)
+    # Both sides are normalised by the browser first. A string built in JS
+    # never matches one read back out of the DOM, even when they are the same
+    # markup -- quoting and attribute order come back differently.
+    true("both sides are normalised through innerHTML first",
+         "scratch.innerHTML=html" in js)
 
 
 def test_preschool_filter():
@@ -910,9 +1002,19 @@ def test_page():
 
 
 def main():
-    for name, fn in sorted(globals().items()):
-        if name.startswith("test_"):
-            fn()
+    # Set for the WHOLE run, not per call site. The hand-added watchlist reads
+    # a Google Sheet and remembers the ids it resolved in output/history --
+    # both real, both live. Wiring this in at each build() call is one call
+    # site away from a test that quietly reads the real list, or overwrites the
+    # remembered ids with fixture ones.
+    with tempfile.TemporaryDirectory() as tmp:
+        sheet_watchlist_env(tmp)
+        try:
+            for name, fn in sorted(globals().items()):
+                if name.startswith("test_"):
+                    fn()
+        finally:
+            clear_watchlist_env()
     print("\n%d passed, %d failed" % (PASS, FAIL))
     return 1 if FAIL else 0
 

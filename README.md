@@ -118,6 +118,14 @@ on open and on pull-to-refresh — an edit made a minute ago shows up without
 waiting for tomorrow's build. The daily build bakes a snapshot so the tab paints
 instantly and still works offline.
 
+**That refresh does not flash.** Almost every one rebuilds exactly what is
+already on screen, and assigning it anyway tears the rows down and builds them
+again — visibly. So the new markup is compared first and the DOM is only
+touched when something actually differs. Both sides go through `innerHTML`
+before comparing: read back out of the DOM the browser normalises quoting and
+attribute order, so a freshly built string never matches character for
+character even when the markup is identical.
+
 Which means the rules exist **twice**: in `reminders.py` and again in JS. That
 duplication is deliberate and it is *checked* — `selftest.py` asserts the Python
 side, and a browser cross-check runs both over the same CSV across month ends,
@@ -243,10 +251,35 @@ Series are found by `air_date` rather than first air date, so a show already
 running or between seasons is caught — that is what puts Daredevil and Lanterns
 on the list at all.
 
-**The watchlist** is hand-edited in `config.json` and is only for the one-offs.
-Entries need `type` (`movie` or `tv`) and `id`. Write the title, leave the id
-`null`, and `python resolve.py --write` fills it in — then check it, because a
-title search will happily pick the wrong show.
+**The one-offs are hand-added**, from two places that are merged into one list.
+
+The **`Watchlist` tab of the same Google Sheet** is the everyday one, because
+it can be edited from a phone and `config.json` cannot:
+
+```
+Title   Label   Type   Id
+```
+
+Only `Title` is required and **all four are found by name**. `Label` is what
+shows in the source column (default `Custom`), `Type` is `movie` or `tv`
+(default `tv`), and `Id` overrules the search when it picks wrong.
+
+Because the sheet gives only a title, the id is **resolved by search once and
+then remembered** in `output/history/watchlist.json`, which the build commits.
+After that it is read, never guessed — so a wrong match is a line in a diff
+rather than a show that quietly turns into a different show. The build prints
+what each title resolved to the first time.
+
+That same file is the **fallback if the sheet cannot be read**. An empty
+response is not an empty list: a Watchlist tab with nothing on it still returns
+its header row, so nothing at all means the fetch failed, and honouring that
+would drop every hand-added title for the day.
+
+`config.json`'s `watchlist` still works and is merged in. Keep an entry there
+when it needs a **written reason** — Peacemaker's `_note` explains why it is
+pinned, and a note survives in JSON in a way it does not in a spreadsheet cell.
+Those entries need `type` and `id`; leave the id `null` and
+`python resolve.py --write` fills it in.
 
 `ignore` takes `"movie/1234"` or a bare id, for anything discovery keeps
 surfacing that you do not care about.
@@ -264,7 +297,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         268 assertions, no key and no network needed
+python selftest.py         289 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

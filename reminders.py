@@ -707,6 +707,21 @@ JS = """
     }
     return out;
   }
+  // Almost every refresh rebuilds exactly what is already on screen -- the
+  // page opens on a baked copy, and the sheet has usually not changed since.
+  // Assigning innerHTML anyway tears the rows down and rebuilds them, which is
+  // the flash. So compare first, and only touch the DOM when something is
+  // actually different.
+  //
+  // Both sides go through innerHTML before comparing: read back from the DOM,
+  // the browser normalises quoting and attribute order, so the string it
+  // returns never matches a freshly built one character for character even
+  // when the two are identical.
+  var scratch=document.createElement('div');
+  function paint(html){
+    scratch.innerHTML=html;
+    if(scratch.innerHTML!==body.innerHTML) body.innerHTML=scratch.innerHTML;
+  }
   function refresh(){
     if(busy||!SHEET) return;
     busy=true;
@@ -721,7 +736,7 @@ JS = """
           .then(function(r){ return r.ok? r.text() : ''; })
           .catch(function(){ return ''; });
       })
-      .then(function(d){ body.innerHTML=build(rules,new Date(),readDone(d)); })
+      .then(function(d){ paint(build(rules,new Date(),readDone(d))); })
       .catch(function(){})            // keep the baked list; it is not wrong
       .then(function(){ busy=false; });
   }
