@@ -233,12 +233,13 @@ next 30 days" is news, while a missing section reads as a page that failed to
 render. `SOON_DAYS` in `watch.py` moves the boundary, which is inclusive: the
 30th day is near, the 31st is not.
 
-Every row carries a poster, the title, where it came from (Marvel / DC /
-Custom), what the date actually *is* — `In theaters`, `Streaming`, `Season 2 Episode 4 ·
+Every row carries a poster, the title, where it came from (Marvel / DCU / Star
+Wars / LOTR / Custom), what the date actually *is* — `In Theaters`,
+`Streaming`, `Season 2 Episode 4 ·
 The Green Sea`, `Premiere` — and **one** place to stream it. Rows link to TMDB.
 
 Below it, **Pending release date**: announced and alive, but unscheduled,
-ordered by how close each is to happening — Returning, then Post-production,
+ordered by how close each is to happening — Returning, then Post-Production,
 Filming, Announced.
 
 Two kinds of title are kept out. **Finished** shows are undated because they
@@ -258,6 +259,13 @@ something genuinely arrives.
 ## Where the titles come from
 
 Two sources, one list.
+
+**`LABEL_NAMES` in `watch.py` decides what a source is CALLED** — `DC` renders
+as **DCU**, `Lord of the Rings` as **LOTR**. It is matched case-insensitively
+and applied to every label whatever its source, because the franchise list in
+`config.json` is editable here but the Sheet's `Label` column is not, and a
+label typed there should read the same way without being retyped. Keep the map
+short; a rule needing many exceptions is the wrong rule.
 
 **Franchises** are discovered by studio, so nothing has to be added by hand.
 `config.json` lists three: **Marvel Studios** (420), **DC Studios** (184898,
@@ -344,7 +352,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         317 assertions, no key and no network needed
+python selftest.py         320 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

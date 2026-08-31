@@ -54,7 +54,7 @@ def detail(path):
 
 def test_movie_dates():
     ok("US theatrical beats the global release_date",
-       watch.movie_date(detail("movie/1000")), ("2026-09-02", "In theaters"))
+       watch.movie_date(detail("movie/1000")), ("2026-09-02", "In Theaters"))
     ok("digital-only film uses its digital date",
        watch.movie_date(detail("movie/1001")), ("2026-09-20", "Streaming"))
     ok("no country block falls back to release_date",
@@ -151,9 +151,16 @@ def test_listing():
     ok("nothing is listed twice", len(titles), len(set(titles)))
 
     src = {r["title"]: r["source"] for r in data["rows"]}
-    ok("DC company id resolved by name", src["Lanterns"], "DC")
+    # "DC" in the fixture config, "DCU" on the page: LABEL_NAMES renames every
+    # label whatever its source, so the Sheet's Label column gets it too --
+    # that column is his to type into and is not worth retyping.
+    ok("DC company id resolved by name, and renamed", src["Lanterns"], "DCU")
     ok("watchlist entries carry their own label", src["Frankenstein"], "Custom")
     ok("franchise items are labelled", src["Avengers: Doomsday"], "Marvel")
+    ok("a label with no rename passes through", watch.label_name("Star Wars"),
+       "Star Wars")
+    ok("renaming ignores case", watch.label_name("lord of THE rings"), "LOTR")
+    ok("and tolerates stray spacing", watch.label_name("  DC "), "DCU")
 
 
 def test_soon_split():

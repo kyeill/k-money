@@ -41,7 +41,7 @@ UNDATED = {
     "Planned": "Announced",
     "Rumored": "Rumored",
     "In Production": "Filming",
-    "Post Production": "Post-production",
+    "Post Production": "Post-Production",
     "Returning Series": "Returning",
 }
 
@@ -80,7 +80,7 @@ def movie_date(detail, region="US"):
                 by_type[kind] = day
         for kind in THEATRICAL:
             if kind in by_type:
-                return by_type[kind], "In theaters"
+                return by_type[kind], "In Theaters"
         if DIGITAL in by_type:
             return by_type[DIGITAL], "Streaming"
         if ON_TV in by_type:
@@ -132,6 +132,16 @@ def tv_date(detail, today=None):
 # TMDB's own spelling for a couple of services is not the brand. Keep this
 # list SHORT -- a rule needing many exceptions is the wrong rule.
 PROVIDER_NAMES = {"Disney Plus": "Disney+", "Amazon Prime Video": "Prime Video"}
+
+# What a source is CALLED on the page. Matched case-insensitively and applied
+# to every label, wherever it came from -- the franchise list in config.json is
+# mine to edit, but the Sheet's Label column is his, and "Lord of the Rings"
+# typed there should still read LOTR without him having to retype it.
+LABEL_NAMES = {"dc": "DCU", "lord of the rings": "LOTR"}
+
+
+def label_name(text):
+    return LABEL_NAMES.get((text or "").strip().lower(), text)
 
 
 def provider(detail, region="US"):
@@ -392,11 +402,12 @@ def collect(cfg, today, record=True, unresolved=None):
                                      cfg.get("exclude_animation", True),
                                      cfg.get("exclude_preschool", True)):
                 wanted.setdefault("%s/%s" % (kind, row["id"]),
-                                  (fr.get("label") or fr["key"], False))
+                                  (label_name(fr.get("label") or fr["key"]), False))
 
     for item in hand_added(cfg, lang, unresolved):
         if item.get("id"):
-            wanted["%s/%s" % (item["type"], item["id"])] = (item.get("label") or "Custom", True)
+            wanted["%s/%s" % (item["type"], item["id"])] = (
+                label_name(item.get("label") or "Custom"), True)
 
     rows = []
     for key, (source, pinned) in sorted(wanted.items()):
@@ -426,7 +437,7 @@ def listing(rows, cfg, today):
 
 # Roughly "how close is this to actually happening", which is a more useful
 # order for a waiting list than the alphabet.
-PENDING_ORDER = ["Returning", "Post-production", "Filming", "Announced"]
+PENDING_ORDER = ["Returning", "Post-Production", "Filming", "Announced"]
 
 # Finished titles are undated because they are over. Rumored ones are excluded
 # at Kyle's request (2026-08-29): an unconfirmed rumour is not a plan, and the
