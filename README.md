@@ -218,9 +218,20 @@ rarely enough that next morning is soon enough.
 
 ## Watchlist
 
-**One list, ordered by when each thing is next out.** No horizon buckets.
-Something released in the last 14 days stays on, dimmed, at the top — so a
-release is not missed by looking a day late.
+**Ordered by when each thing is next out**, in two sections: **Next 30 days**,
+then **After that**. It was one unbroken list until 2026-08-30 — one heading is
+what separates this month from someday, and someday runs to 2028.
+
+Something released in the last 14 days stays on, dimmed, and stays in the
+**near** section: it is the most actionable thing on the page, and the only
+reason it is listed at all is `keep_released_days`, which exists so a release
+is not missed by looking a day late. Filing it below films two years out would
+be exactly backwards.
+
+The near heading shows even when nothing falls under it — "nothing out in the
+next 30 days" is news, while a missing section reads as a page that failed to
+render. `SOON_DAYS` in `watch.py` moves the boundary, which is inclusive: the
+30th day is near, the 31st is not.
 
 Every row carries a poster, the title, where it came from (Marvel / DC /
 Custom), what the date actually *is* — `In theaters`, `Streaming`, `S2 E4 ·
@@ -333,7 +344,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         302 assertions, no key and no network needed
+python selftest.py         316 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

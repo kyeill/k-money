@@ -206,6 +206,25 @@ def _shift(day, days):
     return (dt.date.fromisoformat(day) + dt.timedelta(days=days)).isoformat()
 
 
+SOON_DAYS = 30
+
+
+def split_soon(rows, today, days=None):
+    """(next 30 days, everything after) -- the list is already in date order,
+    so this only has to find where the boundary falls.
+
+    Anything ALREADY OUT belongs in the first section. It is the most
+    actionable thing on the page -- you can watch it tonight -- and the only
+    reason it is on the list at all is `keep_released_days`, which exists so a
+    release is not missed by looking a day late. Sorting it under "after that",
+    below films two years away, would be exactly wrong.
+    """
+    days = SOON_DAYS if days is None else days
+    edge = _shift(today, days)
+    soon = [r for r in rows if r["date"] <= edge]
+    return soon, [r for r in rows if r["date"] > edge]
+
+
 SHEET_REQUIRED = ["title"]
 SHEET_OPTIONAL = ["label", "type", "id"]
 
@@ -575,9 +594,23 @@ def render(data):
                    'Add an <b>Id</b> column to the sheet to pin it.</div>'
                    % ui.esc(", ".join(data["unresolved"])))
     if data["rows"]:
-        out.append('<div class="sec">')
-        out.extend(_item(r, today) for r in data["rows"])
+        soon, later = split_soon(data["rows"], today)
+        # The soonest things get their own section rather than just being at
+        # the top of a long list -- one heading is what separates "this month"
+        # from "someday", and someday runs to 2028.
+        out.append('<div class="sec"><h2>Next %d days</h2>' % SOON_DAYS)
+        if soon:
+            out.extend(_item(r, today) for r in soon)
+        else:
+            # Worth saying. An empty section reads as news; a missing one reads
+            # as a page that forgot to render.
+            out.append('<div class="empty">Nothing out in the next %d days.</div>'
+                       % SOON_DAYS)
         out.append("</div>")
+        if later:
+            out.append('<div class="sec"><h2>After that</h2>')
+            out.extend(_item(r, today) for r in later)
+            out.append("</div>")
     else:
         out.append('<div class="empty">Nothing scheduled.</div>')
 
@@ -591,10 +624,14 @@ def render(data):
 
 if __name__ == "__main__":
     data = build(record=False)
-    for r in data["rows"]:
-        print("  %-11s %-42s %-18s %s" % (
-            r["date"], r["title"][:42], r["when"][:18],
-            r["provider"] or "-"))
+    soon, later = split_soon(data["rows"], data["today"])
+    for label, group in (("Next %d days" % SOON_DAYS, soon), ("After that", later)):
+        print("== %s (%d)" % (label, len(group)))
+        for r in group:
+            print("  %-11s %-42s %-18s %s" % (
+                r["date"], r["title"][:42], r["when"][:18],
+                r["provider"] or "-"))
+        print()
     print("\n== Pending release date (%d)" % len(data["pending"]))
     for r in data["pending"]:
         print("  %-11s %-42s %-18s %s" % (
