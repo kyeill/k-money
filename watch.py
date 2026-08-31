@@ -101,8 +101,8 @@ def tv_date(detail, today=None):
     nxt = detail.get("next_episode_to_air") or {}
     day = _day(nxt.get("air_date"))
     if day:
-        label = "S%d E%d" % (nxt.get("season_number") or 0,
-                             nxt.get("episode_number") or 0)
+        label = "Season %d Episode %d" % (nxt.get("season_number") or 0,
+                                          nxt.get("episode_number") or 0)
         name = (nxt.get("name") or "").strip()
         # TMDB fills unnamed episodes in with "Episode 4", which just repeats
         # what the S/E label already said.
@@ -506,8 +506,11 @@ a.item{display:flex;gap:11px;align-items:flex-start;text-decoration:none;
    all run together on one wrapped line. */
 .t,.s,.when .d,.when .w{display:block}
 .t{font-weight:600;font-size:15px;line-height:1.25}
-.s{color:var(--muted);font-size:13px;margin-top:2px;
-   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* Wraps rather than truncating. It held one line while the label was "S3 E1";
+   spelled out, "Lord of the Rings . Season 3 Episode 1" runs past 375px, and
+   an ellipsis would eat the episode number -- the one part of that line worth
+   reading. The poster sets the row height, so a second line is usually free. */
+.s{color:var(--muted);font-size:13px;margin-top:2px;overflow:hidden}
 .src{color:var(--ink)}
 .provs{margin-top:5px;display:flex;flex-wrap:wrap;gap:4px}
 .chip{background:var(--chip);color:var(--muted);font-size:11px;

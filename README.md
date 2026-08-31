@@ -234,7 +234,7 @@ render. `SOON_DAYS` in `watch.py` moves the boundary, which is inclusive: the
 30th day is near, the 31st is not.
 
 Every row carries a poster, the title, where it came from (Marvel / DC /
-Custom), what the date actually *is* — `In theaters`, `Streaming`, `S2 E4 ·
+Custom), what the date actually *is* — `In theaters`, `Streaming`, `Season 2 Episode 4 ·
 The Green Sea`, `Premiere` — and **one** place to stream it. Rows link to TMDB.
 
 Below it, **Pending release date**: announced and alive, but unscheduled,
@@ -344,7 +344,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         316 assertions, no key and no network needed
+python selftest.py         317 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

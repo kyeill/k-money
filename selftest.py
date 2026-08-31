@@ -65,13 +65,13 @@ def test_movie_dates():
 
 def test_tv_dates():
     ok("mid-run show reads its next episode",
-       watch.tv_date(detail("tv/2000"), TODAY), ("2026-09-02", "S2 E4"))
+       watch.tv_date(detail("tv/2000"), TODAY), ("2026-09-02", "Season 2 Episode 4"))
     ok("unaired show is a premiere, not Season 1",
        watch.tv_date(detail("tv/2001"), TODAY), ("2026-12-01", "Premiere"))
     ok("renewed with no date has no date",
        watch.tv_date(detail("tv/2002"), TODAY), (None, "Series"))
     ok("a real episode name is kept",
-       watch.tv_date(detail("tv/2004"), TODAY), ("2026-10-15", "S1 E6 · The Green Sea"))
+       watch.tv_date(detail("tv/2004"), TODAY), ("2026-10-15", "Season 1 Episode 6 · The Green Sea"))
 
     # The seasons branch only reachable once first_air_date is in the past.
     between = dict(detail("tv/2002"))
@@ -1125,7 +1125,16 @@ def test_page():
     true("exactly one provider chip per row that has one",
          body.count("class=\"chip\"") <= body.count("class=\"item"))
     true("the episode name made it", "The Green Sea" in body)
-    true("filler episode names did not", "Episode 4" not in body)
+    # "Season 3 Episode 1" behind "Lord of the Rings" runs past 375px. Measured
+    # in the browser: with nowrap it truncated mid-word and ate the episode
+    # number, which is the part of that line worth reading.
+    true("the subtitle wraps rather than truncating",
+         "white-space:nowrap" not in watch.CSS.split(".s{")[1].split("}")[0])
+    # Was `"Episode 4" not in body`, which now matches the label itself since
+    # S2 E4 spells out as "Season 2 Episode 4". What it was really testing is
+    # that TMDB's filler NAME is not appended after the separator, so that is
+    # what it tests now -- "Season 2 Episode 4 · Episode 4".
+    true("filler episode names are still not appended", "· Episode" not in body)
     true("an undated row leaves its date column blank rather than reading TBA",
          "TBA" not in body)
 
