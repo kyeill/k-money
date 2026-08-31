@@ -37,6 +37,12 @@
     },
     {
       "type": "tv",
+      "title": "The Lord of the Rings: The Rings of Power",
+      "label": "Lord of the Rings",
+      "id": 84773
+    },
+    {
+      "type": "tv",
       "title": "Peacemaker",
       "label": "DC",
       "id": 110492,
