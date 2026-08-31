@@ -88,12 +88,16 @@ then the rest — space only, not a heading, because it is one day rather than
 two sections. A day with only afternoon items gets no stray gap.
 
 **Today's reminders are shaded orange until they are ticked**, the same shade
-the Church tab uses, so what is still outstanding reads at a glance. It is CSS
-alone: `.tick` is only ever on today's rows and `.done` is already toggled by
-the checkbox handler, so ticking clears the shading with no JS aware the rule
-exists, and a future day is never shaded. The palette lives in `ui.py` rather
-than in either tab, since `church.py` imports `reminders.py` and the dependency
-cannot run the other way.
+the Church tab uses, so what is still outstanding reads at a glance. The wash
+carries it alone — no leading stripe, unlike Church, where the stripe is what
+separates one colour from another; there is only one colour here, so it had
+nothing to distinguish.
+
+It is CSS alone: `.tick` is only ever on today's rows and `.done` is already
+toggled by the checkbox handler, so ticking clears the shading with no JS aware
+the rule exists, and a future day is never shaded. The palette lives in `ui.py`
+rather than in either tab, since `church.py` imports `reminders.py` and the
+dependency cannot run the other way.
 
 Notifications arrive titled **`Laundry (Sun 8/30)`**. Android's own snooze
 re-shows a notification hours later with no hint of which occurrence it was,

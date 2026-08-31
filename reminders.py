@@ -403,17 +403,16 @@ CSS = """
 .rday h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;
          color:var(--muted);font-weight:600;margin:0 0 7px}
 .rday h2 b{color:var(--ink);font-weight:600}
-/* The 4px transparent left edge is what a shaded row colours in. It is on
-   EVERY row, not just the shaded ones, so shading a row does not shunt its
-   contents sideways. Same shape as the Church tab. */
 .rem{display:flex;gap:11px;align-items:baseline;background:var(--card);
-     border:1px solid var(--line);border-left:4px solid transparent;
-     border-radius:10px;padding:10px 12px;margin:6px 0}
+     border:1px solid var(--line);border-radius:10px;padding:10px 12px;margin:6px 0}
 /* Today's, still to do. `.tick` is only ever put on today's rows and `.done`
    is toggled by the checkbox handler, so ticking clears the shading on its own
-   -- no JS knows this rule exists. Two layers, because a translucent colour on
-   the page background would make a shaded row DARKER than a plain one. */
-label.rem.tick:not(.done){border-left-color:%(tint)s;
+   -- no JS knows this rule exists. The wash carries it alone: no leading
+   stripe here, unlike Church, where the stripe is what separates one colour
+   from another. There is only one colour on this tab, so it had nothing to
+   distinguish. Two layers, because a translucent colour on the page
+   background would make a shaded row DARKER than a plain one. */
+label.rem.tick:not(.done){
      background:linear-gradient(%(wash)s,%(wash)s),var(--card)}
 .rem .rt{flex:0 0 auto;width:74px;font-variant-numeric:tabular-nums;
          font-weight:600;font-size:13.5px}
@@ -448,7 +447,7 @@ label.rem.done .rt,label.rem.done .rn{opacity:.45;text-decoration:line-through}
   .rem .rn{font-size:17px}
   .rfoot{font-size:13px}
 }
-""" % {"tint": ui.COLORS["orange"], "wash": ui.wash(ui.COLORS["orange"])}
+""" % {"wash": ui.wash(ui.COLORS["orange"])}
 
 # The same rules again, in the browser, so a pull-down re-reads the Sheet
 # instead of showing whatever the 6am build baked. Kept deliberately close to

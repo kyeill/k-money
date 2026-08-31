@@ -575,17 +575,17 @@ def test_done_render():
     true("the shading targets today's unticked rows only",
          "label.rem.tick:not(.done){" in reminders.CSS)
     true("it is the Church orange, not a second one",
-         ui.COLORS["orange"] + ";" in reminders.CSS)
+         ui.wash(ui.COLORS["orange"]) in reminders.CSS)
     true("laid over the card, like the Church rows",
          "linear-gradient(%s,%s),var(--card)"
          % (ui.wash(ui.COLORS["orange"]), ui.wash(ui.COLORS["orange"]))
          in reminders.CSS)
-    # Every row carries the transparent edge, so shading one does not shunt its
-    # contents 3px sideways.
-    true("the coloured edge is reserved on every row",
-         "border-left:4px solid transparent" in reminders.CSS)
+    # The wash carries it alone here. Church stripes because it has several
+    # colours to tell apart; this tab has one, so a stripe distinguished
+    # nothing and he asked for it gone.
+    true("no leading stripe on a reminder", "border-left" not in reminders.CSS)
     true("no placeholder survived the CSS substitution",
-         "%(tint)s" not in reminders.CSS and "%(wash)s" not in reminders.CSS)
+         "%(wash)s" not in reminders.CSS)
 
 
 def test_afternoon_gap():
