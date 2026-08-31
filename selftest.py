@@ -157,7 +157,7 @@ def test_listing():
 
 
 def test_soon_split():
-    """The list is cut into "next 30 days" and "after that". The rows are
+    """The list is cut into "next 30 days" and "upcoming". The rows are
     already in date order, so this is only about where the boundary falls."""
     data = run_build()
     soon, later = watch.split_soon(data["rows"], TODAY)
@@ -170,13 +170,13 @@ def test_soon_split():
         "Frankenstein",              # 2026-09-10
         "Skeleton Crew Shaped",      # 2026-09-18
         "Spider-Man: Brand New Day"])  # 2026-09-20
-    ok("and everything else after it", [r["title"] for r in later],
+    ok("and everything else below it", [r["title"] for r in later],
        ["Lanterns", "Wonder Man"])   # 2026-10-15, 2026-12-01
 
     # Already out belongs in the NEAR section: it is the most actionable thing
     # on the page, and it is only listed at all because keep_released_days
     # exists so a release is not missed by looking a day late.
-    true("something already out is near, not 'after that'",
+    true("something already out is near, not 'upcoming'",
          soon[0]["date"] < TODAY)
     ok("nothing is lost or duplicated by the split",
        len(soon) + len(later), len(data["rows"]))
@@ -194,10 +194,10 @@ def test_soon_split():
 
     html = watch.render(data)
     true("the near section is headed", "<h2>Next 30 days</h2>" in html)
-    true("and the rest is headed too", "<h2>After that</h2>" in html)
-    true("near comes first", html.index("Next 30 days") < html.index("After that"))
+    true("and the rest is headed too", "<h2>Upcoming</h2>" in html)
+    true("near comes first", html.index("Next 30 days") < html.index("Upcoming"))
     true("and both come before the undated list",
-         html.index("After that") < html.index("Pending release date"))
+         html.index("Upcoming") < html.index("Pending release date"))
     # An empty near section is news; a missing one looks like a broken page.
     empty = watch.render(dict(data, rows=later))
     true("an empty near section says so",
@@ -205,8 +205,8 @@ def test_soon_split():
     true("and the heading is still there", "<h2>Next 30 days</h2>" in empty)
     # With nothing far out there is no second heading to show.
     near_only = watch.render(dict(data, rows=soon))
-    true("no 'after that' heading when there is nothing after",
-         "After that" not in near_only)
+    true("no 'Upcoming' heading when there is nothing beyond the window",
+         "Upcoming" not in near_only)
 
 
 def test_pending():
@@ -1118,7 +1118,7 @@ def test_page():
     # means something grew a section nobody asked for.
     ok("three headings: near, far, undated",
        re.findall(r"<h2>([^<]*)", body),
-       ["Next 30 days", "After that", "Pending release date "])
+       ["Next 30 days", "Upcoming", "Pending release date "])
 
     true("posters are lazy", 'loading="lazy"' in body)
     true("links open outward", 'rel="noopener"' in body)

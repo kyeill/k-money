@@ -597,7 +597,7 @@ def render(data):
         soon, later = split_soon(data["rows"], today)
         # The soonest things get their own section rather than just being at
         # the top of a long list -- one heading is what separates "this month"
-        # from "someday", and someday runs to 2028.
+        # from the rest, and the rest runs to 2028.
         out.append('<div class="sec"><h2>Next %d days</h2>' % SOON_DAYS)
         if soon:
             out.extend(_item(r, today) for r in soon)
@@ -608,7 +608,7 @@ def render(data):
                        % SOON_DAYS)
         out.append("</div>")
         if later:
-            out.append('<div class="sec"><h2>After that</h2>')
+            out.append('<div class="sec"><h2>Upcoming</h2>')
             out.extend(_item(r, today) for r in later)
             out.append("</div>")
     else:
@@ -625,7 +625,7 @@ def render(data):
 if __name__ == "__main__":
     data = build(record=False)
     soon, later = split_soon(data["rows"], data["today"])
-    for label, group in (("Next %d days" % SOON_DAYS, soon), ("After that", later)):
+    for label, group in (("Next %d days" % SOON_DAYS, soon), ("Upcoming", later)):
         print("== %s (%d)" % (label, len(group)))
         for r in group:
             print("  %-11s %-42s %-18s %s" % (

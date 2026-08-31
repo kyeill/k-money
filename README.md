@@ -219,7 +219,7 @@ rarely enough that next morning is soon enough.
 ## Watchlist
 
 **Ordered by when each thing is next out**, in two sections: **Next 30 days**,
-then **After that**. It was one unbroken list until 2026-08-30 — one heading is
+then **Upcoming**. It was one unbroken list until 2026-08-30 — one heading is
 what separates this month from someday, and someday runs to 2028.
 
 Something released in the last 14 days stays on, dimmed, and stays in the
