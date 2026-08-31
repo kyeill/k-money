@@ -742,25 +742,38 @@ def test_done_render():
 
 
 def test_afternoon_gap():
-    """A day reads as morning then the rest, so the first thing at or after 1pm
-    gets space above it -- but only when something came before it."""
+    """A day reads as day then evening, so the first thing at or after
+    AFTERNOON_HOUR gets space above it -- but only when something came before
+    it. Written against the constant, not the number, so moving the hour does
+    not mean rewriting the test."""
     import reminders
     at = lambda h, m=0: {"at": (h, m)}
-    due = [at(7), at(9, 5), at(13), at(20)]
-    ok("the 1pm row opens the afternoon",
+    cut = reminders.AFTERNOON_HOUR
+    ok("the cut is currently 4pm", cut, 16)
+
+    due = [at(7), at(9, 5), at(cut), at(cut + 4)]
+    ok("the first row at the cut opens the evening",
        [reminders.starts_afternoon(due, i) for i in range(4)],
        [False, False, True, False])
-    ok("12:30 is still morning, 1:00 is not",
-       reminders.starts_afternoon([at(12, 30), at(13)], 1), True)
-    ok("an afternoon-only day gets no stray gap at the top",
-       [reminders.starts_afternoon([at(14), at(20)], i) for i in range(2)],
-       [False, False])
-    ok("a morning-only day gets none either",
+    ok("the minute before the cut is still the day",
+       reminders.starts_afternoon([at(cut - 1, 30), at(cut)], 1), True)
+    # 1pm used to be the cut. It must now be on the earlier side of it,
+    # otherwise the hour did not really move.
+    ok("1pm no longer opens anything",
+       reminders.starts_afternoon([at(9), at(13)], 1), False)
+    ok("an evening-only day gets no stray gap at the top",
+       [reminders.starts_afternoon([at(cut + 1), at(cut + 4)], i)
+        for i in range(2)], [False, False])
+    ok("a day that ends before the cut gets none either",
        [reminders.starts_afternoon([at(7), at(9)], i) for i in range(2)],
        [False, False])
-    ok("only the FIRST afternoon row gets it",
-       [reminders.starts_afternoon([at(9), at(13), at(14), at(15)], i)
+    ok("only the FIRST row past the cut gets it",
+       [reminders.starts_afternoon([at(9), at(cut), at(cut + 1), at(cut + 2)], i)
         for i in range(4)], [False, True, False, False])
+    true("the browser copy is given the same hour",
+         "PMHOUR=%d;" % cut in reminders.page_js(
+             {"today": "2026-08-30", "days": [], "sheet": "s",
+              "webapp": "", "error": None}))
 
 
 def test_church():

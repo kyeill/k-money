@@ -27,9 +27,10 @@ LABEL = "Reminders"
 HERE = os.path.dirname(os.path.abspath(__file__))
 CSV_URL = "https://docs.google.com/spreadsheets/d/%s/gviz/tq?tqx=out:csv"
 DAYS_SHOWN = 8
-# A day reads as morning-then-rest, so the first thing at or after 1pm gets a
-# gap above it. Display only -- it changes nothing about what fires.
-AFTERNOON_HOUR = 13
+# A day reads as day-then-evening, so the first thing at or after this hour
+# gets a gap above it. Display only -- it changes nothing about what fires, and
+# it feeds the browser copy too, so there is one number to move.
+AFTERNOON_HOUR = 16
 
 # Ticks live in a second tab so every device sees the same state and the Apps
 # Script can read it too -- that one decision is what makes ticking something
@@ -828,9 +829,10 @@ day_label = ui.day_heading
 
 
 def starts_afternoon(due, i):
-    """True for the first row at or after 1pm, when something came before it.
+    """True for the first row at or after AFTERNOON_HOUR, when something came
+    before it.
 
-    A day with nothing but afternoon items gets no stray gap at the top.
+    A day with nothing but evening items gets no stray gap at the top.
     """
     return (i > 0 and due[i]["at"][0] >= AFTERNOON_HOUR
             and due[i - 1]["at"][0] < AFTERNOON_HOUR)

@@ -84,9 +84,11 @@ off. Leave `reminders_webapp` blank and ticking is simply disabled.
 ### On the page
 
 Only today is named; every other day carries its date. Within a day, the first
-reminder at or after **1pm** gets space above it, so a day reads as morning and
-then the rest — space only, not a heading, because it is one day rather than
-two sections. A day with only afternoon items gets no stray gap.
+reminder at or after **4pm** gets space above it, so a day reads as day and
+then evening — space only, not a heading, because it is one day rather than two
+sections. A day with nothing before 4pm gets no stray gap at the top.
+`AFTERNOON_HOUR` in `reminders.py` is the one place to move it; it feeds the
+browser copy too.
 
 A day with no checkboxes **reserves their width anyway**, so the times and
 titles hold one column all the way down instead of stepping left after today.
@@ -331,7 +333,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         299 assertions, no key and no network needed
+python selftest.py         302 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
