@@ -87,6 +87,9 @@ reminder at or after **1pm** gets space above it, so a day reads as morning and
 then the rest — space only, not a heading, because it is one day rather than
 two sections. A day with only afternoon items gets no stray gap.
 
+A day with no checkboxes **reserves their width anyway**, so the times and
+titles hold one column all the way down instead of stepping left after today.
+
 **Today's reminders are shaded orange until they are ticked**, the same shade
 the Church tab uses, so what is still outstanding reads at a glance. The wash
 carries it alone — no leading stripe, unlike Church, where the stripe is what
@@ -118,13 +121,23 @@ on open and on pull-to-refresh — an edit made a minute ago shows up without
 waiting for tomorrow's build. The daily build bakes a snapshot so the tab paints
 instantly and still works offline.
 
-**That refresh does not flash.** Almost every one rebuilds exactly what is
-already on screen, and assigning it anyway tears the rows down and builds them
-again — visibly. So the new markup is compared first and the DOM is only
-touched when something actually differs. Both sides go through `innerHTML`
-before comparing: read back out of the DOM the browser normalises quoting and
-attribute order, so a freshly built string never matches character for
-character even when the markup is identical.
+**That refresh does not flash**, which took two separate fixes.
+
+The new markup is **compared before it is written**, so a refresh that rebuilds
+what is already there does not tear the rows down and build them again. Both
+sides go through `innerHTML` before comparing: read back out of the DOM the
+browser normalises quoting and attribute order, so a freshly built string never
+matches character for character even when the markup is identical.
+
+That alone does not help a reload, because there the two really are different:
+**the baked copy was built at 6am**, so everything ticked since comes back
+unticked — and, since today's unticked rows are shaded, orange. The comparison
+correctly repaints, and the repaint is the flash. So the **last list actually
+seen is kept in `localStorage` and painted back before any network**; the fetch
+that follows almost always just confirms it. It is keyed by date — yesterday's
+list restored this morning would be worse than the baked one — and older keys
+are pruned. Every access is wrapped, because a page opened from a `data:` URL
+throws on `localStorage` rather than returning nothing.
 
 Which means the rules exist **twice**: in `reminders.py` and again in JS. That
 duplication is deliberate and it is *checked* — `selftest.py` asserts the Python
@@ -238,6 +251,15 @@ resolved from the name) and **Lucasfilm Ltd.** (1, pinned — a bare "Lucasfilm"
 resolves to a different company, and Lucasfilm Ltd. covers the animated shows
 too).
 
+**Three is not an arbitrary number: those are the franchises that ARE one
+production company.** Lord of the Rings is not, and cannot be added as a
+fourth. Checked against TMDB — Rings of Power credits Amazon Studios and New
+Line Cinema, and discovering by New Line returns The Conjuring, Evil Dead,
+Final Destination and Hello Kitty. Keywords do not rescue it either: the show
+carries none of `middle earth`, `lord of the rings` or `tolkien`, and
+discovering by all three finds a single unrelated short film. So LOTR titles
+are added one at a time, by hand, and that is what the `Label` column is for.
+
 **Animation is excluded** (`exclude_animation`), along with the studios' own
 **making-of podcasts** and the **Disney Jr. tier** (`exclude_preschool`).
 
@@ -297,7 +319,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         289 assertions, no key and no network needed
+python selftest.py         293 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

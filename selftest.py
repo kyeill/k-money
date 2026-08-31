@@ -257,11 +257,22 @@ def test_no_refresh_flash():
     import reminders
     js = reminders.page_js({"today": "2026-08-30", "days": [], "sheet": "S",
                             "webapp": "", "error": None})
-    true("the refresh goes through the guard", "paint(build(" in js)
+    true("the refresh goes through the guard", "paint(html)" in js)
     true("nothing else assigns the list wholesale",
          js.count("body.innerHTML=") == 1)
     true("the guard compares before it writes",
          "if(scratch.innerHTML!==body.innerHTML)" in js)
+
+    # The guard alone cannot help the reload case: the baked copy was built at
+    # 6am, so everything ticked since comes back unticked -- genuinely
+    # different markup, correctly repainted, and visible as a flash. The last
+    # list seen is kept and painted BEFORE any network.
+    true("the last list seen is kept", "saveSnap(html)" in js)
+    true("and painted before the fetch, not after",
+         js.index("if(snap) paint(snap)") < js.index("refresh();\n  document"))
+    # Yesterday's list restored this morning would be worse than the baked one.
+    true("the snapshot is keyed by date", "SNAP+iso(new Date())" in js)
+    true("older snapshots are pruned", "localStorage.removeItem(k)" in js)
     # Both sides are normalised by the browser first. A string built in JS
     # never matches one read back out of the DOM, even when they are the same
     # markup -- quoting and attribute order come back differently.

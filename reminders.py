@@ -424,6 +424,11 @@ label.rem.tick{cursor:pointer;-webkit-tap-highlight-color:transparent}
    this one item instead, leaving the time and title sharing their baseline. */
 label.rem input{flex:0 0 auto;width:19px;height:19px;margin:0 1px 0 0;
                 align-self:center;accent-color:var(--accent)}
+/* A day with no checkboxes reserves their width anyway, so the time and title
+   hold one column down the whole page instead of stepping left after today.
+   Same width and margin as the input, so the two stay in step. */
+.rem:not(.tick)::before{content:"";flex:0 0 auto;width:19px;margin-right:1px;
+                        align-self:center}
 /* Ticked rows stay in place rather than reordering -- a list that rearranges
    itself under your thumb is how you tick the wrong thing. */
 label.rem.done .rt,label.rem.done .rn{opacity:.45;text-decoration:line-through}
@@ -443,6 +448,7 @@ label.rem.done .rt,label.rem.done .rn{opacity:.45;text-decoration:line-through}
   .rem{padding:12px 14px;margin:8px 0}
   .rem.pm1{margin-top:26px}
   label.rem input{width:21px;height:21px}
+  .rem:not(.tick)::before{width:21px}
   .rem .rt{width:88px;font-size:15px}
   .rem .rn{font-size:17px}
   .rfoot{font-size:13px}
@@ -722,6 +728,29 @@ JS = """
     scratch.innerHTML=html;
     if(scratch.innerHTML!==body.innerHTML) body.innerHTML=scratch.innerHTML;
   }
+
+  // The baked copy is what a reload paints FIRST, and it was built at 6am --
+  // so everything ticked since then comes back unticked and orange for as long
+  // as the fetch takes. That is the flash, and the guard above cannot help:
+  // the two really are different.
+  //
+  // So the last list actually seen is kept and painted back at once, before
+  // any network. The fetch that follows almost always just confirms it.
+  // Keyed by date, because yesterday's list restored this morning would be
+  // worse than the baked one.
+  var SNAP='rsnap:';
+  function snapKey(){ return SNAP+iso(new Date()); }
+  function saveSnap(html){
+    try{
+      Object.keys(localStorage).forEach(function(k){
+        if(k.indexOf(SNAP)===0 && k!==snapKey()) localStorage.removeItem(k);
+      });
+      localStorage.setItem(snapKey(),html);
+    }catch(e){}
+  }
+  function loadSnap(){
+    try{ return localStorage.getItem(snapKey()); }catch(e){ return null; }
+  }
   function refresh(){
     if(busy||!SHEET) return;
     busy=true;
@@ -736,7 +765,11 @@ JS = """
           .then(function(r){ return r.ok? r.text() : ''; })
           .catch(function(){ return ''; });
       })
-      .then(function(d){ paint(build(rules,new Date(),readDone(d))); })
+      .then(function(d){
+        var html=build(rules,new Date(),readDone(d));
+        paint(html);
+        saveSnap(html);
+      })
       .catch(function(){})            // keep the baked list; it is not wrong
       .then(function(){ busy=false; });
   }
@@ -756,6 +789,9 @@ JS = """
           '&key='+encodeURIComponent(key)+'&done='+(on?'1':'0'),
           {mode:'no-cors',cache:'no-store'}).catch(function(){});
   });
+  // Before the network, not after it.
+  var snap=loadSnap();
+  if(snap) paint(snap);
   refresh();
   document.addEventListener('visibilitychange',function(){
     if(document.visibilityState==='visible') refresh(); });
