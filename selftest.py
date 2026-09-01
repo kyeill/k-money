@@ -873,9 +873,19 @@ def test_teams_text():
        "Iowa Hawkeyes at #16 Michigan Wolverines")
     ok("soccer is home first", teams.matchup(home, away, True, False),
        "#16 Michigan Wolverines vs. Iowa Hawkeyes")
+    # "at" means the second team is hosting. On a neutral field nobody is.
     ok("a neutral site is vs, not at",
        teams.matchup(home, away, False, True),
        "Iowa Hawkeyes vs. #16 Michigan Wolverines")
+    # The rows are built from the parts, not by splitting the sentence back up.
+    ok("the parts drive the two lines",
+       [teams.side_name(p) if not isinstance(p, str) else p
+        for p in teams.matchup_parts(home, away, False, False)],
+       ["Iowa Hawkeyes", "at", "#16 Michigan Wolverines"])
+    ok("soccer swaps which team leads",
+       [teams.side_name(p) if not isinstance(p, str) else p
+        for p in teams.matchup_parts(home, away, True, False)],
+       ["#16 Michigan Wolverines", "vs.", "Iowa Hawkeyes"])
     # 99 is ESPN's "unranked", not a 99th-ranked team.
     ok("rank 99 is not a rank", teams.rank_of(away), None)
     ok("a real rank is kept", teams.rank_of(home), 16)
@@ -930,6 +940,31 @@ def test_teams_colour():
        teams.stripe_color({"color": "ffffff", "alternateColor": "000000"}),
        "#ffffff")
     ok("no colour is no stripe", teams.stripe_color({}), None)
+
+
+def test_teams_marquee():
+    """The showcase windows, matched on network AND kickoff together."""
+    import teams
+    cfb = [{"networks": ["FOX"], "days": ["Sat"], "from": "11:30", "to": "12:30"},
+           {"networks": ["NBC", "ABC"], "days": ["Sat"], "from": "19:00",
+            "to": "20:00"}]
+    at = lambda d, h, m=0: dt.datetime(2026, 9, d, h, m)
+
+    true("FOX at noon on a Saturday", teams.is_marquee(at(5, 12), "FOX", cfb))
+    true("NBC on a Saturday night", teams.is_marquee(at(5, 19, 30), "NBC", cfb))
+    # The same channel carries ordinary games at other hours -- matching on the
+    # network alone would light up half the season and say nothing.
+    true("FOX at 3:30 is not the window",
+         not teams.is_marquee(at(5, 15, 30), "FOX", cfb))
+    true("noon on a Thursday is not either",
+         not teams.is_marquee(at(3, 12), "FOX", cfb))
+    true("nor is another channel in the same hour",
+         not teams.is_marquee(at(5, 12), "BTN", cfb))
+    true("the edges of the range count", teams.is_marquee(at(5, 11, 30), "FOX", cfb))
+    true("a minute past the range does not",
+         not teams.is_marquee(at(5, 12, 31), "FOX", cfb))
+    true("no network, no marquee", not teams.is_marquee(at(5, 12), None, cfb))
+    true("no windows, no marquee", not teams.is_marquee(at(5, 12), "FOX", []))
 
 
 def test_teams_rounds():
@@ -1064,10 +1099,24 @@ def test_teams_render():
     ok("a row per game", html.count('class="gm'), 4)
     true("weeks are named for their Monday", "<h2>Week of August 24</h2>" in html)
     true("an empty week says so", "No games." in html)
-    true("the network and time share a line", "Peacock &middot; 10:00 AM" in html
-         or "Peacock · 10:00 AM" in html)
-    true("a game with no network shows just the time",
-         '<span class="n">3:00 PM</span>' in html)
+    # Three rows now: the date belongs to the first team's line, the time to
+    # the second's, and the competition and network share the third.
+    true("the date sits on the first team's line",
+         '<span class="r d">Sat Aug 29</span>' in html)
+    true("the time sits on the second team's line",
+         '<span class="r t">7:30 PM</span>' in html)
+    ok("a connector per row", html.count('class="j"'), 4)
+    true("college reads away at home", '>Fresno State Bulldogs <span class="j">at<' in html)
+    true("soccer reads home first", '>Nottingham Forest <span class="j">vs.<' in html)
+    ok("a competition and a network cell per row",
+       [html.count('class="c"'), html.count('class="net')], [4, 4])
+    true("a game with no network leaves that cell empty",
+         '<span class="net"></span>' in html)
+    # Matched on network AND kickoff: NBC at 7:30 on a Saturday is the window,
+    # Peacock inside the same hour is not.
+    ok("only the marquee game is blue", html.count('class="net marquee"'), 1)
+    true("and it is the NBC one",
+         '<span class="net marquee">NBC</span>' in html)
     true("the wash is laid over the card, as on the other tabs",
          "linear-gradient(var(--wash),var(--wash)),var(--card)" in teams.CSS)
     ok("every row carries a wash", html.count("--wash:"), 4)

@@ -60,7 +60,13 @@
         "wash": "#ffcb05",
         "_note": "Maize is Michigan's ALTERNATE colour at ESPN; the primary is navy and reads as nothing against this card. His call: yellow for Michigan.",
         "sports": [
-          {"path": "football/college-football", "label": "College Football", "mode": "schedule"},
+          {"path": "football/college-football", "label": "College Football", "mode": "schedule",
+           "_note_marquee": "The showcase windows college football names for itself. Matched on network AND kickoff together -- FOX has a 3:30 window of its own, so the channel alone would light up half the season. Ranges, not exact times, because a window shifts occasionally.",
+           "marquee_windows": [
+             {"networks": ["FOX"], "days": ["Sat"], "from": "11:30", "to": "12:30"},
+             {"networks": ["CBS"], "days": ["Sat"], "from": "15:00", "to": "16:00"},
+             {"networks": ["NBC", "ABC"], "days": ["Sat"], "from": "19:00", "to": "20:00"}
+           ]},
           {"path": "basketball/mens-college-basketball", "label": "College Basketball", "mode": "schedule"}
         ]
       },
@@ -70,7 +76,11 @@
         "wash": "#3d8ee0",
         "_note": "ESPN gives Tottenham #ffffff primary and navy alternate -- neither works as a wash on a dark card, so this is the app's own blue.",
         "sports": [
-          {"path": "soccer/eng.1", "label": "Premier League", "mode": "scoreboard"},
+          {"path": "soccer/eng.1", "label": "Premier League", "mode": "scoreboard",
+           "_note_marquee": "The Saturday NBC match. The range is wide because Britain and the States change their clocks on different dates, which moves it an hour for a fortnight each year.",
+           "marquee_windows": [
+             {"networks": ["NBC"], "days": ["Sat"], "from": "12:00", "to": "13:45"}
+           ]},
           {"path": "soccer/eng.fa", "label": "FA Cup", "mode": "scoreboard"},
           {"path": "soccer/eng.league_cup", "label": "Carabao Cup", "mode": "scoreboard"},
           {"path": "soccer/uefa.champions", "label": "Champions League", "mode": "scoreboard"},

@@ -187,9 +187,35 @@ Every remaining game for **Michigan football**, **Michigan basketball** and
 records — one build a day is the whole story.
 
 Weeks start on **Monday** and are headed `Week of September 7`. Within a week
-games run chronologically. Rows carry two logos, the matchup, the competition,
-and on the right the date with the network and time beneath it —
-`NBC · 7:30 PM`.
+games run chronologically. A row is **three lines**, laid out as a grid so the
+right-hand figure stays level with the name it belongs to:
+
+```
+[crest]  Western Michigan Broncos at      Sat Sep 5
+[crest]  #16 Michigan Wolverines            7:30 PM
+         College Football                       NBC
+```
+
+The date belongs to the first team's line and the time to the second's; the
+competition and network share the quieter third. Separate blocks would drift
+apart the moment a team name wrapped, which is why it is a grid.
+
+### The marquee windows
+
+A network renders **blue** when the game falls in a showcase window the
+competition names for itself — FOX at noon, CBS at 3:30, NBC or ABC on Saturday
+night, the Saturday Premier League match on NBC. So the week's marquee games
+are findable without reading every row.
+
+Matched on the **network and the kickoff together**, never either alone: FOX has
+a 3:30 window of its own and NBC carries ordinary games midweek, so matching on
+the channel would light up half the season and say nothing. The bounds are a
+range rather than an exact time, partly because a window shifts occasionally and
+partly because Britain and the States change their clocks on different dates,
+which moves the Saturday match by an hour for a fortnight each year.
+
+`marquee_windows` sits per sport in `config.json`. Today three of the 49 games
+qualify.
 
 ### Two endpoints, because neither is enough
 
@@ -451,7 +477,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         393 assertions, no key and no network needed
+python selftest.py         411 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

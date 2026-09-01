@@ -194,6 +194,42 @@ def pick_network(comp):
     return (on_tv or real or [None])[0]
 
 
+# ---------------------------------------------------------------- marquee
+
+def _minutes(text):
+    hour, _, minute = (text or "0:0").partition(":")
+    return int(hour) * 60 + int(minute)
+
+
+def is_marquee(when, network, windows):
+    """True for a showcase window a competition names for itself.
+
+    Matched on the network AND the kickoff TOGETHER, never either alone: FOX
+    has a 3:30 window of its own and NBC carries ordinary games midweek, so
+    matching on the channel would light up half the season and say nothing.
+
+    The bounds are a range rather than an exact time because a window shifts
+    occasionally, and because Britain and the States change their clocks on
+    different dates -- which moves the Saturday match by an hour for a fortnight
+    each year.
+    """
+    if not network:
+        return False
+    clock_now = when.hour * 60 + when.minute
+    for window in windows or []:
+        days = window.get("days") or []
+        if days and when.strftime("%a") not in days:
+            continue
+        if network not in (window.get("networks") or []):
+            continue
+        if window.get("from") and clock_now < _minutes(window["from"]):
+            continue
+        if window.get("to") and clock_now > _minutes(window["to"]):
+            continue
+        return True
+    return False
+
+
 # ------------------------------------------------------------------ rounds
 
 KNOCKOUT_WORDS = ("final", "semi", "quarter", "round", "playoff", "16", "32")
@@ -271,18 +307,24 @@ def side_name(competitor):
     return ("#%d %s" % (rank, name)) if rank else name
 
 
-def matchup(home, away, soccer, neutral):
-    """Soccer prints the home side first; every other sport is away at home.
+def matchup_parts(home, away, soccer, neutral):
+    """(first, connector, second) -- who is printed on top, and the word.
 
+    Soccer prints the home side first; every other sport is away at home.
     Getting this backwards is the single easiest way to make every row read
     wrong, and it is invisible unless you know the convention.
+
+    "at" says something -- it means the second team is hosting. On a neutral
+    field nobody is, so it becomes "vs.".
     """
-    if neutral:
-        first, second = (home, away) if soccer else (away, home)
-        return "%s vs. %s" % (side_name(first), side_name(second))
-    if soccer:
-        return "%s vs. %s" % (side_name(home), side_name(away))
-    return "%s at %s" % (side_name(away), side_name(home))
+    first, second = (home, away) if soccer else (away, home)
+    return first, ("vs." if (soccer or neutral) else "at"), second
+
+
+def matchup(home, away, soccer, neutral):
+    """The one-line form, for the terminal and for anything comparing text."""
+    first, joiner, second = matchup_parts(home, away, soccer, neutral)
+    return "%s %s %s" % (side_name(first), joiner, side_name(second))
 
 
 def _logo(team):
@@ -322,23 +364,31 @@ def normalize(event, sport, follow, today, colors=None):
     if colors and not other.get("color"):
         other.update(colors.get(other.get("id")) or {})
 
+    soccer = sport["path"].startswith("soccer/")
     when = local(event.get("date") or comp.get("date") or "")
     day = when.date()
     timed = event.get("timeValid")
     timed = True if timed is None else bool(timed)
-    soccer = sport["path"].startswith("soccer/")
+    network = pick_network(comp)
+    first, joiner, second = matchup_parts(home, away, soccer,
+                                          comp.get("neutralSite"))
     return {
         "id": str(event.get("id")),
         "day": day,
         "at": when,
         "title": matchup(home, away, soccer, comp.get("neutralSite")),
+        "first": side_name(first),
+        "joiner": joiner,
+        "second": side_name(second),
         "competition": competition_label(event, comp, sport["label"]),
-        "network": pick_network(comp),
+        "network": network,
+        "marquee": timed and is_marquee(when, network,
+                                        sport.get("marquee_windows")),
         "time": clock(when, timed),
         "timed": timed,
         "stripe": stripe_color(other),
         "wash": follow["wash"],
-        "logos": [_logo(away.get("team") or {}), _logo(home.get("team") or {})],
+        "logos": [_logo(first.get("team") or {}), _logo(second.get("team") or {})],
         "past": day < today,
     }
 
@@ -481,7 +531,10 @@ def _from_file(path, today):
         when = local(row["at"])
         timed = row.get("timed", True)
         rows.append(dict(row, day=when.date(), at=when, timed=timed,
-                         time=clock(when, timed), past=when.date() < today))
+                         time=clock(when, timed), past=when.date() < today,
+                         marquee=timed and is_marquee(
+                             when, row.get("network"),
+                             row.get("marquee_windows"))))
     spans = [tuple(s) for s in raw.get("spans") or []]
     return {"today": today, "weeks": into_weeks(rows, today, spans),
             "error": None}
@@ -493,9 +546,15 @@ CSS = """
 .wk{margin:18px 0 0}
 .wk h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;
        color:var(--muted);font-weight:600;margin:0 0 7px}
-.gm{display:flex;gap:11px;align-items:flex-start;background:var(--card);
-    border:1px solid var(--line);border-left:4px solid transparent;
-    border-radius:10px;padding:10px 12px;margin:6px 0}
+/* Three rows, three columns: crest, name, and the right-hand figure that
+   belongs to that name's line. The grid is what keeps the date level with the
+   first team and the time with the second -- laid out as separate blocks they
+   drift apart the moment a name wraps. */
+.gm{display:grid;grid-template-columns:26px 1fr auto;
+    column-gap:9px;row-gap:3px;align-items:center;
+    background:var(--card);border:1px solid var(--line);
+    border-left:4px solid transparent;border-radius:10px;
+    padding:10px 12px;margin:6px 0}
 /* Two layers, as on the Church tab: the wash is translucent, so without the
    card colour under it the page background shows through and a shaded row
    comes out DARKER than a plain one. */
@@ -504,28 +563,32 @@ CSS = """
 /* Already played. It stays on the page -- a week that quietly empties itself
    as it goes is worse than one that shows what happened. */
 .gm.done{opacity:.55}
-.badges{flex:0 0 auto;display:flex;flex-direction:column;gap:3px;width:26px}
-.badges img{width:26px;height:26px;object-fit:contain;display:block}
-.gm .b{flex:1 1 auto;min-width:0}
-.gm .t{display:block;font-weight:600;font-size:15px;line-height:1.3}
-.gm .c{display:block;color:var(--muted);font-size:13px;margin-top:2px}
-/* Wide enough for "Sat Nov 28" and "NBC · 12:00 PM" without wrapping. */
-.gm .w{flex:0 0 auto;width:104px;text-align:right;
-       font-variant-numeric:tabular-nums}
-.gm .w .d{display:block;font-size:13.5px;font-weight:600;line-height:1.25}
-.gm .w .n{display:block;font-size:11.5px;color:var(--muted);margin-top:2px}
+.gm img{width:26px;height:26px;object-fit:contain;display:block}
+.gm .n1,.gm .n2{font-weight:600;font-size:15px;line-height:1.25;min-width:0}
+/* The connector is part of the first line, not a column of its own: giving it
+   one would leave a ragged gap after every short team name. */
+.gm .j{color:var(--muted);font-weight:400}
+.gm .r{text-align:right;font-size:13px;font-variant-numeric:tabular-nums;
+       white-space:nowrap}
+.gm .r.d{font-weight:600}
+.gm .r.t{color:var(--muted)}
+/* The third row is the quiet one: competition on the left, network on the
+   right, both muted so the teams stay the loudest thing in the bubble. */
+.gm .c{grid-column:2;color:var(--muted);font-size:13px}
+.gm .net{color:var(--muted);font-size:13px;text-align:right;white-space:nowrap}
+/* The showcase windows a competition names for itself -- FOX at noon, CBS at
+   3:30, NBC on Saturday night, the Saturday Premier League match. Blue, so the
+   week's marquee games are findable without reading every row. */
+.gm .net.marquee{color:#8fb0d8}
 .wnone{color:var(--muted);font-size:13px;padding:1px 2px 8px}
 @media (min-width:641px){
   .wk{margin:24px 0 0}
   .wk h2{font-size:13px}
-  .gm{padding:12px 14px;margin:8px 0;gap:13px}
-  .badges,.badges img{width:30px}
-  .badges img{height:30px}
-  .gm .t{font-size:17px}
-  .gm .c{font-size:14px}
-  .gm .w{width:118px}
-  .gm .w .d{font-size:15px}
-  .gm .w .n{font-size:12.5px}
+  .gm{padding:12px 14px;margin:8px 0;column-gap:11px;
+      grid-template-columns:30px 1fr auto}
+  .gm img{width:30px;height:30px}
+  .gm .n1,.gm .n2{font-size:17px}
+  .gm .r,.gm .c,.gm .net{font-size:14px}
 }
 """
 
@@ -535,29 +598,38 @@ def week_heading(monday):
 
 
 def _game(row):
+    """One bubble: two team lines with their own right-hand figure, then a
+    quieter line for the competition and the network."""
     tint = row.get("stripe")
-    logos = "".join(
-        '<img loading="lazy" alt="" src="%s">' % ui.esc(src)
-        for src in row.get("logos") or [] if src)
-    right = ui.esc(row["at"].strftime("%a %b ")) + str(row["at"].day)
-    beneath = ("%s · %s" % (row["network"], row["time"])
-               if row.get("network") else row["time"])
+    logos = row.get("logos") or [None, None]
+
+    def crest(src):
+        return ('<img loading="lazy" alt="" src="%s">' % ui.esc(src)
+                if src else "<span></span>")
+
+    date = ui.esc(row["at"].strftime("%a %b ")) + str(row["at"].day)
     return (
-        '<div class="gm%s%s"%s><span class="badges">%s</span>'
-        '<span class="b"><span class="t">%s</span>'
-        '<span class="c">%s</span></span>'
-        '<span class="w"><span class="d">%s</span>'
-        '<span class="n">%s</span></span></div>'
+        '<div class="gm%s%s"%s>'
+        '%s<span class="n1">%s <span class="j">%s</span></span>'
+        '<span class="r d">%s</span>'
+        '%s<span class="n2">%s</span><span class="r t">%s</span>'
+        '<span class="c">%s</span><span class="net%s">%s</span>'
+        "</div>"
     ) % (
         " tint" if tint else "",
         " done" if row.get("past") else "",
         ' style="--tint:%s;--wash:%s"' % (ui.esc(tint), ui.wash(row["wash"]))
         if tint else ' style="--wash:%s"' % ui.wash(row["wash"]),
-        logos,
-        ui.esc(row["title"]),
+        crest(logos[0]),
+        ui.esc(row["first"]),
+        ui.esc(row["joiner"]),
+        date,
+        crest(logos[1] if len(logos) > 1 else None),
+        ui.esc(row["second"]),
+        ui.esc(row["time"]),
         ui.esc(row["competition"]),
-        right,
-        ui.esc(beneath),
+        " marquee" if row.get("marquee") else "",
+        ui.esc(row.get("network") or ""),
     )
 
 
@@ -594,11 +666,11 @@ if __name__ == "__main__":
         print("== %s (%d)" % (week_heading(monday), len(games)))
         for g in games:
             played += bool(g["past"])
-            print("   %-9s %-52s %-26s %s" % (
+            print("   %-9s %-52s %-26s %-9s %s" % (
                 g["at"].strftime("%a %b %d"), g["title"][:52],
-                g["competition"][:26],
-                ("%s · %s" % (g["network"], g["time"])) if g["network"]
-                else g["time"]))
+                g["competition"][:26], g["time"],
+                (g["network"] or "") + (" *" if g.get("marquee") else "")))
     total = sum(len(g) for _, g in data["weeks"])
-    print("\n%d games across %d weeks (%d already played)"
-          % (total, len(data["weeks"]), played))
+    marquee = sum(1 for _, gs in data["weeks"] for g in gs if g.get("marquee"))
+    print("\n%d games across %d weeks (%d played, %d marquee *)"
+          % (total, len(data["weeks"]), played, marquee))
