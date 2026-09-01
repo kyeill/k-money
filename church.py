@@ -42,6 +42,25 @@ def color_of(text):
 
 wash = ui.wash
 
+# How close a day has to be for its heading to change colour. Orange first,
+# then blue, then the ordinary muted grey -- so the top of the list says what
+# is imminent without a single date being read.
+SOON_DAYS, NEAR_DAYS = 7, 14
+
+
+def urgency(day, today):
+    """"soon" within a week, "near" within two, otherwise "".
+
+    No class at all past two weeks, rather than a third colour: a page where
+    every heading is coloured highlights nothing.
+    """
+    ahead = (day - today).days
+    if ahead <= SOON_DAYS:
+        return "soon"
+    if ahead <= NEAR_DAYS:
+        return "near"
+    return ""
+
 
 def layout(header):
     """(where, missing, unknown) -- every column here is found BY NAME.
@@ -120,6 +139,8 @@ CSS = """
 .cday{margin:18px 0 0}
 .cday h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;
          color:var(--muted);font-weight:600;margin:0 0 7px}
+.cday.soon h2{color:%(orange)s}
+.cday.near h2{color:%(blue)s}
 .cev{background:var(--card);border:1px solid var(--line);border-radius:10px;
      border-left:4px solid transparent;padding:10px 12px;margin:6px 0}
 /* Two layers, not one: the wash is translucent, so without the card colour
@@ -139,7 +160,7 @@ CSS = """
   .cev .t{font-size:17px}
   .cev .s{font-size:14px}
 }
-"""
+""" % {"orange": ui.COLORS["orange"], "blue": ui.COLORS["blue"]}
 
 
 def render(data):
@@ -156,8 +177,10 @@ def render(data):
     if not data["days"]:
         return "".join(out) + '<div class="cnone">Nothing coming up.</div>'
     for day, events in data["days"]:
-        out.append('<div class="cday"><h2>%s</h2>'
-                   % ui.esc(ui.day_heading(day, data["today"])))
+        near = urgency(day, data["today"])
+        out.append('<div class="cday%s"><h2>%s</h2>'
+                   % ((" " + near) if near else "",
+                      ui.esc(ui.day_heading(day, data["today"]))))
         for ev in events:
             tint = ev.get("color")
             out.append('<div class="cev%s"%s><span class="t">%s</span>%s</div>' % (

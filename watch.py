@@ -137,19 +137,19 @@ PROVIDER_NAMES = {"Disney Plus": "Disney+", "Amazon Prime Video": "Prime Video"}
 # to every label, wherever it came from -- the franchise list in config.json is
 # mine to edit, but the Sheet's Label column is his, and "Lord of the Rings"
 # typed there should still read LOTR without him having to retype it.
-LABEL_NAMES = {"dc": "DCU", "lord of the rings": "LOTR"}
+LABEL_NAMES = {"dc": "DCU", "marvel": "MCU", "lord of the rings": "LOTR"}
 
 
 def label_name(text):
     return LABEL_NAMES.get((text or "").strip().lower(), text)
 
 
-# Franchise prefixes worth dropping from a title, because the source column
-# beside it already says the same thing -- "LOTR . The Rings of Power" reads
-# better than "The Lord of the Rings: The Rings of Power", which wraps to two
-# lines on a phone to say LOTR twice. Only listed prefixes go; "Star Wars:
-# Skeleton Crew" keeps its own, because that one is how the show is known.
-TITLE_PREFIXES = ("The Lord of the Rings: ",)
+# Franchise prefixes dropped from a title, because the source column beside it
+# already says the same thing -- "LOTR . The Rings of Power" reads better than
+# "The Lord of the Rings: The Rings of Power", which wraps to two lines on a
+# phone to say LOTR twice. Only LISTED prefixes go, so a title is never
+# shortened by a general rule nobody checked.
+TITLE_PREFIXES = ("The Lord of the Rings: ", "Star Wars: ")
 
 
 def short_title(text):

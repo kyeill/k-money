@@ -156,7 +156,7 @@ def test_listing():
     # that column is his to type into and is not worth retyping.
     ok("DC company id resolved by name, and renamed", src["Lanterns"], "DCU")
     ok("watchlist entries carry their own label", src["Frankenstein"], "Custom")
-    ok("franchise items are labelled", src["Avengers: Doomsday"], "Marvel")
+    ok("franchise items are labelled", src["Avengers: Doomsday"], "MCU")
     ok("a label with no rename passes through", watch.label_name("Star Wars"),
        "Star Wars")
     # The source column already says LOTR, so the title repeating it just wraps
@@ -167,8 +167,13 @@ def test_listing():
     ok("and off a film",
        watch.short_title("The Lord of the Rings: The Hunt for Gollum"),
        "The Hunt for Gollum")
-    ok("an unlisted franchise keeps its prefix -- that is how it is known",
-       watch.short_title("Star Wars: Skeleton Crew"), "Star Wars: Skeleton Crew")
+    # I argued for keeping this one, on the grounds that "Star Wars: Skeleton
+    # Crew" is how the show is known. He wanted it gone; the source column says
+    # Star Wars either way.
+    ok("the Star Wars prefix comes off too",
+       watch.short_title("Star Wars: Skeleton Crew"), "Skeleton Crew")
+    ok("an unlisted franchise keeps its prefix",
+       watch.short_title("Alien: Earth"), "Alien: Earth")
     ok("a title that only mentions it mid-string is untouched",
        watch.short_title("Making The Lord of the Rings: A Documentary"),
        "Making The Lord of the Rings: A Documentary")
@@ -899,7 +904,8 @@ def test_church():
 
     html = church.render({"today": dt.date(2026, 8, 30), "days": days,
                           "unreadable": bad, "unknown": unknown, "error": None})
-    ok("a heading per day", html.count('class="cday"'), 5)
+    # Prefix, not exact: most headings now carry an urgency class beside it.
+    ok("a heading per day", html.count('class="cday'), 5)
     ok("an entry per event", html.count('class="cev'), 6)
     ok("only the coloured rows carry a stripe", html.count("--tint:"), 4)
     true("the stripe is the colour from the Sheet", '--tint:#8b93a0' in html)
@@ -918,6 +924,35 @@ def test_church():
     true("the bad row is named", "Bad date" in html)
     true("the unknown column is named", "Notes" in html or "notes" in html)
     true("no checkboxes here", "checkbox" not in html)
+
+    # The heading colour says how close a day is without a date being read.
+    # Orange inside a week, blue inside two, plain after that -- a page where
+    # every heading is coloured would highlight nothing.
+    day = dt.date(2026, 8, 30)
+    ok("today and the week ahead are orange",
+       [church.urgency(day + dt.timedelta(days=n), day) for n in (0, 1, 7)],
+       ["soon", "soon", "soon"])
+    ok("the second week is blue",
+       [church.urgency(day + dt.timedelta(days=n), day) for n in (8, 14)],
+       ["near", "near"])
+    ok("past a fortnight there is no class at all",
+       church.urgency(day + dt.timedelta(days=15), day), "")
+    true("the two colours come from the shared palette",
+         "color:%s" % ui.COLORS["orange"] in church.CSS
+         and "color:%s" % ui.COLORS["blue"] in church.CSS)
+    soon_html = church.render(
+        {"today": day, "days": [(day, [{"title": "Now", "details": "",
+                                        "color": None}]),
+                                (day + dt.timedelta(days=10),
+                                 [{"title": "Later", "details": "",
+                                   "color": None}]),
+                                (day + dt.timedelta(days=40),
+                                 [{"title": "Far", "details": "",
+                                   "color": None}])],
+         "unreadable": [], "unknown": [], "error": None})
+    ok("one heading of each kind reaches the page",
+       [soon_html.count('class="cday soon"'), soon_html.count('class="cday near"'),
+        soon_html.count('class="cday"')], [1, 1, 1])
 
     empty = church.render({"today": dt.date(2026, 8, 30), "days": [],
                            "unreadable": [], "unknown": [], "error": None})

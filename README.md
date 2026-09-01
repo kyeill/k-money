@@ -8,6 +8,13 @@ It is a **tab shell**. Three tabs — **Reminders**, **Church** and
 **Watchlist** — and `tabs.py` is the only file that knows that; its order is
 the nav order.
 
+Under the title sits **`Updated 2:07 pm`**. The build stamps an epoch rather
+than a formatted string, because the workflow runs in UTC and the reader does
+not — only the browser knows which clock to render it on. A bare time is only
+honest on the day it was made, so a build from an earlier day shows its **date**
+instead: an installed app can sit on a stale render for days, and
+`Updated 6:04 am` would then be a lie about which morning.
+
 Reminders and Church both read the same Google Sheet, **by tab name**. Asking a
 Sheet for a tab that does not exist returns the FIRST one, so position would
 mean a reorder silently redirects everything.
@@ -208,6 +215,11 @@ colour laid straight on the page background would make a tinted row *darker*
 than a plain one. It is mixed in Python rather than by CSS `color-mix()`, which
 not every phone browser this gets read on has.
 
+**The date heading is coloured by how close it is**: orange within a week, blue
+within two, and the ordinary muted grey after that. Nothing past a fortnight is
+coloured — a page where every heading is coloured highlights nothing. The two
+colours are the shared `ui.py` palette, the same orange the Reminders tab uses.
+
 Much simpler than Reminders on purpose. Every row carries its own date, so
 there is no cadence to recompute, nothing to notify, and nothing that has to
 stay in step with the Apps Script. Dates parse as US or ISO; one that cannot be
@@ -233,7 +245,7 @@ next 30 days" is news, while a missing section reads as a page that failed to
 render. `SOON_DAYS` in `watch.py` moves the boundary, which is inclusive: the
 30th day is near, the 31st is not.
 
-Every row carries a poster, the title, where it came from (Marvel / DCU / Star
+Every row carries a poster, the title, where it came from (MCU / DCU / Star
 Wars / LOTR / Custom), what the date actually *is* — `In Theaters`,
 `Streaming`, `Season 2 Episode 4 ·
 The Green Sea`, `Premiere` — and **one** place to stream it. Rows link to TMDB.
@@ -268,7 +280,7 @@ lines on a phone in order to say LOTR twice. Only listed prefixes go —
 known — and a title is never stripped to nothing.
 
 **`LABEL_NAMES` in `watch.py` decides what a source is CALLED** — `DC` renders
-as **DCU**, `Lord of the Rings` as **LOTR**. It is matched case-insensitively
+as **DCU**, `Marvel` as **MCU**, `Lord of the Rings` as **LOTR**. It is matched case-insensitively
 and applied to every label whatever its source, because the franchise list in
 `config.json` is editable here but the Sheet's `Label` column is not, and a
 label typed there should read the same way without being retyped. Keep the map
@@ -359,7 +371,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         325 assertions, no key and no network needed
+python selftest.py         331 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

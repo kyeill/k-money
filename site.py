@@ -6,6 +6,7 @@
 
 import datetime as dt
 import json
+import time
 import os
 import struct
 import sys
@@ -42,7 +43,9 @@ body{margin:0;background:var(--bg);color:var(--ink);
 .wrap{max-width:720px;margin:0 auto;padding:0 14px 70px}
 header{padding:18px 0 10px}
 h1{font-size:20px;margin:0}
-h1 span{color:var(--muted);font-weight:400;font-size:14px;margin-left:8px}
+/* Under the title, not beside it: it is a footnote about the page, not part
+   of its name. */
+#stamp{color:var(--muted);font-size:13px;margin-top:3px}
 nav{position:sticky;top:0;z-index:5;background:var(--bg);
     border-bottom:1px solid var(--line);margin:0 -14px;padding:0 8px;
     display:flex;gap:2px;overflow-x:auto;scrollbar-width:none}
@@ -133,6 +136,26 @@ if('serviceWorker' in navigator)
 // desktop tab restored from the back/forward cache does the same -- either way
 // the build behind it moves on without the reader ever seeing it.
 const BUILT='%%BUILT%%';
+
+// "Updated 2:07 pm". The build stamps an epoch, not a formatted string,
+// because the workflow runs in UTC and the reader is not -- only the browser
+// knows which clock to render it on.
+//
+// A TIME alone is only honest on the day it was made: an installed app can sit
+// on a stale render for days, and "Updated 6:04 am" would then be a lie about
+// which morning. Older builds show the date instead.
+const BUILT_AT=%%BUILTAT%%;
+(function(){
+  const el=document.getElementById('stamp');
+  if(!el||!BUILT_AT) return;
+  const d=new Date(BUILT_AT);
+  try{
+    el.textContent='Updated '+(d.toDateString()===new Date().toDateString()
+      ? d.toLocaleTimeString([],{hour:'numeric',minute:'2-digit'})
+         .replace('AM','am').replace('PM','pm')
+      : d.toLocaleDateString([],{day:'numeric',month:'short'}));
+  }catch(e){}          // leave the server's fallback text in place
+})();
 let hidden=Date.now();
 function stale(){
   const n=new Date();
@@ -219,8 +242,11 @@ def _png(size):
             + chunk(b"IEND", b""))
 
 
-def render(built, panes):
+def render(built, panes, built_at=None):
     """panes: [(key, label, html, js)] in nav order; js may be ""."""
+    # Milliseconds since the epoch, UTC. 0 means "no time known", and the
+    # server's fallback text stands.
+    built_at = 0 if built_at is None else int(built_at)
     panes = [p if len(p) == 4 else (p[0], p[1], p[2], "") for p in panes]
     css = SHELL_CSS + "".join(getattr(tabs.by_key(k), "CSS", "")
                               for k, _, _, _ in panes)
@@ -246,14 +272,15 @@ def render(built, panes):
         # does not ship, and shows a blank tab icon after the 404.
         "<link rel=\"icon\" href=\"icon-192.png\">"
         "%(font)s<style>%(css)s</style></head><body><div class=\"wrap\">"
-        "<header><h1>%(app)s<span>%(pretty)s</span></h1></header>"
+        "<header><h1>%(app)s</h1><div id=\"stamp\">Updated %(pretty)s</div></header>"
         "<nav>%(nav)s</nav>%(body)s"
         "<footer>Built %(pretty)s · film data from TMDB</footer>"
         "</div><script>%(js)s</script></body></html>"
     ) % {
         "app": ui.esc(APP), "font": FONT, "css": css, "nav": nav, "body": body,
         "pretty": pretty(built),
-        "js": JS.replace("%%BUILT%%", built) + tab_js,
+        "js": (JS.replace("%%BUILT%%", built)
+               .replace("%%BUILTAT%%", str(built_at))) + tab_js,
     }
 
 
@@ -303,7 +330,7 @@ def main():
         raise SystemExit("no tabs built (--tab %s matched nothing)" % only)
 
     os.makedirs(SITE, exist_ok=True)
-    page = render(built, panes)
+    page = render(built, panes, built_at=time.time() * 1000)
     write(os.path.join(SITE, "index.html"), page)
     write(os.path.join(SITE, "manifest.webmanifest"), json.dumps(MANIFEST, indent=2))
     # 180 is Apple's touch icon; 192 and 512 are what the manifest declares.
