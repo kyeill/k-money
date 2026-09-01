@@ -14,10 +14,11 @@ line here -- and this list's ORDER is the nav order.
 """
 
 import church
+import teams
 import reminders
 import watch
 
-TABS = [reminders, church, watch]
+TABS = [reminders, teams, church, watch]
 
 
 def by_key(key):

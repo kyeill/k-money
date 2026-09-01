@@ -314,6 +314,8 @@ def main():
             HERE, "fixtures", "church.csv")
         os.environ["KMONEY_WATCHLIST_CSV"] = os.path.join(
             HERE, "fixtures", "watchlist.csv")
+        os.environ["KMONEY_TEAMS_JSON"] = os.path.join(
+            HERE, "fixtures", "teams.json")
         # Somewhere disposable: a fixture run must not overwrite the ids the
         # real build resolved and committed.
         os.environ["KMONEY_WATCHLIST_STATE"] = os.path.join(

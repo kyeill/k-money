@@ -46,6 +46,40 @@
   "exclude_animation": true,
   "_comment_animation": "true = animation is OUT (TMDB genre 16), his call 2026-08-30. He briefly had it in for official MCU/DCU animation, then reversed.",
   "reminders_sheet": "1v9ErfF8bZ-jpboTz6cHth1sZf8VlCQa2DOufH74OJmk",
+  "_comment_teams": "The Teams tab. ESPN only, no Sheet. anchors are the LEAGUE competitions whose calendar says whether we are in season -- cups report a June-to-June administrative window and would claim we are in season all summer. mode 'schedule' uses teams/<id>/schedule (small, has AP rank, colours null); mode 'scoreboard' fetches the whole competition and filters, which is the only way to see a club outside its league.",
+  "teams": {
+    "anchors": [
+      "soccer/eng.1",
+      "football/college-football",
+      "basketball/mens-college-basketball"
+    ],
+    "follow": [
+      {
+        "id": "130",
+        "name": "Michigan",
+        "wash": "#ffcb05",
+        "_note": "Maize is Michigan's ALTERNATE colour at ESPN; the primary is navy and reads as nothing against this card. His call: yellow for Michigan.",
+        "sports": [
+          {"path": "football/college-football", "label": "College Football", "mode": "schedule"},
+          {"path": "basketball/mens-college-basketball", "label": "College Basketball", "mode": "schedule"}
+        ]
+      },
+      {
+        "id": "367",
+        "name": "Tottenham",
+        "wash": "#3d8ee0",
+        "_note": "ESPN gives Tottenham #ffffff primary and navy alternate -- neither works as a wash on a dark card, so this is the app's own blue.",
+        "sports": [
+          {"path": "soccer/eng.1", "label": "Premier League", "mode": "scoreboard"},
+          {"path": "soccer/eng.fa", "label": "FA Cup", "mode": "scoreboard"},
+          {"path": "soccer/eng.league_cup", "label": "Carabao Cup", "mode": "scoreboard"},
+          {"path": "soccer/uefa.champions", "label": "Champions League", "mode": "scoreboard"},
+          {"path": "soccer/uefa.europa", "label": "Europa League", "mode": "scoreboard"},
+          {"path": "soccer/uefa.europa.conf", "label": "Conference League", "mode": "scoreboard"}
+        ]
+      }
+    ]
+  },
   "_comment_reminders": "The Google Sheet behind the Reminders tab. Public read (anyone with the link), which is what lets the page fetch it in the browser. NOTIFICATIONS ARE NOT SENT FROM HERE -- the Apps Script bound to that sheet does that; see apps-script/reminders.gs.",
   "reminders_webapp": "https://script.google.com/macros/s/AKfycbzhADw7sI572xdcTe2W4Rk8x2WyKF5jca7zlgWGveK8GM0pKcC50BjBG4fLGj6vU1Sx/exec",
   "_comment_webapp": "Apps Script web app /exec URL, from Deploy > New deployment > Web app (execute as me, access anyone). The page calls it to record a tick. It IS public -- the script validates the date and checks the key against a real reminder, so the worst a stranger can do is toggle a checkbox. Blank = ticking is disabled.",

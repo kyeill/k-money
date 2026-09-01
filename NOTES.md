@@ -475,6 +475,34 @@ The general shape: **a column that cannot be read must be named on the page.**
 Silence here has cost two debugging passes — eight reminders on the wrong
 cadence, and a whole tab reading empty.
 
+## ESPN: the four things that make a Teams row wrong
+
+Each cost a check against the live API on 2026-09-01.
+
+**Team colours are null on the team-schedule endpoint** and present on the
+scoreboard. So the opponent's stripe for a college game has to be looked up
+from that league's `/teams` list; soccer gets it for free.
+
+**`teams/<id>/schedule` with an explicit `season` is a trap.** Ask basketball
+for last season and it returns thirty-four games from last winter, all of them
+looking perfectly valid. No parameter, no fallback: ESPN returns the current
+season on its own, and an unpublished schedule should be absent rather than
+wrong.
+
+**`timeValid: false` means the kickoff is not set.** ESPN stamps those games at
+midnight Eastern, so without the check a Big Ten game five weeks out renders
+"12:00 AM" and looks like a real midnight fixture. The DAY is still correct.
+
+**`leagues[0].season` is not the season.** It is an administrative window --
+the Carabao Cup reports 1 June to 1 June. `leagues[0].calendar` is the real
+matchday span, and it is what answers "are we in season". Using a cup's season
+block for that would claim you are in season all summer.
+
+Two more inherited from sports-daily and re-proved here: **soccer prints the
+home side first** while every other sport is away at home, and **do not send a
+browser User-Agent** -- ESPN 403s it from a non-browser client but serves the
+requests default fine.
+
 ## Expected noise, not bugs
 
 Studio discovery picks up **making-of specials** (Marvel's *Assembled*) and the

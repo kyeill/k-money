@@ -858,6 +858,231 @@ def test_afternoon_gap():
               "webapp": "", "error": None}))
 
 
+def test_teams_text():
+    """The matchup line, and the two conventions that make it read wrong if
+    you get them backwards."""
+    import teams
+    home = {"homeAway": "home", "team": {"displayName": "Michigan Wolverines"},
+            "curatedRank": {"current": 16}}
+    away = {"homeAway": "away", "team": {"displayName": "Iowa Hawkeyes"},
+            "curatedRank": {"current": 99}}
+
+    # Every sport but soccer is away AT home; soccer prints the home side
+    # first. Swap them and every row reads backwards, silently.
+    ok("college is away at home", teams.matchup(home, away, False, False),
+       "Iowa Hawkeyes at #16 Michigan Wolverines")
+    ok("soccer is home first", teams.matchup(home, away, True, False),
+       "#16 Michigan Wolverines vs. Iowa Hawkeyes")
+    ok("a neutral site is vs, not at",
+       teams.matchup(home, away, False, True),
+       "Iowa Hawkeyes vs. #16 Michigan Wolverines")
+    # 99 is ESPN's "unranked", not a 99th-ranked team.
+    ok("rank 99 is not a rank", teams.rank_of(away), None)
+    ok("a real rank is kept", teams.rank_of(home), 16)
+
+
+def test_teams_network():
+    """One network, national only, streaming named last."""
+    import teams
+    sb = lambda *n: {"broadcasts": [{"market": "national", "names": list(n)}]}
+    ok("the scoreboard shape is read", teams.pick_network(sb("FOX")), "FOX")
+    # Both endpoints are used, and they encode this differently.
+    ok("the schedule shape is read too", teams.pick_network(
+        {"broadcasts": [{"market": {"type": "National"},
+                         "media": {"shortName": "NBC"}}]}), "NBC")
+    # A match on USA and Peacock is a USA game.
+    ok("real television beats streaming",
+       teams.pick_network(sb("Peacock", "USA Net")), "USA")
+    ok("streaming stands when it is the only way to watch",
+       teams.pick_network(sb("Peacock")), "Peacock")
+    ok("ESPN's spelling is corrected", teams.pick_network(sb("USA Net")), "USA")
+    ok("a simulcast is named once", teams.pick_network(sb("TBS", "truTV")), "TBS")
+    ok("hidden feeds do not count", teams.pick_network(sb("TUDN")), None)
+    # A regional-only game shows nothing, which is honest: that feed is only
+    # useful if you happen to get it.
+    ok("a regional broadcast is not a network",
+       teams.pick_network({"broadcasts": [{"market": "home", "names": ["BTN"]}]}),
+       None)
+    ok("no broadcast at all is None", teams.pick_network({}), None)
+
+
+def test_teams_colour():
+    """The stripe is the OPPONENT's colour, and it has to be visible."""
+    import teams
+    ok("a usable primary is used",
+       teams.stripe_color({"color": "c41230", "alternateColor": "ffffff"}),
+       "#c41230")
+    # Tottenham's own ESPN primary is #ffffff. This is not a rare case.
+    ok("white falls through to a usable alternate",
+       teams.stripe_color({"color": "ffffff", "alternateColor": "1c4587"}),
+       "#1c4587")
+    ok("black falls through too",
+       teams.stripe_color({"color": "000000", "alternateColor": "ffb612"}),
+       "#ffb612")
+    # Something beats nothing when neither candidate works. Tottenham's real
+    # pair is white and #0b1426, a navy DARKER than the card it would sit on --
+    # so white stands. It says nothing about the opponent, but it is at least
+    # visible, and an invisible stripe is just a missing one.
+    ok("a navy darker than the card is not usable either",
+       teams.stripe_color({"color": "ffffff", "alternateColor": "0b1426"}),
+       "#ffffff")
+    ok("two unusable colours still give a stripe",
+       teams.stripe_color({"color": "ffffff", "alternateColor": "000000"}),
+       "#ffffff")
+    ok("no colour is no stripe", teams.stripe_color({}), None)
+
+
+def test_teams_rounds():
+    """Cup rounds live in season.slug, not in a note."""
+    import teams
+    ok("a cup round is spelled out", teams.round_tag("third-round"), "Third Round")
+    ok("Europe's long rounds are shortened", teams.round_tag("round-of-16"), "R16")
+    ok("MLS keeps only the tail",
+       teams.round_tag("eastern-conference-playoffs---round-one"), "Round One")
+    ok("'proper' is dropped", teams.round_tag("third-round-proper"), "Third Round")
+    ok("a league slug is not a round", teams.round_tag("2026-2027"), "")
+    ok("no slug, no round", teams.round_tag(None), "")
+
+    # A note headline wins: that is where college keeps "Big Ten Tournament".
+    ok("a note headline names the competition",
+       teams.competition_label({}, {"notes": [{"headline": "Big Ten Tournament"}]},
+                               "College Basketball"), "Big Ten Tournament")
+    ok("otherwise the league plus its round",
+       teams.competition_label({"season": {"slug": "semifinals"}}, {}, "Carabao Cup"),
+       "Carabao Cup - Semifinals")
+    ok("a league match is just the league",
+       teams.competition_label({"season": {"slug": "2026-2027"}}, {},
+                               "Premier League"), "Premier League")
+
+
+def test_teams_weeks():
+    """Weeks start on Monday, blanks are kept, and the summer does not open on
+    a dozen empty headings."""
+    import teams
+    ok("Monday is its own week start",
+       teams.week_start(dt.date(2026, 8, 31)), dt.date(2026, 8, 31))
+    ok("Sunday belongs to the week that began six days earlier",
+       teams.week_start(dt.date(2026, 9, 6)), dt.date(2026, 8, 31))
+    ok("the heading names the Monday",
+       teams.week_heading(dt.date(2026, 9, 7)), "Week of September 7")
+
+    def game(day):
+        when = teams.local(day + "T18:00")
+        return {"id": day, "day": when.date(), "at": when, "title": "x",
+                "competition": "c", "network": None, "time": "1:00 PM",
+                "stripe": None, "wash": "#ffcb05", "logos": [], "past": False}
+
+    rows = [game("2026-09-05"), game("2026-09-26")]
+    spans = [("2026-08-22", "2027-02-01")]
+    weeks = teams.into_weeks(rows, dt.date(2026, 9, 1), spans)
+    ok("every week from this one to the last game",
+       [str(m) for m, _ in weeks],
+       ["2026-08-31", "2026-09-07", "2026-09-14", "2026-09-21"])
+    # A bye week is information. Skipping it would make the list lie about how
+    # far apart two games are.
+    ok("blank weeks are kept", [len(g) for _, g in weeks], [1, 0, 0, 1])
+
+    # Out of season -- June -- the run starts at the next fixture instead of a
+    # dozen empty headings waiting for August.
+    summer = teams.into_weeks(rows, dt.date(2026, 6, 10), spans)
+    ok("outside the season it opens on the next game",
+       str(summer[0][0]), "2026-08-31")
+    ok("in season it opens on this week", str(weeks[0][0]), "2026-08-31")
+    ok("no games, no weeks", teams.into_weeks([], dt.date(2026, 9, 1), spans), [])
+
+    ok("in_season reads the anchor calendars",
+       [teams.in_season(spans, dt.date(2026, 9, 1)),
+        teams.in_season(spans, dt.date(2026, 6, 10))], [True, False])
+
+
+def test_teams_normalize():
+    """One ESPN event to one row, including what must NOT become a row."""
+    import teams
+    sport = {"path": "football/college-football", "label": "College Football"}
+    follow = {"id": "130", "wash": "#ffcb05"}
+    event = {
+        "id": "401", "date": "2026-09-26T04:00Z", "timeValid": False,
+        "seasonType": {"id": "2"},
+        "competitions": [{
+            "broadcasts": [], "notes": [],
+            "competitors": [
+                {"homeAway": "home", "curatedRank": {"current": 16},
+                 "team": {"id": "130", "displayName": "Michigan Wolverines",
+                          "logos": [{"href": "m.png"}]}},
+                {"homeAway": "away", "curatedRank": {"current": 22},
+                 "team": {"id": "2294", "displayName": "Iowa Hawkeyes",
+                          "logos": [{"href": "i.png"}]}}]}]}
+    row = teams.normalize(event, sport, follow, dt.date(2026, 9, 1),
+                          {"2294": {"color": "ffcd00", "alternateColor": "000000"}})
+    ok("both ranks show", row["title"],
+       "#22 Iowa Hawkeyes at #16 Michigan Wolverines")
+    # The schedule endpoint returns colours as null, so the opponent's stripe
+    # has to be looked up from the league's team list.
+    ok("the opponent's colour is filled in from the team list",
+       row["stripe"], "#ffcd00")
+    ok("the wash is the followed team's", row["wash"], "#ffcb05")
+    # ESPN stamps an unscheduled kickoff at midnight and flags it. Without the
+    # flag this reads "12:00 AM", which looks like a real midnight fixture.
+    ok("an unset kickoff is TBD, not midnight", row["time"], "TBD")
+    ok("but the day is still right", str(row["day"]), "2026-09-26")
+    ok("logos are away then home", row["logos"], ["i.png", "m.png"])
+    true("a future game is not past", not row["past"])
+
+    played = dict(event, date="2026-08-30T16:00Z", timeValid=True)
+    ok("a game already played is marked",
+       teams.normalize(played, sport, follow, dt.date(2026, 9, 1), {})["past"],
+       True)
+
+    # He asked for exhibitions and friendlies out.
+    exhibition = dict(event, seasonType={"id": "1"})
+    ok("a preseason exhibition is dropped",
+       teams.normalize(exhibition, sport, follow, dt.date(2026, 9, 1), {}), None)
+    friendly = json.loads(json.dumps(event))
+    friendly["competitions"][0]["type"] = {"abbreviation": "FRIENDLY"}
+    ok("a friendly is dropped",
+       teams.normalize(friendly, sport, follow, dt.date(2026, 9, 1), {}), None)
+
+    # A competition neither followed team is in should never reach the page.
+    other = json.loads(json.dumps(event))
+    for c in other["competitions"][0]["competitors"]:
+        c["team"]["id"] = "999"
+    ok("someone else's game is dropped",
+       teams.normalize(other, sport, follow, dt.date(2026, 9, 1), {}), None)
+
+
+def test_teams_render():
+    """The tab renders from canned rows -- no network, no API key."""
+    import teams
+    os.environ["KMONEY_TEAMS_JSON"] = os.path.join(HERE, "fixtures", "teams.json")
+    try:
+        data = teams.build(today="2026-08-29")
+    finally:
+        os.environ.pop("KMONEY_TEAMS_JSON", None)
+    html = teams.render(data)
+
+    ok("a heading per week", html.count('class="wk"'), len(data["weeks"]))
+    ok("a row per game", html.count('class="gm'), 4)
+    true("weeks are named for their Monday", "<h2>Week of August 24</h2>" in html)
+    true("an empty week says so", "No games." in html)
+    true("the network and time share a line", "Peacock &middot; 10:00 AM" in html
+         or "Peacock · 10:00 AM" in html)
+    true("a game with no network shows just the time",
+         '<span class="n">3:00 PM</span>' in html)
+    true("the wash is laid over the card, as on the other tabs",
+         "linear-gradient(var(--wash),var(--wash)),var(--card)" in teams.CSS)
+    ok("every row carries a wash", html.count("--wash:"), 4)
+    ok("and a stripe where the opponent has a usable colour",
+       html.count("--tint:"), 4)
+    true("both logos are drawn", html.count("<img") >= 8)
+    true("logos are lazy", 'loading="lazy"' in html)
+
+    empty = teams.render({"today": dt.date(2026, 9, 1), "weeks": [], "error": None})
+    true("nothing scheduled says so", "Nothing scheduled." in empty)
+    true("a broken fetch renders an error, not a traceback",
+         'class="rerr"' in teams.render(
+             {"today": dt.date(2026, 9, 1), "weeks": [], "error": "boom"}))
+
+
 def test_church():
     """Dated events, grouped, from today onward. Much simpler than Reminders:
     every row carries its own date, so there is no cadence to recompute and

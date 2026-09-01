@@ -4,7 +4,7 @@ A rolling list of what is coming out — Marvel, DC and Star Wars by default,
 plus whatever one-offs are worth following — built once a morning by GitHub
 Actions and published as an installable page.
 
-It is a **tab shell**. Three tabs — **Reminders**, **Church** and
+It is a **tab shell**. Four tabs — **Reminders**, **Teams**, **Church** and
 **Watchlist** — and `tabs.py` is the only file that knows that; its order is
 the nav order.
 
@@ -15,7 +15,7 @@ honest on the day it was made, so a build from an earlier day shows its **date**
 instead: an installed app can sit on a stale render for days, and
 `Updated 6:04 am` would then be a lie about which morning.
 
-Reminders and Church both read the same Google Sheet, **by tab name**. Asking a
+Reminders, Church and the Watchlist all read the same Google Sheet, **by tab name**. Asking a
 Sheet for a tab that does not exist returns the FIRST one, so position would
 mean a reorder silently redirects everything.
 
@@ -179,6 +179,86 @@ means it is live and reachable anonymously, which is exactly right.
 serving whatever was deployed. After any edit: **Deploy → Manage deployments →
 pencil → Version: New version → Deploy**. Paste and run `setup()` BEFORE
 deploying, or the web app goes live without `doGet` and ticks fail silently.
+
+## Teams
+
+Every remaining game for **Michigan football**, **Michigan basketball** and
+**Tottenham**, from ESPN's public API. No Google Sheet, no live scores, no
+records — one build a day is the whole story.
+
+Weeks start on **Monday** and are headed `Week of September 7`. Within a week
+games run chronologically. Rows carry two logos, the matchup, the competition,
+and on the right the date with the network and time beneath it —
+`NBC · 7:30 PM`.
+
+### Two endpoints, because neither is enough
+
+| Team | Endpoint | Why |
+| --- | --- | --- |
+| Michigan FB / BB | `teams/130/schedule` | A whole season in one small call, with AP rankings |
+| Tottenham | `scoreboard?dates=` per competition | The team endpoint knows only its league, and would miss the Carabao Cup entirely |
+
+The schedule endpoint returns **team colours as `null`**, so the opponent's
+stripe is looked up from the league's `/teams` list. The scoreboard carries
+colours already.
+
+**No `season` parameter, and no falling back a year.** ESPN returns the current
+season on its own, and a fallback is actively wrong: ask basketball for last
+season and it happily returns thirty-four games from last winter. Michigan
+basketball is simply **absent** until ESPN publishes the schedule — silence, by
+his choice, not a placeholder.
+
+### Colour
+
+Sports Daily's scheme. The **stripe is the opponent's** colour; the **wash is
+yours** — maize for Michigan, blue for Tottenham. Those two are fixed in
+`config.json` rather than taken from ESPN, which has Michigan's primary as navy
+with maize only as the alternate, and Tottenham's as **white**.
+
+A stripe has to be visible on the card, so a colour that is too dark or too
+light falls through to the alternate — the same rule that makes the Steelers
+gold rather than an invisible black. When neither works, the primary stands:
+it says nothing about the opponent, but an invisible stripe is just a missing
+one.
+
+### The conventions that make a row read wrong
+
+**Soccer prints the home side first** (`Nottingham Forest vs. Tottenham
+Hotspur`); every other sport is away at home (`Western Michigan Broncos at #16
+Michigan Wolverines`). Get it backwards and every row is wrong, silently. A
+neutral site is `vs.` either way.
+
+**An unset kickoff is `TBD`, not `12:00 AM`.** ESPN stamps an unscheduled game
+at midnight and flags `timeValid: false`; without that check a Big Ten game
+five weeks out reads like a real midnight fixture. The *day* is right either
+way, so the row still belongs where it is.
+
+**A cup round lives in `season.slug`**, not in a note — that is where
+`Carabao Cup - Third Round` comes from. A note headline wins when there is one,
+which is where college keeps `Big Ten Tournament` and the bowl names.
+
+**One network, national only.** A game carried solely on a regional feed shows
+nothing, which is honest: that feed is only useful if you happen to get it.
+Streaming is named only when it is the only way to watch, so a match on USA and
+Peacock is a USA game.
+
+### Which weeks
+
+Every week from the current one to the last known fixture, **including blank
+ones** — a bye week is information, and skipping it would make the list lie
+about how far apart two games are. Today that is 49 games across 39 weeks, of
+which 2 are empty.
+
+Where the run *starts* is the only judgement. Inside a season it is this week,
+blank or not. Outside every season — June and July — it is the week of the next
+fixture, so the summer does not open on a dozen empty headings waiting for
+August.
+
+"In season" is answered by ESPN, not by a hardcoded month: `leagues[0].calendar`
+gives the real matchday span (the Premier League's runs 2026-08-21 to
+2027-05-30). Only the three **league** competitions are `anchors` for that test.
+A cup's calendar is an administrative window — the Carabao Cup reports 1 June to
+1 June — and including one would claim you are in season all summer.
 
 ## Church
 
@@ -371,7 +451,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         331 assertions, no key and no network needed
+python selftest.py         393 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
@@ -441,6 +521,7 @@ bar made the app look like it had none.
 ```
 tmdb.py      the only thing that talks to TMDB; disk-cached
 watch.py     the Watchlist tab -- date logic, ordering, and its own render
+teams.py     the Teams tab -- ESPN schedules, weeks, colours
 church.py    the Church tab -- dated events, no cadences, no notifications
 reminders.py the Reminders tab -- sheet rules, and the same rules again in JS
 ui.py        shared render helpers
