@@ -48,6 +48,21 @@
   "reminders_sheet": "1v9ErfF8bZ-jpboTz6cHth1sZf8VlCQa2DOufH74OJmk",
   "_comment_teams": "The Teams tab. ESPN only, no Sheet. anchors are the LEAGUE competitions whose calendar says whether we are in season -- cups report a June-to-June administrative window and would claim we are in season all summer. mode 'schedule' uses teams/<id>/schedule (small, has AP rank, colours null); mode 'scoreboard' fetches the whole competition and filters, which is the only way to see a club outside its league.",
   "teams": {
+    "colors_tab": "Colors",
+    "_comment_colors": "MASTER LIST of team colour overrides, shared with sports-daily and standings. Read from that tab of the Sheet when it exists, merged OVER the team_colors below -- which is the committed fallback, so a Sheet outage cannot break the page. The tab is Team | Color, found by name; the header is checked because asking Google for a tab that does not exist returns the FIRST one.",
+    "team_colors": {
+      "Michigan Wolverines": "ffcb05",
+      "Tottenham Hotspur": "ffffff",
+      "Syracuse": "f76900",
+      "Penn State": "061440",
+      "Cornell Big Red": "b31b1b",
+      "Ipswich Town": "3a64a3",
+      "Eintracht Frankfurt": "e1000f",
+      "Real Madrid": "febe10",
+      "Chicago White Sox": "000000",
+      "Detroit Tigers": "0a2240",
+      "Minnesota Duluth": "5e0a2f"
+    },
     "anchors": [
       "soccer/eng.1",
       "football/college-football",
@@ -57,8 +72,8 @@
       {
         "id": "130",
         "name": "Michigan",
-        "wash": "#ffcb05",
-        "_note": "Maize is Michigan's ALTERNATE colour at ESPN; the primary is navy and reads as nothing against this card. His call: yellow for Michigan.",
+        "wash": "#f5b400",
+        "_note": "A deeper gold than ESPN's maize (#ffcb05), his call 2026-08-30 -- at 13% over the dark card maize washes out to a pale yellow-grey, and this reads as gold. Michigan's ESPN primary is navy; maize is only its alternate.",
         "sports": [
           {"path": "football/college-football", "label": "College Football", "mode": "schedule",
            "_note_marquee": "The showcase windows college football names for itself. Matched on network AND kickoff together -- FOX has a 3:30 window of its own, so the channel alone would light up half the season. Ranges, not exact times, because a window shifts occasionally.",

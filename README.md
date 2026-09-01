@@ -236,16 +236,45 @@ his choice, not a placeholder.
 
 ### Colour
 
-Sports Daily's scheme. The **stripe is the opponent's** colour; the **wash is
-yours** — maize for Michigan, blue for Tottenham. Those two are fixed in
-`config.json` rather than taken from ESPN, which has Michigan's primary as navy
-with maize only as the alternate, and Tottenham's as **white**.
+Sports Daily's scheme, and **its actual rules** — `invisible_colour` and
+`washed_out` are copied across rather than reinvented. A naive "is it bright
+enough" test throws away Brighton's `#0606fa`, a vivid blue whose luminance is
+*darker than a navy*; what separates them is the strongest channel, which peaks
+at 64 for a navy and 250 for that blue. Likewise saturation, not brightness,
+separates the Yankees' silver from Leeds' yellow.
 
-A stripe has to be visible on the card, so a colour that is too dark or too
-light falls through to the alternate — the same rule that makes the Steelers
-gold rather than an invisible black. When neither works, the primary stands:
-it says nothing about the opponent, but an invisible stripe is just a missing
-one.
+The **stripe is the opponent's** colour: an override first, then the primary
+unless it reads as black or white, then the alternate — that is how the
+Steelers become gold. When nothing shows, something still beats nothing.
+
+The **wash is yours** — gold for Michigan, blue for Tottenham, fixed in
+`config.json` rather than taken from ESPN, which has Michigan's primary as navy
+with maize only as the alternate, and Tottenham's as **white**. The gold is
+`#f5b400` rather than official maize: at 13% over a dark card, maize washes out
+to a pale yellow-grey.
+
+**Ranks are blue** (`#8fb0d8`), the same light blue as a marquee network and
+for the same reason — a dark navy would vanish against this ground.
+
+### The shared colour list
+
+`team_colors` is a **master list shared with sports-daily and standings**. They
+are three separate repos with three separate builds, so it cannot be one file
+on disk; it is read from the **`Colors` tab of the same Google Sheet**, laid
+over the copy committed in `config.json`.
+
+That copy is the **fallback, not the source**: three sites read this list, and
+a Sheet outage must not be able to break all three at once. The Sheet wins where
+it has an opinion and says nothing where it does not.
+
+The tab is `Team | Color`, found by name. **The header is checked**, because
+asking Google for a tab that does not exist hands back the *first* tab — without
+that check a Sheet with no `Colors` tab is read as if the reminders were team
+colours. Verified: it currently returns the Reminders header and is correctly
+refused.
+
+The drift this is meant to stop had already happened. Tottenham was `ffffff` in
+sports-daily and `132257` in standings; the Tigers were `#0a2240` and `fa4616`.
 
 ### The conventions that make a row read wrong
 
@@ -477,7 +506,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         411 assertions, no key and no network needed
+python selftest.py         430 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

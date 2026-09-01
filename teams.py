@@ -15,9 +15,12 @@ Two endpoints, because neither is enough on its own:
 Verified against the live API on 2026-09-01.
 """
 
+import csv
 import datetime as dt
+import io
 import json
 import os
+import re
 import time
 
 import ui
@@ -116,27 +119,155 @@ def in_season(spans, today):
 
 
 # ---------------------------------------------------------------- colours
+# These three rules are sports-daily's, copied deliberately rather than
+# reinvented -- a simple "is it bright enough" test throws away Brighton's
+# #0606fa, which is a vivid blue with a luminance darker than a navy.
 
-def _luma(hex_color):
-    r, g, b = (int(hex_color[i:i + 2], 16) for i in (0, 2, 4))
-    return 0.299 * r + 0.587 * g + 0.114 * b
+def _rgb(value):
+    value = (value or "").lstrip("#")
+    if len(value) != 6:
+        return None
+    try:
+        return tuple(int(value[i:i + 2], 16) for i in (0, 2, 4))
+    except ValueError:
+        return None
 
 
-def stripe_color(team):
-    """The opponent's colour, as a stripe that will actually be visible.
+def invisible_colour(value):
+    """True when a colour reads as black on the page's own near-black ground.
 
-    Sports Daily's rule: a near-black stripe disappears into the card and a
-    white one says nothing about who is playing, so the alternate stands in --
-    which is how the Steelers become gold. Tottenham's own primary is #ffffff,
-    so this is not a rare case.
+    Brightness alone is the wrong question -- Indiana's crimson and Michigan
+    State's green sit at the same luminance as a navy that vanishes. So a
+    colour is only rejected when it is near-neutral, or a genuine navy: navy
+    runs r < g < b, while a purple of the same darkness runs g < r < b and
+    reads perfectly well.
     """
+    parts = _rgb(value)
+    if not parts:
+        return False
+    red, green, blue = parts
+    # A vivid colour shows however dark the luminance figure says it is. Blue
+    # contributes almost nothing to luminance, so Brighton's #0606fa scores 24
+    # -- darker than a navy -- while being a bright blue anyone can see. What
+    # separates them is the strongest channel: a navy peaks around 64, that
+    # blue at 250.
+    if max(parts) >= 140:
+        return False
+    if 0.2126 * red + 0.7152 * green + 0.0722 * blue >= 55:
+        return False
+    if max(parts) - min(parts) < 40:
+        return True
+    return blue > red and blue > green and green >= red
+
+
+def washed_out(value):
+    """True when a colour reads as white on the page: white itself, or a light
+    grey with no colour left in it.
+
+    Saturation is what separates them from a pale but real colour -- Leeds'
+    #ffcd00 is brighter than the Yankees' silver and obviously yellow.
+    """
+    parts = _rgb(value)
+    if not parts:
+        return False
+    if max(parts) - min(parts) >= 45:
+        return False
+    return 0.2126 * parts[0] + 0.7152 * parts[1] + 0.0722 * parts[2] >= 170
+
+
+def stripe_color(team, overrides=None):
+    """The opponent's colour: the first candidate that will actually show.
+
+    An override wins outright -- ESPN's primary is not always the one people
+    picture, and Syracuse comes back navy rather than orange. Otherwise the
+    primary is used unless it would read as black or as white, in which case
+    the alternate stands in: that is how the Steelers become gold rather than
+    a stripe you cannot see.
+
+    White is a last resort, not a preference. A white stripe says nothing about
+    who is playing, and a page of them says less -- but an invisible stripe is
+    just a missing one, so something beats nothing.
+    """
+    name = (team.get("displayName") or team.get("name") or "").lower()
+    for label, value in (overrides or {}).items():
+        if label.lower() in name:
+            return "#" + value.lstrip("#")
+
     candidates = [(team.get("color") or "").lstrip("#"),
                   (team.get("alternateColor") or "").lstrip("#")]
-    candidates = [c for c in candidates if len(c) == 6]
-    for c in candidates:
-        if 45 < _luma(c) < 215:
-            return "#" + c
+    candidates = [c for c in candidates if _rgb(c)]
+    for candidate in candidates:
+        if not washed_out(candidate) and not invisible_colour(candidate):
+            return "#" + candidate
+    for candidate in candidates:
+        if not washed_out(candidate):
+            return "#" + candidate
     return "#" + candidates[0] if candidates else None
+
+
+# ------------------------------------------------------- the shared list
+
+COLORS_EXPECT = ["team", "color"]
+
+
+def read_colors(text):
+    """{team: hex} from the shared Colors tab.
+
+    The header is CHECKED, not assumed. Asking Google for a tab that does not
+    exist hands back the FIRST tab instead of erroring, so without this a Sheet
+    with no Colors tab would be parsed as if the reminders were team colours.
+    """
+    rows = list(csv.reader(io.StringIO(text or "")))
+    if not rows:
+        return {}
+    header = [h.strip().lower().split()[0] if h.strip() else "" for h in rows[0]]
+    where = {name: i for i, name in enumerate(header) if name in COLORS_EXPECT}
+    if len(where) < len(COLORS_EXPECT):
+        return {}
+    out = {}
+    for line in rows[1:]:
+        cells = [c.strip() for c in line]
+        if max(where.values()) >= len(cells):
+            continue
+        team, value = cells[where["team"]], cells[where["color"]].lstrip("#")
+        if team and _rgb(value):
+            out[team] = value
+    return out
+
+
+def color_overrides(cfg, conf):
+    """The committed list, with the Sheet's laid over it.
+
+    config.json is the FALLBACK, not the source: three sites read this list, and
+    a Sheet outage must not be able to break all three at once. The Sheet wins
+    where it has an opinion, and says nothing where it does not.
+    """
+    baked = dict(conf.get("team_colors") or {})
+    sheet_id = (cfg.get("reminders_sheet") or "").strip()
+    tab = conf.get("colors_tab")
+    if not sheet_id or not tab:
+        return baked
+    local = os.environ.get("KMONEY_COLORS_CSV")
+    try:
+        if local:
+            if not os.path.exists(local):
+                return baked
+            with open(local, encoding="utf-8") as fh:
+                text = fh.read()
+        else:
+            import reminders
+            import requests
+            r = requests.get(reminders.CSV_URL % sheet_id + "&sheet=" + tab,
+                             timeout=20)
+            r.raise_for_status()
+            text = r.text
+        shared = read_colors(text)
+    except Exception as exc:
+        print("  ! colours sheet unreadable (%s); using the committed list" % exc)
+        return baked
+    if shared:
+        baked.update(shared)
+    return baked
 
 
 # --------------------------------------------------------------- networks
@@ -301,10 +432,23 @@ def rank_of(competitor):
 
 
 def side_name(competitor):
+    """The plain-text name, rank included -- for the terminal and for tests."""
     team = competitor.get("team") or {}
     name = team.get("displayName") or team.get("name") or "?"
     rank = rank_of(competitor)
     return ("#%d %s" % (rank, name)) if rank else name
+
+
+def side_html(competitor):
+    """The same name with the rank marked up.
+
+    Kept separate from `side_name` because the rank has to survive as MARKUP:
+    build one string and escape it whole and the span comes out as text.
+    """
+    team = competitor.get("team") or {}
+    name = ui.esc(team.get("displayName") or team.get("name") or "?")
+    rank = rank_of(competitor)
+    return ('<span class="rk">#%d</span> %s' % (rank, name)) if rank else name
 
 
 def matchup_parts(home, away, soccer, neutral):
@@ -334,7 +478,7 @@ def _logo(team):
     return team.get("logo")
 
 
-def normalize(event, sport, follow, today, colors=None):
+def normalize(event, sport, follow, today, colors=None, overrides=None):
     """One ESPN event -> one row, or None if it is not a real fixture."""
     comps = event.get("competitions") or []
     if not comps:
@@ -377,16 +521,16 @@ def normalize(event, sport, follow, today, colors=None):
         "day": day,
         "at": when,
         "title": matchup(home, away, soccer, comp.get("neutralSite")),
-        "first": side_name(first),
+        "first": side_html(first),
         "joiner": joiner,
-        "second": side_name(second),
+        "second": side_html(second),
         "competition": competition_label(event, comp, sport["label"]),
         "network": network,
         "marquee": timed and is_marquee(when, network,
                                         sport.get("marquee_windows")),
         "time": clock(when, timed),
         "timed": timed,
-        "stripe": stripe_color(other),
+        "stripe": stripe_color(other, overrides),
         "wash": follow["wash"],
         "logos": [_logo(first.get("team") or {}), _logo(second.get("team") or {})],
         "past": day < today,
@@ -494,6 +638,7 @@ def build(today=None, cfg=None, record=True):
         return {"today": today, "weeks": [], "error": "no teams in config.json"}
 
     spans = [s for s in (season_span(p) for p in conf.get("anchors") or []) if s]
+    overrides = color_overrides(cfg, conf)
     rows, colors, failed = [], {}, []
     for follow in conf["follow"]:
         for sport in follow.get("sports") or []:
@@ -505,7 +650,8 @@ def build(today=None, cfg=None, record=True):
                 events = _scoreboard_events(sport, follow, spans)
             for event in events:
                 row = normalize(event, sport, follow, today,
-                                colors.get(sport["path"]))
+                                colors.get(sport["path"]),
+                                overrides)
                 if row:
                     rows.append(row)
 
@@ -517,6 +663,17 @@ def build(today=None, cfg=None, record=True):
             unique.append(row)
     return {"today": today, "weeks": into_weeks(unique, today, spans),
             "error": None, "failed": failed}
+
+
+def _fixture_name(text):
+    """Canned rows carry PLAIN text, so they are escaped here and the rank is
+    marked up afterwards -- the live path builds the markup itself, and a row
+    that is escaped twice shows its own tags."""
+    safe = ui.esc(text)
+    found = re.match(r"#(\d+)\s+(.*)", safe)
+    if found:
+        return '<span class="rk">#%s</span> %s' % (found.group(1), found.group(2))
+    return safe
 
 
 def _from_file(path, today):
@@ -531,6 +688,8 @@ def _from_file(path, today):
         when = local(row["at"])
         timed = row.get("timed", True)
         rows.append(dict(row, day=when.date(), at=when, timed=timed,
+                         first=_fixture_name(row.get("first", "")),
+                         second=_fixture_name(row.get("second", "")),
                          time=clock(when, timed), past=when.date() < today,
                          marquee=timed and is_marquee(
                              when, row.get("network"),
@@ -568,6 +727,9 @@ CSS = """
 /* The connector is part of the first line, not a column of its own: giving it
    one would leave a ragged gap after every short team name. */
 .gm .j{color:var(--muted);font-weight:400}
+/* A rank reads better in light blue -- the same one the marquee network uses,
+   and for the same reason: a dark navy would vanish against this ground. */
+.gm .rk{color:#8fb0d8}
 .gm .r{text-align:right;font-size:13px;font-variant-numeric:tabular-nums;
        white-space:nowrap}
 .gm .r.d{font-weight:600}
@@ -621,11 +783,11 @@ def _game(row):
         ' style="--tint:%s;--wash:%s"' % (ui.esc(tint), ui.wash(row["wash"]))
         if tint else ' style="--wash:%s"' % ui.wash(row["wash"]),
         crest(logos[0]),
-        ui.esc(row["first"]),
+        row["first"],            # already escaped; carries the rank's markup
         ui.esc(row["joiner"]),
         date,
         crest(logos[1] if len(logos) > 1 else None),
-        ui.esc(row["second"]),
+        row["second"],
         ui.esc(row["time"]),
         ui.esc(row["competition"]),
         " marquee" if row.get("marquee") else "",

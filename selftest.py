@@ -917,29 +917,105 @@ def test_teams_network():
 
 
 def test_teams_colour():
-    """The stripe is the OPPONENT's colour, and it has to be visible."""
+    """The stripe is the OPPONENT's colour, and the rules are sports-daily's --
+    copied deliberately, not reinvented."""
     import teams
     ok("a usable primary is used",
        teams.stripe_color({"color": "c41230", "alternateColor": "ffffff"}),
        "#c41230")
-    # Tottenham's own ESPN primary is #ffffff. This is not a rare case.
-    ok("white falls through to a usable alternate",
-       teams.stripe_color({"color": "ffffff", "alternateColor": "1c4587"}),
-       "#1c4587")
-    ok("black falls through too",
+    # That is how the Steelers become gold rather than a stripe you cannot see.
+    ok("black falls through to the alternate",
        teams.stripe_color({"color": "000000", "alternateColor": "ffb612"}),
        "#ffb612")
-    # Something beats nothing when neither candidate works. Tottenham's real
-    # pair is white and #0b1426, a navy DARKER than the card it would sit on --
-    # so white stands. It says nothing about the opponent, but it is at least
-    # visible, and an invisible stripe is just a missing one.
-    ok("a navy darker than the card is not usable either",
-       teams.stripe_color({"color": "ffffff", "alternateColor": "0b1426"}),
-       "#ffffff")
-    ok("two unusable colours still give a stripe",
-       teams.stripe_color({"color": "ffffff", "alternateColor": "000000"}),
-       "#ffffff")
+    ok("white falls through too",
+       teams.stripe_color({"color": "ffffff", "alternateColor": "1c4587"}),
+       "#1c4587")
     ok("no colour is no stripe", teams.stripe_color({}), None)
+
+    # An override wins outright: ESPN's primary is not always the one people
+    # picture, and Syracuse comes back navy rather than orange.
+    ok("an override beats everything",
+       teams.stripe_color({"displayName": "Syracuse Orange", "color": "0c2340"},
+                          {"Syracuse": "f76900"}), "#f76900")
+    ok("and it matches on part of the name",
+       teams.stripe_color({"displayName": "Michigan Wolverines", "color": "00274c"},
+                          {"Michigan Wolverines": "ffcb05"}), "#ffcb05")
+
+    # Brightness alone is the wrong question. Brighton's #0606fa scores a
+    # luminance of 24 -- darker than a navy -- and is a vivid blue anyone can
+    # see; what separates them is the strongest channel.
+    true("a vivid blue is not invisible", not teams.invisible_colour("0606fa"))
+    true("a navy is", teams.invisible_colour("0c2340"))
+    true("black is", teams.invisible_colour("000000"))
+    true("a purple of the same darkness is not",
+         not teams.invisible_colour("4b2e83"))
+    # Saturation is what separates white from a pale but real colour.
+    true("silver reads as white", teams.washed_out("c4ced4"))
+    true("Leeds' yellow does not", not teams.washed_out("ffcd00"))
+    true("white does", teams.washed_out("ffffff"))
+
+    # The fallback order is sports-daily's: a colour that SHOWS, then any
+    # colour that is not washed out, then whatever is left. Tottenham's real
+    # pair is white and a navy darker than the card -- so the navy wins the
+    # second pass, which is the same answer sports-daily gives.
+    ok("a non-washed-out colour beats a washed-out one, even when dark",
+       teams.stripe_color({"color": "ffffff", "alternateColor": "0b1426"}),
+       "#0b1426")
+    ok("something beats nothing when neither shows",
+       teams.stripe_color({"color": "ffffff", "alternateColor": "000000"}),
+       "#000000")
+
+
+def test_teams_shared_colours():
+    """The master list, shared with sports-daily and standings."""
+    import teams
+    ok("a Colors tab parses", teams.read_colors(
+        '"Team","Color"\n"Michigan Wolverines","f5b400"'),
+       {"Michigan Wolverines": "f5b400"})
+    ok("a leading hash is fine", teams.read_colors(
+        '"Team","Color"\n"X","#ff0000"'), {"X": "ff0000"})
+    ok("columns are found by name, in any order", teams.read_colors(
+        '"Color","Team"\n"f5b400","X"'), {"X": "f5b400"})
+    ok("a value that is not a colour is skipped", teams.read_colors(
+        '"Team","Color"\n"X","nope"\n"Y","00ff00"'), {"Y": "00ff00"})
+
+    # THE trap this project keeps hitting: asking Google for a tab that does
+    # not exist hands back the FIRST tab. Without the header check, a Sheet
+    # with no Colors tab would be read as if the reminders were team colours.
+    # This is the real header off his sheet.
+    ok("the reminders tab is not mistaken for colours", teams.read_colors(
+        '"Title DAILY","Time ","Mon "\n"Laundry","12:30 PM","x"'), {})
+    ok("an empty response is no colours", teams.read_colors(""), {})
+
+    # config.json is the FALLBACK, not the source: three sites read this list,
+    # and a Sheet outage must not be able to break all three at once.
+    conf = {"team_colors": {"Michigan Wolverines": "ffcb05", "Keep": "111111"},
+            "colors_tab": "Colors"}
+    cfg = {"reminders_sheet": "SHEET"}
+    with tempfile.TemporaryDirectory() as tmp:
+        path = os.path.join(tmp, "colors.csv")
+        with open(path, "w", encoding="utf-8") as fh:
+            fh.write('"Team","Color"\n"Michigan Wolverines","f5b400"\n')
+        os.environ["KMONEY_COLORS_CSV"] = path
+        try:
+            merged = teams.color_overrides(cfg, conf)
+        finally:
+            os.environ.pop("KMONEY_COLORS_CSV", None)
+
+        ok("the Sheet wins where it has an opinion",
+           merged["Michigan Wolverines"], "f5b400")
+        ok("and the committed list survives where it does not",
+           merged["Keep"], "111111")
+
+        os.environ["KMONEY_COLORS_CSV"] = os.path.join(tmp, "gone.csv")
+        try:
+            fallback = teams.color_overrides(cfg, conf)
+        finally:
+            os.environ.pop("KMONEY_COLORS_CSV", None)
+    ok("an unreachable Sheet falls back to the committed list",
+       fallback["Michigan Wolverines"], "ffcb05")
+    ok("no sheet configured is just the committed list",
+       teams.color_overrides({}, conf)["Keep"], "111111")
 
 
 def test_teams_marquee():
