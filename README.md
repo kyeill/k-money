@@ -254,7 +254,16 @@ with maize only as the alternate, and Tottenham's as **white**. The gold is
 to a pale yellow-grey.
 
 **Ranks are blue** (`#8fb0d8`), the same light blue as a marquee network and
-for the same reason — a dark navy would vanish against this ground.
+for the same reason — a dark navy would vanish against this ground. The Church
+tab borrows the same blue for its second week, so there is one blue across the
+app rather than two that nearly match.
+
+Crests are **20px** and team names **14.5px**, mirroring sports-daily: the two
+pages sit side by side on the same phone and were a size apart.
+
+The date and the time are one column — same size, same weight, same colour.
+They were always the same size; it was the muted grey that made the time read
+as the smaller of the two.
 
 ### The shared colour list
 
@@ -350,8 +359,8 @@ colour laid straight on the page background would make a tinted row *darker*
 than a plain one. It is mixed in Python rather than by CSS `color-mix()`, which
 not every phone browser this gets read on has.
 
-**The date heading is coloured by how close it is**: orange within a week, blue
-within two, and the ordinary muted grey after that. Nothing past a fortnight is
+**The date heading is coloured by how close it is**: the nav's own accent within
+a week, the Teams tab's rank blue within two, and the ordinary muted grey after that. Nothing past a fortnight is
 coloured — a page where every heading is coloured highlights nothing. The two
 colours are the shared `ui.py` palette, the same orange the Reminders tab uses.
 
@@ -506,7 +515,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         430 assertions, no key and no network needed
+python selftest.py         432 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

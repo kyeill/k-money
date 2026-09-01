@@ -1287,9 +1287,15 @@ def test_church():
        ["near", "near"])
     ok("past a fortnight there is no class at all",
        church.urgency(day + dt.timedelta(days=15), day), "")
-    true("the two colours come from the shared palette",
-         "color:%s" % ui.COLORS["orange"] in church.CSS
-         and "color:%s" % ui.COLORS["blue"] in church.CSS)
+    # The nav underline's own colour, not the row wash's orange -- that read
+    # too bright for a heading -- and the same blue the Teams tab gives a rank.
+    true("the near heading uses the nav accent",
+         ".cday.soon h2{color:var(--accent)}" in church.CSS)
+    true("and the second week the Teams rank blue",
+         "color:%s" % church.RANK_BLUE in church.CSS)
+    import teams
+    ok("one blue across both tabs, not two",
+       church.RANK_BLUE in teams.CSS, True)
     soon_html = church.render(
         {"today": day, "days": [(day, [{"title": "Now", "details": "",
                                         "color": None}]),

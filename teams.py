@@ -709,7 +709,7 @@ CSS = """
    belongs to that name's line. The grid is what keeps the date level with the
    first team and the time with the second -- laid out as separate blocks they
    drift apart the moment a name wraps. */
-.gm{display:grid;grid-template-columns:26px 1fr auto;
+.gm{display:grid;grid-template-columns:20px 1fr auto;
     column-gap:9px;row-gap:3px;align-items:center;
     background:var(--card);border:1px solid var(--line);
     border-left:4px solid transparent;border-radius:10px;
@@ -722,18 +722,21 @@ CSS = """
 /* Already played. It stays on the page -- a week that quietly empties itself
    as it goes is worse than one that shows what happened. */
 .gm.done{opacity:.55}
-.gm img{width:26px;height:26px;object-fit:contain;display:block}
-.gm .n1,.gm .n2{font-weight:600;font-size:15px;line-height:1.25;min-width:0}
+/* 20px and 14.5px are sports-daily's, mirrored deliberately: the two
+   pages sit side by side on the same phone and were a size apart. */
+.gm img{width:20px;height:20px;object-fit:contain;display:block}
+.gm .n1,.gm .n2{font-weight:600;font-size:14.5px;line-height:1.3;min-width:0}
 /* The connector is part of the first line, not a column of its own: giving it
    one would leave a ragged gap after every short team name. */
 .gm .j{color:var(--muted);font-weight:400}
 /* A rank reads better in light blue -- the same one the marquee network uses,
    and for the same reason: a dark navy would vanish against this ground. */
 .gm .rk{color:#8fb0d8}
-.gm .r{text-align:right;font-size:13px;font-variant-numeric:tabular-nums;
-       white-space:nowrap}
-.gm .r.d{font-weight:600}
-.gm .r.t{color:var(--muted)}
+/* The date and the time are one column, not a label and a footnote: same
+   size, same weight, same colour. They were already the same size -- it was
+   the muted grey that made the time read as the smaller of the two. */
+.gm .r{text-align:right;font-size:13px;font-weight:600;
+       font-variant-numeric:tabular-nums;white-space:nowrap}
 /* The third row is the quiet one: competition on the left, network on the
    right, both muted so the teams stay the loudest thing in the bubble. */
 .gm .c{grid-column:2;color:var(--muted);font-size:13px}
@@ -747,9 +750,9 @@ CSS = """
   .wk{margin:24px 0 0}
   .wk h2{font-size:13px}
   .gm{padding:12px 14px;margin:8px 0;column-gap:11px;
-      grid-template-columns:30px 1fr auto}
-  .gm img{width:30px;height:30px}
-  .gm .n1,.gm .n2{font-size:17px}
+      grid-template-columns:22px 1fr auto}
+  .gm img{width:22px;height:22px}
+  .gm .n1,.gm .n2{font-size:15px}
   .gm .r,.gm .c,.gm .net{font-size:14px}
 }
 """

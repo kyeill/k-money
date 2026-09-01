@@ -47,6 +47,9 @@ wash = ui.wash
 # is imminent without a single date being read.
 SOON_DAYS, NEAR_DAYS = 7, 14
 
+# The same blue the Teams tab uses for a ranking, and sports-daily before it.
+RANK_BLUE = "#8fb0d8"
+
 
 def urgency(day, today):
     """"soon" within a week, "near" within two, otherwise "".
@@ -139,7 +142,9 @@ CSS = """
 .cday{margin:18px 0 0}
 .cday h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;
          color:var(--muted);font-weight:600;margin:0 0 7px}
-.cday.soon h2{color:%(orange)s}
+/* The nav's own underline colour rather than the row wash's orange, which was
+   too bright for a heading, and the same blue the Teams tab gives a ranking. */
+.cday.soon h2{color:var(--accent)}
 .cday.near h2{color:%(blue)s}
 .cev{background:var(--card);border:1px solid var(--line);border-radius:10px;
      border-left:4px solid transparent;padding:10px 12px;margin:6px 0}
@@ -160,7 +165,7 @@ CSS = """
   .cev .t{font-size:17px}
   .cev .s{font-size:14px}
 }
-""" % {"orange": ui.COLORS["orange"], "blue": ui.COLORS["blue"]}
+""" % {"blue": RANK_BLUE}
 
 
 def render(data):

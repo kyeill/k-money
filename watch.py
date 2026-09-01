@@ -519,9 +519,14 @@ def build(today=None, cfg=None, record=True):
 # editing a shared stylesheet and hoping nothing else moved.
 
 CSS = """
-.sec{margin:14px 0 0}
+/* The heading's gap belongs BETWEEN sections, not above the first one. It
+   used to sit on every h2, which was invisible while the first section had no
+   heading and left this tab starting 8px lower than the other three the moment
+   it grew one. */
+.sec{margin:18px 0 0}
+.sec+.sec{margin-top:26px}
 .sec h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;
-        color:var(--muted);font-weight:600;margin:26px 0 8px}
+        color:var(--muted);font-weight:600;margin:0 0 7px}
 .sec h2 b{color:var(--ink);font-weight:600}
 /* Already out, but recent enough to still be worth catching up on. It reads
    quieter than everything ahead of it without leaving the running order. */
@@ -559,8 +564,9 @@ a.item{display:flex;gap:11px;align-items:flex-start;text-decoration:none;
       border-radius:9px;padding:10px 12px;margin:12px 0}
 .werr b{color:var(--ink);font-weight:600}
 @media (min-width:641px){
-  .sec{margin:18px 0 0}
-  .sec h2{font-size:13px;margin-top:32px}
+  .sec{margin:24px 0 0}
+  .sec+.sec{margin-top:32px}
+  .sec h2{font-size:13px}
   a.item{padding:12px 14px;margin:9px 0;gap:13px}
   .pos{width:54px;height:81px}
   .t{font-size:17px}
