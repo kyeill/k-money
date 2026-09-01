@@ -986,6 +986,14 @@ def test_teams_shared_colours():
     ok("the reminders tab is not mistaken for colours", teams.read_colors(
         '"Title DAILY","Time ","Mon "\n"Laundry","12:30 PM","x"'), {})
     ok("an empty response is no colours", teams.read_colors(""), {})
+    # Google Sheets reads an all-digit cell as a NUMBER and eats the leading
+    # zero, so Penn State's 061440 came back as 61440 and the row vanished.
+    # Only values with no letters in them are affected, which is why 0a2240
+    # survived and this did not.
+    ok("a leading zero eaten by Sheets is put back", teams.read_colors(
+        '"Team","Color"\n"Penn State","61440"'), {"Penn State": "061440"})
+    ok("a value with letters is untouched", teams.read_colors(
+        '"Team","Color"\n"X","0a2240"'), {"X": "0a2240"})
 
     # config.json is the FALLBACK, not the source: three sites read this list,
     # and a Sheet outage must not be able to break all three at once.
@@ -1136,7 +1144,12 @@ def test_teams_normalize():
     # flag this reads "12:00 AM", which looks like a real midnight fixture.
     ok("an unset kickoff is TBD, not midnight", row["time"], "TBD")
     ok("but the day is still right", str(row["day"]), "2026-09-26")
-    ok("logos are away then home", row["logos"], ["i.png", "m.png"])
+    # sports-daily's rule: the -dark variant reads on a dark page, and each
+    # crest carries the plain URL to fall back to because not every team has
+    # one on the CDN.
+    ok("the dark crest is preferred, with the plain one to fall back to",
+       [tuple(x) for x in row["logos"]],
+       [("i.png", "i.png"), ("m.png", "m.png")])
     true("a future game is not past", not row["past"])
 
     played = dict(event, date="2026-08-30T16:00Z", timeValid=True)
