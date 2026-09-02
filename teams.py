@@ -610,6 +610,9 @@ def normalize(event, sport, follow, today, colors=None, overrides=None):
         "timed": timed,
         "stripe": stripe_color(other, overrides),
         "wash": follow["wash"],
+        # Per team, because yellow needs more of itself than blue does: at the
+        # 13% the other tabs use, every yellow goes brown against this card.
+        "wash_strength": follow.get("wash_strength"),
         "logos": [_logo(first.get("team") or {}), _logo(second.get("team") or {})],
         # The dark variant does not exist for every team on the CDN, so each
         # crest carries the plain URL to fall back to rather than showing the
@@ -781,6 +784,7 @@ def _from_file(path, today):
         when = local(row["at"])
         timed = row.get("timed", True)
         rows.append(dict(row, day=when.date(), at=when, timed=timed,
+                         wash_strength=row.get("wash_strength"),
                          first=_fixture_name(row.get("first", "")),
                          second=_fixture_name(row.get("second", "")),
                          time=clock(when, timed), past=when.date() < today,
@@ -834,6 +838,11 @@ CSS = """
    right, both muted so the teams stay the loudest thing in the bubble. */
 .gm .c{grid-column:2;color:var(--muted);font-size:13px}
 .gm .net{color:var(--muted);font-size:13px;text-align:right;white-space:nowrap}
+/* A washed row is a lighter ground than the plain card, so the ordinary muted
+   grey loses contrast on it. Measured against maize at 28%: #9a9a95 falls to
+   2.89, which is not readable body text; this holds 4.66. The blue rows do not
+   need it and are not hurt by it. */
+.gm.tint .c,.gm.tint .net{color:#c4c4be}
 /* The showcase windows a competition names for itself -- FOX at noon, CBS at
    3:30, NBC on Saturday night, the Saturday Premier League match. Blue, so the
    week's marquee games are findable without reading every row. */
@@ -853,6 +862,10 @@ CSS = """
 
 def week_heading(monday):
     return "Week of %s %d" % (monday.strftime("%B"), monday.day)
+
+
+def _wash(row):
+    return ui.wash(row["wash"], row.get("wash_strength") or ui.WASH)
 
 
 def _game(row):
@@ -882,8 +895,8 @@ def _game(row):
     ) % (
         " tint" if tint else "",
         " done" if row.get("past") else "",
-        ' style="--tint:%s;--wash:%s"' % (ui.esc(tint), ui.wash(row["wash"]))
-        if tint else ' style="--wash:%s"' % ui.wash(row["wash"]),
+        ' style="--tint:%s;--wash:%s"' % (ui.esc(tint), _wash(row))
+        if tint else ' style="--wash:%s"' % _wash(row),
         crest(logos[0]),
         row["first"],            # already escaped; carries the rank's markup
         ui.esc(row["joiner"]),

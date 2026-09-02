@@ -266,11 +266,20 @@ old beats one that cannot be read at all.
 Each `<img>` carries the plain URL as an `onerror` fallback, since not every
 team has a dark variant on the CDN.
 
-The **wash is yours** — gold for Michigan, blue for Tottenham, fixed in
+The **wash is yours** — maize for Michigan, blue for Tottenham, fixed in
 `config.json` rather than taken from ESPN, which has Michigan's primary as navy
-with maize only as the alternate, and Tottenham's as **white**. The gold is
-`#f5b400` rather than official maize: at 13% over a dark card, maize washes out
-to a pale yellow-grey.
+with maize only as the alternate, and Tottenham's as **white**.
+
+**Strength is per team**, and that turned out to be the whole problem. Six
+yellows were put side by side at the 13% the other tabs use and every one of
+them read brown against this card — the hue was never the lever. Michigan is
+official maize at **28%**; Tottenham keeps the shared 13%, because blue does not
+need the help.
+
+A washed row is a lighter ground than the plain card, so the ordinary muted grey
+loses contrast on it: measured at **2.89** against maize at 28%, which is not
+readable body text. The competition and network line lifts to `#c4c4be` on any
+tinted row, which holds 4.66.
 
 **Ranks are blue** (`#8fb0d8`), the same light blue as a marquee network and
 for the same reason — a dark navy would vanish against this ground. The Church
@@ -545,7 +554,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         435 assertions, no key and no network needed
+python selftest.py         438 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

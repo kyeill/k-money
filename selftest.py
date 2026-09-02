@@ -1223,6 +1223,17 @@ def test_teams_render():
     true("the wash is laid over the card, as on the other tabs",
          "linear-gradient(var(--wash),var(--wash)),var(--card)" in teams.CSS)
     ok("every row carries a wash", html.count("--wash:"), 4)
+    # Yellow needs more of itself than blue does: at the 13% the other tabs
+    # use, every yellow reads brown against this card. So the strength is per
+    # team, not global -- ui.WASH still drives Church and Reminders.
+    true("a team can set its own wash strength",
+         "rgba(255,203,5,0.28)" in html)
+    true("and one that does not keeps the shared strength",
+         "rgba(61,142,224,0.13)" in html)
+    # A washed row is a lighter ground, so the ordinary muted grey loses
+    # contrast on it -- 2.89 against maize at 28%, which is not readable.
+    true("the quiet line is lifted on a washed row",
+         ".gm.tint .c,.gm.tint .net{color:#c4c4be}" in teams.CSS)
     ok("and a stripe where the opponent has a usable colour",
        html.count("--tint:"), 4)
     true("both logos are drawn", html.count("<img") >= 8)

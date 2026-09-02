@@ -1,9 +1,18 @@
 {
   "_comment": "Times are UTC, as ESPN stamps them -- 04:00Z is the midnight-Eastern placeholder a TBD kickoff carries. Canned rows for selftest and `site.py --fixtures` -- the OUTPUT shape, not ESPN's, so the tab renders with no network and no API. The parsing of ESPN's own payloads is asserted separately against inline dicts in selftest.py.",
   "spans": [
-    ["2026-08-21", "2027-05-30"],
-    ["2026-08-22", "2027-02-01"],
-    ["2026-11-02", "2027-03-06"]
+    [
+      "2026-08-21",
+      "2027-05-30"
+    ],
+    [
+      "2026-08-22",
+      "2027-02-01"
+    ],
+    [
+      "2026-11-02",
+      "2027-03-06"
+    ]
   ],
   "rows": [
     {
@@ -16,13 +25,27 @@
       "competition": "College Football",
       "network": "NBC",
       "marquee_windows": [
-        {"networks": ["NBC"], "days": ["Sat"], "from": "19:00", "to": "20:00"}
+        {
+          "networks": [
+            "NBC"
+          ],
+          "days": [
+            "Sat"
+          ],
+          "from": "19:00",
+          "to": "20:00"
+        }
       ],
       "_note": "7:30pm Eastern on a Saturday on NBC -- the marquee window, so the network renders blue.",
       "stripe": "#c41230",
       "wash": "#ffcb05",
-      "logos": ["https://example.invalid/fresno.png", "https://example.invalid/mich.png"],
-      "timed": true
+      "logos": [
+        "https://example.invalid/fresno.png",
+        "https://example.invalid/mich.png"
+      ],
+      "timed": true,
+      "wash_strength": 0.28,
+      "_note_wash": "Maize needs 28% to read as yellow; the blue rows keep the shared 13%."
     },
     {
       "id": "2",
@@ -34,12 +57,24 @@
       "competition": "Premier League",
       "network": "Peacock",
       "marquee_windows": [
-        {"networks": ["NBC"], "days": ["Sat"], "from": "12:00", "to": "13:45"}
+        {
+          "networks": [
+            "NBC"
+          ],
+          "days": [
+            "Sat"
+          ],
+          "from": "12:00",
+          "to": "13:45"
+        }
       ],
       "_note": "Saturday inside the window, but on Peacock rather than NBC -- the network has to match too, so this stays plain.",
       "stripe": "#e53233",
       "wash": "#3d8ee0",
-      "logos": ["https://example.invalid/nfo.png", "https://example.invalid/tot.png"],
+      "logos": [
+        "https://example.invalid/nfo.png",
+        "https://example.invalid/tot.png"
+      ],
       "timed": true
     },
     {
@@ -53,7 +88,10 @@
       "network": null,
       "stripe": "#d00027",
       "wash": "#3d8ee0",
-      "logos": ["https://example.invalid/liv.png", "https://example.invalid/tot.png"],
+      "logos": [
+        "https://example.invalid/liv.png",
+        "https://example.invalid/tot.png"
+      ],
       "timed": true
     },
     {
@@ -67,8 +105,13 @@
       "network": null,
       "stripe": "#ffcd00",
       "wash": "#ffcb05",
-      "logos": ["https://example.invalid/iowa.png", "https://example.invalid/mich.png"],
-      "timed": false
+      "logos": [
+        "https://example.invalid/iowa.png",
+        "https://example.invalid/mich.png"
+      ],
+      "timed": false,
+      "wash_strength": 0.28,
+      "_note_wash": "Maize needs 28% to read as yellow; the blue rows keep the shared 13%."
     }
   ]
 }
