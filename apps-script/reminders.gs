@@ -38,6 +38,14 @@ var PUSHOVER_TOKEN = 'PUT-YOUR-PUSHOVER-APP-TOKEN-HERE';
 // here, in a script bound to your private Sheet, and nowhere else.
 var TOPIC = 'PUT-YOUR-NTFY-TOPIC-HERE';
 
+// The shared team-colour list. sports-daily, standings and k-money all READ
+// this tab over the public CSV endpoint; this script is the only thing that
+// can write to it, because that endpoint is read-only.
+//
+// The write token is NOT kept here. Run setColorToken('...') once from the
+// editor and it lives in Script Properties, so the repo never carries it.
+var COLORS_TAB = 'Colors';
+
 var TZ = 'America/New_York';   // times in the Sheet are read as this zone
 var GRACE_MINUTES = 15;        // how late a reminder may fire before it is skipped
 
@@ -502,6 +510,19 @@ function doGet(e) {
   try {
     if (p.action === 'done') {
       out.ok = setDone(p.date, p.key, p.done === '1');
+    } else if (p.action === 'color') {
+      // Ticking a box is harmless if someone guesses the URL; rewriting the
+      // colour list three sites read is not, so this action carries a token.
+      if (!checkColorToken(p.token)) {
+        out.error = 'bad token';
+      } else {
+        var res = setColor(p.team, p.color);
+        out.ok = res.ok;
+        out.action = res.action;
+        out.team = res.team;
+        out.color = res.color;
+        if (res.error) { out.error = res.error; }
+      }
     } else {
       out.error = 'unknown action';
     }
@@ -510,6 +531,57 @@ function doGet(e) {
   }
   return ContentService.createTextOutput(JSON.stringify(out))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+// ----------------------------------------------------------------- colours
+
+/** Store the write token. Run once from the editor: setColorToken('secret'). */
+function setColorToken(value) {
+  PropertiesService.getScriptProperties().setProperty('colorToken', String(value));
+  return 'stored (' + String(value).length + ' chars)';
+}
+
+function checkColorToken(given) {
+  var want = PropertiesService.getScriptProperties().getProperty('colorToken');
+  return !!want && String(given || '') === want;
+}
+
+/**
+ * Upsert one row in the Colors tab. Returns {ok, action, team, color}.
+ *
+ * The cell is forced to PLAIN TEXT before the value goes in. Sheets reads an
+ * all-digit cell as a number and eats the leading zero -- "061440" comes back
+ * from the CSV endpoint as "61440", which is exactly how Penn State's navy
+ * broke. The readers pad it back, but writing it correctly in the first place
+ * means they never have to.
+ */
+function setColor(team, color) {
+  team = String(team || '').trim();
+  color = String(color || '').trim().replace(/^#/, '').toLowerCase();
+  if (!team) { return {ok: false, error: 'no team'}; }
+  if (!/^[0-9a-f]{6}$/.test(color)) {
+    return {ok: false, error: 'not a 6-digit hex colour: ' + color};
+  }
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(COLORS_TAB);
+  if (!sheet) { return {ok: false, error: 'no ' + COLORS_TAB + ' tab'}; }
+
+  var last = sheet.getLastRow();
+  var names = last > 1 ? sheet.getRange(2, 1, last - 1, 1).getValues() : [];
+  for (var i = 0; i < names.length; i++) {
+    if (String(names[i][0]).trim().toLowerCase() === team.toLowerCase()) {
+      var cell = sheet.getRange(i + 2, 2);
+      cell.setNumberFormat('@');
+      cell.setValue(color);
+      return {ok: true, action: 'updated', team: team, color: color};
+    }
+  }
+  var row = last + 1;
+  sheet.getRange(row, 1).setValue(team);
+  var fresh = sheet.getRange(row, 2);
+  fresh.setNumberFormat('@');
+  fresh.setValue(color);
+  return {ok: true, action: 'added', team: team, color: color};
 }
 
 // ----------------------------------------------------------------- firing
