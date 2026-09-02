@@ -72,9 +72,8 @@
       {
         "id": "130",
         "name": "Michigan",
-        "wash": "#ffcb05",
-        "wash_strength": 0.28,
-        "_note": "Official maize at 28%, his call 2026-08-30 after seeing six hues side by side. The HUE was never the problem -- at the 13% the other tabs use, every yellow reads brown against this card, so strength was the lever. Blue does not need it, which is why this is per team.",
+        "wash": "#fad105",
+        "_note": "His pick 2026-08-30, tuned on his own PHONE against real rows -- the same hex renders differently there than on a desktop LCD, so a low-alpha wash over a near-black card cannot be judged from my screenshots. He tried 28% first and found it too yellow; this is back at the shared 13% with a slightly greener maize than ESPN's #ffcb05. wash_strength is still supported per team and simply not needed here.",
         "sports": [
           {"path": "football/college-football", "label": "College Football", "mode": "schedule",
            "_note_marquee": "The showcase windows college football names for itself. Matched on network AND kickoff together -- FOX has a 3:30 window of its own, so the channel alone would light up half the season. Ranges, not exact times, because a window shifts occasionally.",

@@ -270,16 +270,22 @@ The **wash is yours** — maize for Michigan, blue for Tottenham, fixed in
 `config.json` rather than taken from ESPN, which has Michigan's primary as navy
 with maize only as the alternate, and Tottenham's as **white**.
 
-**Strength is per team**, and that turned out to be the whole problem. Six
-yellows were put side by side at the 13% the other tabs use and every one of
-them read brown against this card — the hue was never the lever. Michigan is
-official maize at **28%**; Tottenham keeps the shared 13%, because blue does not
-need the help.
+Michigan is `#fad105`, a slightly greener maize than ESPN's `#ffcb05`, at the
+shared 13%. **He picked it on his own phone**, and that matters: a low-alpha
+wash over a near-black card is exactly where displays diverge, so the same hex
+is genuinely a different colour on a phone OLED and a desktop LCD. It could not
+be settled from screenshots on my side, and 28% looked right to me and too
+yellow to him.
+
+**Strength is still per team** (`wash_strength`), because it was needed while
+that was being worked out and the next colour may need it again. Nothing sets
+it today.
 
 A washed row is a lighter ground than the plain card, so the ordinary muted grey
-loses contrast on it: measured at **2.89** against maize at 28%, which is not
-readable body text. The competition and network line lifts to `#c4c4be` on any
-tinted row, which holds 4.66.
+loses contrast on it — **4.33** against this maize, just under readable. The
+competition and network line lifts to `#a3a39d` on any tinted row, which holds
+4.82. Deliberately the *gentlest* lift that clears the bar rather than the
+brightest, so the third line stays visibly quieter than the names above it.
 
 **Ranks are blue** (`#8fb0d8`), the same light blue as a marquee network and
 for the same reason — a dark navy would vanish against this ground. The Church

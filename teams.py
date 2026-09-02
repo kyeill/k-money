@@ -839,10 +839,10 @@ CSS = """
 .gm .c{grid-column:2;color:var(--muted);font-size:13px}
 .gm .net{color:var(--muted);font-size:13px;text-align:right;white-space:nowrap}
 /* A washed row is a lighter ground than the plain card, so the ordinary muted
-   grey loses contrast on it. Measured against maize at 28%: #9a9a95 falls to
-   2.89, which is not readable body text; this holds 4.66. The blue rows do not
-   need it and are not hurt by it. */
-.gm.tint .c,.gm.tint .net{color:#c4c4be}
+   grey loses contrast on it -- 4.33 against maize at 13%, just under readable.
+   The gentlest lift that clears 4.5 rather than the brightest: this holds 4.82,
+   so the third line stays visibly quieter than the team names above it. */
+.gm.tint .c,.gm.tint .net{color:#a3a39d}
 /* The showcase windows a competition names for itself -- FOX at noon, CBS at
    3:30, NBC on Saturday night, the Saturday Premier League match. Blue, so the
    week's marquee games are findable without reading every row. */
