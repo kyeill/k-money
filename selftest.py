@@ -1101,6 +1101,20 @@ def test_teams_weeks():
     # far apart two games are.
     ok("blank weeks are kept", [len(g) for _, g in weeks], [1, 0, 0, 1])
 
+    # A game with no announced kickoff is stamped MIDNIGHT by ESPN, so sorting
+    # on the timestamp alone floats it above games that actually start earlier
+    # in the day. It is not the first game, it is the unscheduled one.
+    day = teams.local("2026-09-05T16:00")
+    midnight = teams.local("2026-09-05T04:00")
+    same_day = [
+        dict(game("2026-09-05"), id="tbd", title="TBD one", at=midnight,
+             day=midnight.date(), timed=False),
+        dict(game("2026-09-05"), id="noon", title="Noon one", at=day,
+             day=day.date(), timed=True)]
+    ordered = teams.into_weeks(same_day, dt.date(2026, 9, 1), spans)[0][1]
+    ok("a TBD sits below the games with a time",
+       [r["title"] for r in ordered], ["Noon one", "TBD one"])
+
     # Out of season -- June -- the run starts at the next fixture instead of a
     # dozen empty headings waiting for August.
     summer = teams.into_weeks(rows, dt.date(2026, 6, 10), spans)
