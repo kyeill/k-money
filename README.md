@@ -286,10 +286,15 @@ as the smaller of the two.
 
 ### The shared colour list
 
-`team_colors` is a **master list shared with sports-daily and standings**. They
-are three separate repos with three separate builds, so it cannot be one file
-on disk; it is read from the **`Colors` tab of the same Google Sheet**, laid
-over the copy committed in `config.json`.
+`team_colors` is a **master list shared with sports-daily**. They are separate
+repos with separate builds, so it cannot be one file on disk; it is read from
+the **`Colors` tab of the same Google Sheet**, laid over the copy committed in
+`config.json`.
+
+**standings deliberately does not share it.** It draws a wash across a whole
+table row where these two draw a 3px stripe, and the two want different answers
+-- a navy that reads as a crisp edge disappears once it is lightened and spread
+out. This tab is the master for STRIPE colours.
 
 That copy is the **fallback, not the source**: three sites read this list, and
 a Sheet outage must not be able to break all three at once. The Sheet wins where
