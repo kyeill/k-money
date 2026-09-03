@@ -1248,6 +1248,117 @@ def test_teams_render():
              {"today": dt.date(2026, 9, 1), "weeks": [], "error": "boom"}))
 
 
+def test_tasks():
+    """Dated to-dos that roll over until they are done. A different model from
+    Reminders: a reminder is a schedule and does not come back if ignored, a
+    task is an open item and does."""
+    import tasks
+    text = open(os.path.join(HERE, "fixtures", "tasks.csv"),
+                encoding="utf-8").read()
+    today = dt.date(2026, 8, 29)
+    days, undated, unknown = tasks.read_tasks(text, today)
+
+    ok("open tasks group by the day they show on",
+       [str(d) for d, _ in days], ["2026-08-29", "2026-09-04"])
+
+    # THE ROLLOVER. Two overdue tasks and two due today all land on today --
+    # nothing falls off the list by being ignored.
+    ok("overdue tasks roll forward onto today",
+       [t["task"] for t in days[0][1]],
+       ["Renew car tabs", "Send the Q3 deck", "Book the flights",
+        "Call the dentist"])
+    # Oldest first, then alphabetical -- so the two due today read in a stable
+    # order rather than in whatever order the sheet happens to list them.
+    ok("and they sort oldest first inside the day",
+       [str(t["due"]) for t in days[0][1]],
+       ["2026-08-20", "2026-08-28", "2026-08-29", "2026-08-29"])
+    ok("how late each one is, is known even though it is not shown",
+       [t["late"] for t in days[0][1]], [9, 1, 0, 0])
+    ok("a future task stays on its own day",
+       [t["task"] for t in days[1][1]], ["Water the plants"])
+
+    flat = [t["task"] for _, ts in days for t in ts]
+    # Any mark at all closes it: a tick, an x, or the date the app stamps.
+    true("a done task is gone", "Expense report" not in flat)
+    true("a row with no task is skipped", "" not in flat)
+    # A date is required, so one without a date must be NAMED rather than
+    # silently dropped -- otherwise it looks like the row was never added.
+    ok("an undated task is reported", undated, ["No due date"])
+    ok("an unrecognised column is reported", unknown, ["notes"])
+
+    # The key is Task@Due, built identically in the Apps Script. Row position
+    # cannot be the key: sorting the sheet would repoint every tick.
+    ok("the key is the task and its due date",
+       days[0][1][0]["key"], "Renew car tabs@2026-08-20")
+    ok("and it does not move when the task rolls over",
+       tasks.task_key("Renew car tabs", dt.date(2026, 8, 20)),
+       "Renew car tabs@2026-08-20")
+
+    # Categories colour themselves, so a new one typed on his phone needs no
+    # commit here. Deterministic, not first-seen: arrival order would make the
+    # tab recolour itself the moment a row was inserted above another.
+    work = tasks.category_color("Work")
+    ok("the same category always gets the same colour",
+       tasks.category_color("Work"), work)
+    ok("case does not change it", tasks.category_color("work"), work)
+    true("a different category gets a different one",
+         tasks.category_color("Personal") != work)
+    true("every assigned colour is from the shared palette",
+         work in ui.COLORS.values())
+    ok("no category is no colour", tasks.category_color(""), None)
+    ok("config can override one",
+       tasks.category_color("Work", {"work": "red"}), ui.COLORS["red"])
+
+    data = {"today": today, "days": days, "undated": undated,
+            "unknown": unknown, "error": None, "sheet": "S", "tab": "Tasks",
+            "webapp": "https://example.invalid/exec", "overrides": {}}
+    html = tasks.render(data)
+    ok("a heading per day", html.count('class="tday"'), 2)
+    ok("a checkbox per open task", html.count('type="checkbox"'), 5)
+    true("today is named, not dated", "<h2>Today</h2>" in html)
+    true("the undated one is named on the page", "No due date" in html)
+    true("there is a way to add one without opening the Sheet",
+         'id="tform"' in html and 'type="date"' in html)
+    # Silently, by his choice -- a thing dodged for a fortnight looks like
+    # anything else on the list.
+    true("nothing says how late a task is", "late" not in html)
+    ok("a category renders as a colour", html.count("--tint:"), 4)
+    true("and as a label", '<span class="cat">Work</span>' in html)
+
+    empty = tasks.render({"today": today, "days": [], "undated": [],
+                          "unknown": [], "error": None})
+    true("an empty list says so", "Nothing to do." in empty)
+    # Before the tab exists Google hands back the FIRST tab, the header check
+    # refuses it, and "no task column" would be a poor first impression.
+    first_run = tasks.render({"today": today, "days": [], "undated": [],
+                              "unknown": [], "error": None, "missing": True})
+    true("a missing tab explains itself rather than erroring",
+         "No Tasks tab" in first_run and 'class="rerr"' not in first_run)
+    true("and still offers the form that creates it", 'id="tform"' in first_run)
+    true("a broken tab renders an error, not a traceback",
+         'class="rerr"' in tasks.render(
+             {"today": today, "days": [], "error": "boom"}))
+
+    try:
+        tasks.read_tasks('"Nope","Nah"\n"x","y"', today)
+        ok("a wrong header is refused", "no error", "SheetError")
+    except Exception:
+        ok("a wrong header is refused", "SheetError", "SheetError")
+
+    # The browser copy has to agree with this one, or an added task shows up
+    # differently until tomorrow's build.
+    js = tasks.page_js(data)
+    true("the browser gets the sheet and the tab", '"Tasks"' in js)
+    true("and the endpoint that writes", "example.invalid" in js)
+    true("no unreplaced placeholders", "%%" not in js)
+    true("the browser rolls over too", "due<now?now:due" in js)
+    true("it skips done rows as well", "at.done" in js)
+    true("ticking writes through the web app", "action=task" in js)
+    true("adding writes through the web app", "action=addtask" in js)
+    true("the same palette reaches the browser",
+         ui.COLORS["blue"] in js)
+
+
 def test_church():
     """Dated events, grouped, from today onward. Much simpler than Reminders:
     every row carries its own date, so there is no cadence to recompute and

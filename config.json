@@ -110,5 +110,8 @@
   "_comment_webapp": "Apps Script web app /exec URL, from Deploy > New deployment > Web app (execute as me, access anyone). The page calls it to record a tick. It IS public -- the script validates the date and checks the key against a real reminder, so the worst a stranger can do is toggle a checkbox. Blank = ticking is disabled.",
   "reminders_tab": "Reminders",
   "church_tab": "Church",
+  "tasks_tab": "Tasks",
+  "_comment_tasks": "The Tasks tab: Task | Due | Category | Done, all found by NAME. A DUE DATE IS REQUIRED -- an undated backlog at the foot of every day would break the promise that everything shown is something he meant to do today. A task rolls over to today until its Done cell is filled, which the page does through the Apps Script web app; he never has to open the Sheet. Categories colour themselves deterministically, so a new one typed on his phone needs no commit here -- task_colors only names exceptions.",
+  "task_colors": {},
   "_comment_tabs": "Both tabs are named explicitly. Asking a Google Sheet for a tab that does not exist returns the FIRST tab, so relying on position would silently read the wrong one the moment tabs are reordered."
 }

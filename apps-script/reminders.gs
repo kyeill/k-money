@@ -53,6 +53,9 @@ var GRACE_MINUTES = 15;        // how late a reminder may fire before it is skip
 // setup() creates it; nothing to do by hand.
 var REMINDERS_TAB = 'Reminders';
 var DONE_TAB = 'Done';
+// The Tasks tab: Task | Due | Category | Done. Columns are found BY NAME here
+// too, so he can reorder or add to them without breaking the page or this.
+var TASKS_TAB = 'Tasks';
 var DONE_HEADER = ['Date', 'Key', 'Done', 'Updated'];
 var KEEP_DONE_DAYS = 30;       // older rows are pruned on write
 
@@ -523,6 +526,10 @@ function doGet(e) {
         out.color = res.color;
         if (res.error) { out.error = res.error; }
       }
+    } else if (p.action === 'task') {
+      out.ok = setTaskDone(p.key, p.done === '1');
+    } else if (p.action === 'addtask') {
+      out.ok = addTask(p.task, p.due, p.cat);
     } else {
       out.error = 'unknown action';
     }
@@ -583,6 +590,97 @@ function setColor(team, color) {
   fresh.setValue(color);
   return {ok: true, action: 'added', team: team, color: color};
 }
+
+// ------------------------------------------------------------------ tasks
+
+/** Column indexes on the Tasks tab, BY NAME. -1 for anything absent. */
+function taskColumns(values) {
+  var head = (values[0] || []).map(function (h) {
+    return String(h || '').trim().toLowerCase().split(' ')[0];
+  });
+  return {
+    task: head.indexOf('task'),
+    due: head.indexOf('due'),
+    category: head.indexOf('category'),
+    done: head.indexOf('done')
+  };
+}
+
+/** "Call the dentist@2026-09-15" -- built identically in tasks.py.
+ *
+ * Row position cannot be the key: sorting the sheet would repoint every tick
+ * at the wrong row. */
+function taskKey(task, due) {
+  return String(task).trim() + '@' + isoDate(due);
+}
+
+/** A due cell as yyyy-MM-dd, whatever the viewer's locale rendered it as. */
+function isoDate(value) {
+  if (value instanceof Date) {
+    return Utilities.formatDate(value, TZ, 'yyyy-MM-dd');
+  }
+  var text = String(value || '').trim();
+  var m = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (m) { return text; }
+  m = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+  if (!m) { return text; }
+  var year = Number(m[3]);
+  if (year < 100) { year += 2000; }
+  return year + '-' + ('0' + m[1]).slice(-2) + '-' + ('0' + m[2]).slice(-2);
+}
+
+/** Close one task. Matched on Task + Due, never on row number. */
+function setTaskDone(key, done) {
+  if (!key) { return false; }
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TASKS_TAB);
+  if (!sheet) { return false; }
+  var values = sheet.getDataRange().getValues();
+  var at = taskColumns(values);
+  if (at.task < 0 || at.due < 0) { return false; }
+  // Without a Done column there is nowhere to record it, and silently doing
+  // nothing would look exactly like success from the page.
+  if (at.done < 0) { return false; }
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    if (!String(row[at.task] || '').trim()) { continue; }
+    if (taskKey(row[at.task], row[at.due]) !== key) { continue; }
+    sheet.getRange(i + 1, at.done + 1).setValue(
+      done ? Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd') : '');
+    return true;
+  }
+  return false;
+}
+
+/** Append one task. The page sends the date already as yyyy-MM-dd. */
+function addTask(task, due, category) {
+  task = String(task || '').trim();
+  due = String(due || '').trim();
+  if (!task || !/^\d{4}-\d{2}-\d{2}$/.test(due)) { return false; }
+  var ss = SpreadsheetApp.getActiveSpreadsheet();
+  var sheet = ss.getSheetByName(TASKS_TAB);
+  if (!sheet) {
+    sheet = ss.insertSheet(TASKS_TAB);
+    sheet.appendRow(['Task', 'Due', 'Category', 'Done']);
+    sheet.setFrozenRows(1);
+  }
+  var values = sheet.getDataRange().getValues();
+  var at = taskColumns(values);
+  if (at.task < 0 || at.due < 0) { return false; }
+  var width = Math.max(values[0] ? values[0].length : 4,
+                       at.task + 1, at.due + 1,
+                       at.category + 1, at.done + 1);
+  var row = [];
+  for (var c = 0; c < width; c++) { row.push(''); }
+  row[at.task] = task;
+  // As TEXT, not a Date: the page reads this sheet back over the CSV endpoint,
+  // where a real date renders in the viewer's locale and an ISO string does
+  // not. Both parse, but only one is unambiguous.
+  row[at.due] = "'" + due;
+  if (at.category >= 0) { row[at.category] = String(category || '').trim(); }
+  sheet.appendRow(row);
+  return true;
+}
+
 
 // ----------------------------------------------------------------- firing
 

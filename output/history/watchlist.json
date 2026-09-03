@@ -22,5 +22,11 @@
     "label": "LOTR",
     "type": "movie",
     "id": "1090869"
+  },
+  {
+    "title": "Harry Potter",
+    "label": "Custom",
+    "type": "tv",
+    "id": "224377"
   }
 ]

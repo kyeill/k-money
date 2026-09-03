@@ -15,9 +15,10 @@ python site.py --tab X   build one tab, while working on it
 python watch.py          print the list as text (writes no history)
 python reminders.py      print the next eight days of reminders
 python church.py         print upcoming church events
+python tasks.py          print open tasks, rolled forward
 python teams.py          print the season, week by week
 python resolve.py --write fill watchlist ids in from titles
-python selftest.py       438 assertions -- run before trusting any change
+python selftest.py       476 assertions -- run before trusting any change
 ```
 
 Python is not on PATH:
@@ -75,9 +76,9 @@ add the rule itself.
 
 ## Validation routine — run all of it before trusting a change
 
-`python selftest.py` (438 assertions), plus: compile every module, run every
+`python selftest.py` (476 assertions), plus: compile every module, run every
 entry point (`site.py`, `site.py --fixtures`, `site.py --tab watch`,
-`watch.py`, `reminders.py`, `church.py`, `teams.py`, `resolve.py`), a dead-code sweep (every `def` and module constant
+`watch.py`, `reminders.py`, `church.py`, `teams.py`, `tasks.py`, `resolve.py`), a dead-code sweep (every `def` and module constant
 cross-referenced across all files; CSS classes checked against the built page,
 remembering that `.on`, `.past`, `.empty` and `.new` are applied at runtime and
 always look unused), and a structural check of the page — balanced tags, and

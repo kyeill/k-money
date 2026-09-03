@@ -312,6 +312,8 @@ def main():
             HERE, "fixtures", "reminders-done.csv")
         os.environ["KMONEY_CHURCH_CSV"] = os.path.join(
             HERE, "fixtures", "church.csv")
+        os.environ["KMONEY_TASKS_CSV"] = os.path.join(
+            HERE, "fixtures", "tasks.csv")
         os.environ["KMONEY_WATCHLIST_CSV"] = os.path.join(
             HERE, "fixtures", "watchlist.csv")
         os.environ["KMONEY_TEAMS_JSON"] = os.path.join(

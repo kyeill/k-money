@@ -4,9 +4,9 @@ A rolling list of what is coming out — Marvel, DC and Star Wars by default,
 plus whatever one-offs are worth following — built once a morning by GitHub
 Actions and published as an installable page.
 
-It is a **tab shell**. Four tabs — **Reminders**, **Teams**, **Church** and
-**Watchlist** — and `tabs.py` is the only file that knows that; its order is
-the nav order.
+It is a **tab shell**. Five tabs — **Reminders**, **Tasks**, **Teams**,
+**Church** and **Watchlist** — and `tabs.py` is the only file that knows
+that; its order is the nav order.
 
 Under the title sits **`Updated 2:07 pm`**. The build stamps an epoch rather
 than a formatted string, because the workflow runs in UTC and the reader does
@@ -179,6 +179,69 @@ means it is live and reachable anonymously, which is exactly right.
 serving whatever was deployed. After any edit: **Deploy → Manage deployments →
 pencil → Version: New version → Deploy**. Paste and run `setup()` BEFORE
 deploying, or the web app goes live without `doGet` and ticks fail silently.
+
+## Tasks
+
+Dated to-dos that **roll over until they are done**.
+
+```
+Task   Due   Category   Done
+```
+
+Deliberately not more columns on the Reminders sheet, because it is a different
+kind of thing. A reminder is a **schedule**: a rule fires on the days its
+cadence names, and an unticked one simply does not come back tomorrow. A task is
+an **open item**: it has a due date and stays open until it is closed, appearing
+every day from its due date onward. Same app, different model, different tab.
+
+**A due date is required.** The point of the tab is that everything on today's
+list is something you meant to do today; an undated backlog living at the foot
+of every day would break that. A row with no readable date is *named on the
+page* rather than dropped, so it cannot go missing silently.
+
+**Rollover is silent.** An overdue task moves to today and looks like anything
+else — his call. How late it is, is computed and available, just not shown.
+
+### Adding and completing, without opening the Sheet
+
+That was the whole objection to a spreadsheet: typing into Sheets on a phone is
+worse than not capturing the thought at all. So the page writes.
+
+**+ Add a task** takes a title, a date and an optional category, and appends a
+row through the Apps Script web app — the same endpoint the reminder checkboxes
+already use. **Ticking a task** writes the date into its `Done` cell, which is
+what removes it from every device.
+
+The tab **re-fetches the Sheet in the browser**, so an added task appears
+immediately rather than at tomorrow's build. Which means the rules exist twice,
+in `tasks.py` and again in JS — much smaller than the Reminders duplication
+(parse, drop done, roll over, group) but the same discipline applies.
+
+A tick and an add are both fire-and-forget `no-cors` calls, so for a few seconds
+the Sheet does not agree yet. `PENDING` in `localStorage` covers that window, as
+it does for reminders.
+
+**The key is `Task@YYYY-MM-DD`**, built identically in `tasks.py`, in the
+browser copy and in the Apps Script. Row position cannot be the key: sorting the
+sheet would repoint every tick at the wrong row.
+
+### Categories
+
+A free-text column that **colours itself**. Assigning colours by hand in
+`config.json` would mean a commit every time a new category is typed on a phone
+— exactly the friction this tab removes — so a name maps to a colour the same
+way every time, and `task_colors` only has to name exceptions.
+
+Deterministic rather than first-seen on purpose: a colour picked in arrival
+order would change the moment a row was inserted above another, and the tab
+would quietly recolour itself.
+
+### Before the tab exists
+
+Asking Google for a tab that is not there hands back the **first** tab, so the
+header check refuses it — correctly, but "no task column" is a poor first
+impression. That case renders as *"No Tasks tab on the sheet yet"* with the add
+form still there, and adding the first task creates the tab.
 
 ## Teams
 
@@ -560,7 +623,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         438 assertions, no key and no network needed
+python selftest.py         476 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
