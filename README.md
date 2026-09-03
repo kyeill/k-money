@@ -236,6 +236,11 @@ Deterministic rather than first-seen on purpose: a colour picked in arrival
 order would change the moment a row was inserted above another, and the tab
 would quietly recolour itself.
 
+The trade-off is that two names can land on the same colour, and two of his
+four did — **Blog and Personal both came out pink**, which is why `task_colors`
+pins Blog to blue. His live four are Work (teal), Personal (pink), Blog (blue)
+and Church (amber), and a test asserts they stay four distinct colours.
+
 ### Before the tab exists
 
 Asking Google for a tab that is not there hands back the **first** tab, so the
@@ -623,7 +628,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         476 assertions, no key and no network needed
+python selftest.py         479 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

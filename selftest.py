@@ -1308,6 +1308,19 @@ def test_tasks():
     ok("no category is no colour", tasks.category_color(""), None)
     ok("config can override one",
        tasks.category_color("Work", {"work": "red"}), ui.COLORS["red"])
+    # Deriving from the name means two names CAN land on the same colour, and
+    # two of his four did: Blog and Personal both came out pink. His live four
+    # must stay distinct, so the config pin is asserted rather than assumed.
+    import watch as _w
+    live = _w.load_config()
+    over = {k.lower(): v for k, v in (live.get("task_colors") or {}).items()}
+    mine = [tasks.category_color(n, over)
+            for n in ("Work", "Personal", "Blog", "Church")]
+    ok("his four categories are four different colours",
+       len(set(mine)), 4)
+    ok("and Blog is the pinned one", mine[2], ui.COLORS["blue"])
+    true("which it would not be without the pin",
+         tasks.category_color("Blog") == tasks.category_color("Personal"))
 
     data = {"today": today, "days": days, "undated": undated,
             "unknown": unknown, "error": None, "sheet": "S", "tab": "Tasks",

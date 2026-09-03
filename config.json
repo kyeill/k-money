@@ -112,6 +112,9 @@
   "church_tab": "Church",
   "tasks_tab": "Tasks",
   "_comment_tasks": "The Tasks tab: Task | Due | Category | Done, all found by NAME. A DUE DATE IS REQUIRED -- an undated backlog at the foot of every day would break the promise that everything shown is something he meant to do today. A task rolls over to today until its Done cell is filled, which the page does through the Apps Script web app; he never has to open the Sheet. Categories colour themselves deterministically, so a new one typed on his phone needs no commit here -- task_colors only names exceptions.",
-  "task_colors": {},
+  "_comment_task_colors": "Only the exceptions. Category colours are derived from the NAME so they never shift, but two names can land on the same one -- Blog and Personal both came out pink, checked 2026-08-30. His four are Work (teal), Personal (pink), Blog (pinned blue), Church (amber). Value is a name from ui.COLORS or a literal hex.",
+  "task_colors": {
+    "Blog": "blue"
+  },
   "_comment_tabs": "Both tabs are named explicitly. Asking a Google Sheet for a tab that does not exist returns the FIRST tab, so relying on position would silently read the wrong one the moment tabs are reordered."
 }
