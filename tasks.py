@@ -26,35 +26,43 @@ import reminders          # CSV_URL and SheetError -- the plumbing is shared
 import ui
 
 KEY = "tasks"
-LABEL = "Tasks"
+LABEL = "Active"
 
 TAB = "Tasks"
 REQUIRED = ["task", "due"]
 OPTIONAL = ["category", "done"]
 
-# Categories colour themselves. Assigning them by hand in config would mean a
-# commit every time a new one is typed on his phone, which is exactly the
-# friction this tab exists to remove -- so a name maps to a colour the same way
-# every time, and config only has to name the exceptions.
-CATEGORY_COLORS = ("blue", "green", "purple", "teal",
-                   "pink", "amber", "brown", "red")
+# FIVE fixed categories, his call. Derived colours were replaced because they
+# could collide -- Blog and Personal both came out pink -- and because five
+# names he actually uses is a list, not an algorithm.
+#
+# The shades are picked for a 13% wash on a near-black card, so each is a mid
+# tone: a pure red or yellow at full strength would either shout or vanish.
+# Anything not on this list is OTHER, which is the point of Other being here.
+CATEGORY_COLORS = {
+    "personal": "#e8730c",     # orange
+    "work": "#d84343",         # red, softened -- #ff0000 reads as an error
+    "blog": "#3d8ee0",         # blue, the app's own
+    "church": "#e0c341",       # yellow, the one that survives being washed
+    "other": "#8b93a0",        # grey
+}
+OTHER = "other"
 
 
 def category_color(name, overrides=None):
-    """A stable colour for a category name, or None when it has none.
+    """One of the five, or None when the cell is blank.
 
-    Deterministic rather than first-seen: a colour picked in arrival order
-    would change the moment a row was added above another, and the tab would
-    quietly recolour itself.
+    An unrecognised category is NOT dropped and NOT given a colour of its own --
+    it is Other. A typo should look like a task filed under Other, not like a
+    sixth category nobody meant to create.
     """
-    name = (name or "").strip()
+    name = (name or "").strip().lower()
     if not name:
         return None
-    override = (overrides or {}).get(name.lower())
+    override = (overrides or {}).get(name)
     if override:
         return ui.COLORS.get(override.lower(), override)
-    total = sum(ord(ch) for ch in name.lower())
-    return ui.COLORS[CATEGORY_COLORS[total % len(CATEGORY_COLORS)]]
+    return CATEGORY_COLORS.get(name, CATEGORY_COLORS[OTHER])
 
 
 def task_key(task, due):
@@ -356,15 +364,11 @@ JS = """
     return y+'-'+('0'+m[1]).slice(-2)+'-'+('0'+m[2]).slice(-2);
   }
 
-  var PALETTE=%%PALETTE%%, OVERRIDES=%%OVERRIDES%%;
+  var CATS=%%CATS%%, OTHER=%%OTHER%%, OVERRIDES=%%OVERRIDES%%;
   function colourFor(name){
-    name=(name||'').trim();
+    name=(name||'').trim().toLowerCase();
     if(!name) return null;
-    var over=OVERRIDES[name.toLowerCase()];
-    if(over) return over;
-    var total=0, low=name.toLowerCase();
-    for(var i=0;i<low.length;i++) total+=low.charCodeAt(i);
-    return PALETTE[total%PALETTE.length];
+    return OVERRIDES[name] || CATS[name] || OTHER;
   }
   function washOf(hex){
     var r=parseInt(hex.substr(1,2),16), g=parseInt(hex.substr(3,2),16),
@@ -519,14 +523,14 @@ JS = """
 
 def page_js(data):
     import json
-    palette = [ui.COLORS[name] for name in CATEGORY_COLORS]
     overrides = {}
     for name, value in (data.get("overrides") or {}).items():
         overrides[name] = ui.COLORS.get(str(value).lower(), value)
     return (JS.replace("%%SHEET%%", json.dumps(data.get("sheet") or ""))
               .replace("%%TAB%%", json.dumps(data.get("tab") or TAB))
               .replace("%%WEBAPP%%", json.dumps(data.get("webapp") or ""))
-              .replace("%%PALETTE%%", json.dumps(palette))
+              .replace("%%CATS%%", json.dumps(CATEGORY_COLORS))
+              .replace("%%OTHER%%", json.dumps(CATEGORY_COLORS[OTHER]))
               .replace("%%OVERRIDES%%", json.dumps(overrides)))
 
 

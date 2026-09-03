@@ -640,10 +640,18 @@ function setTaskDone(key, done) {
   // Without a Done column there is nowhere to record it, and silently doing
   // nothing would look exactly like success from the page.
   if (at.done < 0) { return false; }
+  // Two identical tasks on the same date share a key, and he made a pair
+  // within minutes of first using this. Matching the first row REGARDLESS of
+  // its state would re-stamp the one already closed and strand the other open
+  // for ever, so closing takes the first OPEN row and reopening takes the
+  // first CLOSED one. Ticking twice then clears both, which is the only
+  // behaviour that terminates.
   for (var i = 1; i < values.length; i++) {
     var row = values[i];
     if (!String(row[at.task] || '').trim()) { continue; }
     if (taskKey(row[at.task], row[at.due]) !== key) { continue; }
+    var closed = !!String(row[at.done] || '').trim();
+    if (done === closed) { continue; }
     sheet.getRange(i + 1, at.done + 1).setValue(
       done ? Utilities.formatDate(new Date(), TZ, 'yyyy-MM-dd') : '');
     return true;

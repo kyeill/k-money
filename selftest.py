@@ -740,8 +740,8 @@ def test_reminder_render():
              "error": None, "sheet": "abc"}
     true("a quiet day says so", "Nothing." in reminders.render(quiet))
     true("times read as clock times", ">12:30 pm<" in html)
-    true("the page says it does not send anything",
-         "notifications are sent by the sheet, not this page" in html)
+    true("no footer is drawn -- he asked for them all gone",
+         "rfoot" not in html)
 
     ok("a broken sheet renders an error, not a traceback",
        'class="rerr"' in reminders.render(
@@ -1303,24 +1303,23 @@ def test_tasks():
     ok("case does not change it", tasks.category_color("work"), work)
     true("a different category gets a different one",
          tasks.category_color("Personal") != work)
-    true("every assigned colour is from the shared palette",
-         work in ui.COLORS.values())
+    true("it is one of the five", work in tasks.CATEGORY_COLORS.values())
     ok("no category is no colour", tasks.category_color(""), None)
     ok("config can override one",
        tasks.category_color("Work", {"work": "red"}), ui.COLORS["red"])
-    # Deriving from the name means two names CAN land on the same colour, and
-    # two of his four did: Blog and Personal both came out pink. His live four
-    # must stay distinct, so the config pin is asserted rather than assumed.
-    import watch as _w
-    live = _w.load_config()
-    over = {k.lower(): v for k, v in (live.get("task_colors") or {}).items()}
-    mine = [tasks.category_color(n, over)
-            for n in ("Work", "Personal", "Blog", "Church")]
-    ok("his four categories are four different colours",
-       len(set(mine)), 4)
-    ok("and Blog is the pinned one", mine[2], ui.COLORS["blue"])
-    true("which it would not be without the pin",
-         tasks.category_color("Blog") == tasks.category_color("Personal"))
+    # Five fixed categories, his call, after derived colours put Blog and
+    # Personal on the same pink. Fixed means the collision cannot come back.
+    ok("the five are five different colours",
+       len(set(tasks.CATEGORY_COLORS.values())), 5)
+    ok("his four plus Other are all distinct",
+       len({tasks.category_color(n)
+            for n in ("Work", "Personal", "Blog", "Church", "Other")}), 5)
+    # A typo should look like a task filed under Other, not like a sixth
+    # category nobody meant to create.
+    ok("anything unrecognised is Other",
+       tasks.category_color("Groceries"),
+       tasks.CATEGORY_COLORS[tasks.OTHER])
+    ok("and a blank cell is still no colour", tasks.category_color(" "), None)
 
     data = {"today": today, "days": days, "undated": undated,
             "unknown": unknown, "error": None, "sheet": "S", "tab": "Tasks",

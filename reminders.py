@@ -437,7 +437,6 @@ label.rem.done .rt,label.rem.done .rn{opacity:.45;text-decoration:line-through}
    a heading would imply two sections, and it is one day. */
 .rem.pm1{margin-top:20px}
 .rnone{color:var(--muted);font-size:13px;padding:1px 2px 3px}
-.rfoot{color:var(--muted);font-size:12px;margin:16px 2px 0}
 .rerr{color:var(--bad,#d4676a);font-size:13px;border:1px dashed var(--line);
       border-radius:9px;padding:10px 12px;margin:12px 0}
 #rpull{text-align:center;color:var(--muted);font-size:12px;height:0;
@@ -452,7 +451,6 @@ label.rem.done .rt,label.rem.done .rn{opacity:.45;text-decoration:line-through}
   .rem:not(.tick)::before{width:21px}
   .rem .rt{width:88px;font-size:15px}
   .rem .rn{font-size:17px}
-  .rfoot{font-size:13px}
 }
 """ % {"wash": ui.wash(ui.COLORS["orange"])}
 
@@ -880,9 +878,6 @@ def render(data):
         # Silence is the one thing a reminders app must not do.
         out.append('<div class="rerr">Could not read the cadence for: %s</div>'
                    % ui.esc(", ".join(bad)))
-    out.append('<div class="rfoot">%d reminder%s in the sheet · '
-               'notifications are sent by the sheet, not this page</div>'
-               % (data["count"], "" if data["count"] == 1 else "s"))
     return "".join(out)
 
 

@@ -4,7 +4,7 @@ A rolling list of what is coming out — Marvel, DC and Star Wars by default,
 plus whatever one-offs are worth following — built once a morning by GitHub
 Actions and published as an installable page.
 
-It is a **tab shell**. Five tabs — **Reminders**, **Tasks**, **Teams**,
+It is a **tab shell**. Five tabs — **Active**, **Reminders**, **Teams**,
 **Church** and **Watchlist** — and `tabs.py` is the only file that knows
 that; its order is the nav order.
 
@@ -180,9 +180,11 @@ serving whatever was deployed. After any edit: **Deploy → Manage deployments �
 pencil → Version: New version → Deploy**. Paste and run `setup()` BEFORE
 deploying, or the web app goes live without `doGet` and ticks fail silently.
 
-## Tasks
+## Active
 
-Dated to-dos that **roll over until they are done**.
+Dated to-dos that **roll over until they are done**. First in the nav, so the
+app opens on it -- what is still to do is the thing worth seeing first. The tab
+is called Active; the module, the Sheet tab and the config key stay `tasks`.
 
 ```
 Task   Due   Category   Done
@@ -227,19 +229,28 @@ sheet would repoint every tick at the wrong row.
 
 ### Categories
 
-A free-text column that **colours itself**. Assigning colours by hand in
-`config.json` would mean a commit every time a new category is typed on a phone
-— exactly the friction this tab removes — so a name maps to a colour the same
-way every time, and `task_colors` only has to name exceptions.
+**Five fixed categories**, in `tasks.py`:
 
-Deterministic rather than first-seen on purpose: a colour picked in arrival
-order would change the moment a row was inserted above another, and the tab
-would quietly recolour itself.
+| | |
+| --- | --- |
+| Personal | orange `#e8730c` |
+| Work | red `#d84343` |
+| Blog | blue `#3d8ee0` |
+| Church | yellow `#e0c341` |
+| Other | grey `#8b93a0` |
 
-The trade-off is that two names can land on the same colour, and two of his
-four did — **Blog and Personal both came out pink**, which is why `task_colors`
-pins Blog to blue. His live four are Work (teal), Personal (pink), Blog (blue)
-and Church (amber), and a test asserts they stay four distinct colours.
+Colours were derived from the category name at first, so a new one typed on a
+phone needed no commit. That was dropped because derived colours **collide** —
+Blog and Personal both came out pink — and because five names he actually uses
+is a list, not an algorithm.
+
+The shades are picked for a 13% wash on a near-black card, so each is a mid
+tone: a pure red or yellow at full strength would either shout or vanish. Work
+is softened from a true red, which on this page would read as an error.
+
+**Anything not one of the five renders as Other**, which is the point of Other
+being on the list. A typo should look like a task filed under Other, not like a
+sixth category nobody meant to create.
 
 ### Before the tab exists
 
@@ -628,7 +639,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         479 assertions, no key and no network needed
+python selftest.py         484 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

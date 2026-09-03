@@ -19,7 +19,7 @@ import teams
 import reminders
 import watch
 
-TABS = [reminders, tasks, teams, church, watch]
+TABS = [tasks, reminders, teams, church, watch]
 
 
 def by_key(key):

@@ -56,8 +56,6 @@ nav button{flex:0 0 auto;background:none;border:0;color:var(--muted);
 nav button[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--accent)}
 section{display:none;padding-top:6px}
 section.on{display:block}
-footer{margin-top:34px;color:var(--muted);font-size:12px;
-       border-top:1px solid var(--line);padding-top:11px}
 @media (min-width:641px){
   body{font-size:16px;line-height:1.5}
   .wrap{max-width:860px;padding:0 16px 80px}
@@ -65,7 +63,6 @@ footer{margin-top:34px;color:var(--muted);font-size:12px;
   h1{font-size:26px;letter-spacing:-0.01em}
   nav{margin:0 -16px;padding:0 10px}
   nav button{font-size:15px;padding:12px 15px}
-  footer{font-size:13px}
 }
 """
 
@@ -274,7 +271,6 @@ def render(built, panes, built_at=None):
         "%(font)s<style>%(css)s</style></head><body><div class=\"wrap\">"
         "<header><h1>%(app)s</h1><div id=\"stamp\">Updated %(pretty)s</div></header>"
         "<nav>%(nav)s</nav>%(body)s"
-        "<footer>Built %(pretty)s · film data from TMDB</footer>"
         "</div><script>%(js)s</script></body></html>"
     ) % {
         "app": ui.esc(APP), "font": FONT, "css": css, "nav": nav, "body": body,
