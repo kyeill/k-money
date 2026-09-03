@@ -311,6 +311,23 @@ JS = """
     return true;
   }
 
+  // A task he just added is not in the Sheet's CSV yet: Google's export lags a
+  // write by a few seconds, so re-reading straight after an add returns the
+  // list WITHOUT it. Showing nothing then reads as "it did not save", which is
+  // the one thing this tab must never do. So a new task is held here and drawn
+  // immediately, and dropped as soon as the Sheet catches up.
+  var ADDED=[];
+  try{ ADDED=JSON.parse(localStorage.getItem('tadded')||'[]'); }catch(e){}
+  function keepAdded(){
+    var cut=Date.now()-3e5;      // five minutes is long past any export lag
+    ADDED=ADDED.filter(function(a){ return a.at>cut; });
+    try{ localStorage.setItem('tadded',JSON.stringify(ADDED)); }catch(e){}
+  }
+  function noteAdded(task,due,cat){
+    ADDED.push({task:task,due:due,cat:cat,at:Date.now()});
+    keepAdded();
+  }
+
   function rows(text){
     // A minimal CSV reader: quoted fields with doubled quotes inside, which is
     // everything the gviz endpoint emits.
@@ -374,7 +391,7 @@ JS = """
       var i=head.indexOf(n); if(i>=0) at[n]=i;
     });
     if(at.task===undefined||at.due===undefined) return null;
-    var now=today(), byDay={};
+    var now=today(), byDay={}, seen={};
     for(var i=1;i<lines.length;i++){
       var c=lines[i].map(function(v){ return (v||'').trim(); });
       var title=c[at.task]||'';
@@ -383,6 +400,7 @@ JS = """
       var due=parseDate(c[at.due]);
       if(!due) continue;
       var key=title+'@'+due;
+      seen[key]=true;
       if(closed(key)) continue;
       var show=due<now?now:due;
       (byDay[show]=byDay[show]||[]).push({
@@ -390,6 +408,20 @@ JS = """
         cat:(at.category!==undefined?c[at.category]:'')||''
       });
     }
+    // Anything added in the last few minutes that the export has not caught up
+    // with. Once it appears in the CSV it is dropped from here, so it can never
+    // be drawn twice.
+    keepAdded();
+    ADDED = ADDED.filter(function(a){ return !seen[a.task+'@'+a.due]; });
+    try{ localStorage.setItem('tadded',JSON.stringify(ADDED)); }catch(e){}
+    ADDED.forEach(function(a){
+      var key=a.task+'@'+a.due;
+      if(closed(key)) return;
+      var show=a.due<now?now:a.due;
+      (byDay[show]=byDay[show]||[]).push({
+        task:a.task, due:a.due, key:key, cat:a.cat||''
+      });
+    });
     var out=[], days=Object.keys(byDay).sort();
     if(!days.length) return '<div class="tnone">Nothing to do.</div>';
     days.forEach(function(day){
@@ -409,7 +441,12 @@ JS = """
     return out.join('');
   }
 
-  var scratch=document.createElement('div'), busy=false;
+  var scratch=document.createElement('div'), busy=false, lastCsv=null;
+  function redraw(){
+    if(lastCsv===null) return;
+    var html=build(lastCsv);
+    if(html!==null) paint(html);
+  }
   function paint(html){
     scratch.innerHTML=html;
     if(scratch.innerHTML!==body.innerHTML) body.innerHTML=scratch.innerHTML;
@@ -424,7 +461,10 @@ JS = """
     busy=true;
     fetch(url(),{cache:'no-store'})
       .then(function(r){ if(!r.ok) throw new Error(r.status); return r.text(); })
-      .then(function(t){ var html=build(t); if(html!==null) paint(html); })
+      .then(function(t){
+        var html=build(t);
+        if(html!==null){ lastCsv=t; paint(html); }
+      })
       .catch(function(){})          // keep the baked list; it is not wrong
       .then(function(){ busy=false; });
   }
@@ -456,13 +496,16 @@ JS = """
       fetch(WEBAPP+'?action=addtask&task='+encodeURIComponent(task)+
             '&due='+encodeURIComponent(when)+'&cat='+encodeURIComponent(cat),
             {mode:'no-cors',cache:'no-store'}).catch(function(){});
-      setTimeout(function(){
-        pane.querySelector('#ttask').value='';
-        pane.querySelector('#tcat').value='';
-        btn.disabled=false; btn.textContent='Add';
-        if(box) box.open=false;
-        refresh();
-      }, 1400);
+      // Drawn from what he typed, straight away -- waiting on the Sheet is
+      // exactly what made an add look like it had failed.
+      noteAdded(task, when, cat);
+      pane.querySelector('#ttask').value='';
+      pane.querySelector('#tcat').value='';
+      btn.disabled=false; btn.textContent='Add';
+      if(box) box.open=false;
+      redraw();
+      // Then confirm, over a window wide enough for the export to catch up.
+      [1500, 4000, 9000].forEach(function(ms){ setTimeout(refresh, ms); });
     });
   }
 

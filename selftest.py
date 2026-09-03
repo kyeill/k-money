@@ -1370,6 +1370,15 @@ def test_tasks():
     true("adding writes through the web app", "action=addtask" in js)
     true("the same palette reaches the browser",
          ui.COLORS["blue"] in js)
+    # Google's CSV export lags a write by a few seconds, so re-reading straight
+    # after an add returns the list WITHOUT it -- which reads as "it did not
+    # save", the one thing this tab must never do. A new task is drawn from
+    # what he typed, and dropped once the Sheet catches up.
+    true("a new task is drawn before the Sheet agrees", "noteAdded(" in js)
+    true("and dropped once the export catches up", "!seen[a.task" in js)
+    true("the confirm window is wider than one try",
+         "[1500, 4000, 9000]" in js)
+    true("a pending add expires even if the Sheet never shows it", "3e5" in js)
 
 
 def test_church():
