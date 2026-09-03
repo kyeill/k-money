@@ -106,7 +106,7 @@
     ]
   },
   "_comment_reminders": "The Google Sheet behind the Reminders tab. Public read (anyone with the link), which is what lets the page fetch it in the browser. NOTIFICATIONS ARE NOT SENT FROM HERE -- the Apps Script bound to that sheet does that; see apps-script/reminders.gs.",
-  "reminders_webapp": "https://script.google.com/macros/s/AKfycbzhADw7sI572xdcTe2W4Rk8x2WyKF5jca7zlgWGveK8GM0pKcC50BjBG4fLGj6vU1Sx/exec",
+  "reminders_webapp": "https://script.google.com/macros/s/AKfycbzTdVLpmUnEYBTNssFJU5s4RtSSLzFt7jwq0-D56LOAbvVIp-5BTgEI_FQsoe07F9Y2/exec",
   "_comment_webapp": "Apps Script web app /exec URL, from Deploy > New deployment > Web app (execute as me, access anyone). The page calls it to record a tick. It IS public -- the script validates the date and checks the key against a real reminder, so the worst a stranger can do is toggle a checkbox. Blank = ticking is disabled.",
   "reminders_tab": "Reminders",
   "church_tab": "Church",
