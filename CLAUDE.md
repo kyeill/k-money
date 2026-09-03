@@ -18,7 +18,7 @@ python church.py         print upcoming church events
 python tasks.py          print open tasks, rolled forward
 python teams.py          print the season, week by week
 python resolve.py --write fill watchlist ids in from titles
-python selftest.py       484 assertions -- run before trusting any change
+python selftest.py       496 assertions -- run before trusting any change
 ```
 
 Python is not on PATH:
@@ -45,6 +45,11 @@ Two standing preferences of his, easy to miss:
 
 * End every reply with a clearly marked section of outstanding **questions**,
   plus key notes and action items. Buried asks get lost.
+* **Anything he must paste, SHIP THE CODE WITH THE ASK.** Never write
+  "redeploy the script" on its own -- a redeploy publishes whatever is already
+  in the editor, so without the code nothing changes. Attach the whole file when
+  it has moved a lot; give the exact before/after block when it is small, which
+  also avoids a paste wiping his credentials.
 * **Verify by running things.** Most trap lists came from code that looked
   obviously correct.
 
@@ -76,7 +81,7 @@ add the rule itself.
 
 ## Validation routine — run all of it before trusting a change
 
-`python selftest.py` (484 assertions), plus: compile every module, run every
+`python selftest.py` (496 assertions), plus: compile every module, run every
 entry point (`site.py`, `site.py --fixtures`, `site.py --tab watch`,
 `watch.py`, `reminders.py`, `church.py`, `teams.py`, `tasks.py`, `resolve.py`), a dead-code sweep (every `def` and module constant
 cross-referenced across all files; CSS classes checked against the built page,

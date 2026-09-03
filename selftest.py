@@ -1327,6 +1327,20 @@ def test_tasks():
     html = tasks.render(data)
     ok("a heading per day", html.count('class="tday"'), 2)
     ok("a checkbox per open task", html.count('type="checkbox"'), 5)
+    # The row used to be one <label>, so a tap anywhere ticked it. Editing
+    # needs its own target, so the title is a button and the box has its own
+    # padded label -- both have to stay reachable by thumb and by keyboard.
+    ok("the title is its own control", html.count('class="tt"'), 5)
+    true("and carries what the form needs to open it",
+         'data-task="Call the dentist"' in html and 'data-due="2026-08-29"' in html)
+    true("the checkbox keeps its own label", 'class="box"' in html)
+    # Five fixed categories means a dropdown, not free text -- a typo can no
+    # longer invent a category, it just lands in Other.
+    true("the category is a dropdown", '<select id="tcat"' in html)
+    ok("with the five plus a blank", html.count('<option'), 6)
+    true("and a way to file nothing", '<option value="">No category</option>' in html)
+    true("the form can be cancelled once it is editing",
+         'id="tcancel"' in html)
     true("today is named, not dated", "<h2>Today</h2>" in html)
     true("the undated one is named on the page", "No due date" in html)
     true("there is a way to add one without opening the Sheet",
@@ -1367,6 +1381,16 @@ def test_tasks():
     true("it skips done rows as well", "at.done" in js)
     true("ticking writes through the web app", "action=task" in js)
     true("adding writes through the web app", "action=addtask" in js)
+    true("editing writes through it too", "action=edittask" in js)
+    # An edit cannot reuse the add list: the row is already in the CSV, so it
+    # has to be REPLACED as it is read rather than appended.
+    true("an edit is held until the Sheet catches up", "noteEdit(" in js)
+    true("and applied while reading the CSV", "var pend=EDITS[key]" in js)
+    true("then dropped once the row comes back edited",
+         "delete EDITS[key]" in js)
+    # Tapping the field should open the calendar, not just focus a box that
+    # happens to accept a date.
+    true("the date field opens its picker", "showPicker()" in js)
     true("the same palette reaches the browser",
          ui.COLORS["blue"] in js)
     # Google's CSV export lags a write by a few seconds, so re-reading straight

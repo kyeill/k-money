@@ -530,6 +530,8 @@ function doGet(e) {
       out.ok = setTaskDone(p.key, p.done === '1');
     } else if (p.action === 'addtask') {
       out.ok = addTask(p.task, p.due, p.cat);
+    } else if (p.action === 'edittask') {
+      out.ok = editTask(p.key, p.task, p.due, p.cat);
     } else {
       out.error = 'unknown action';
     }
@@ -658,6 +660,37 @@ function setTaskDone(key, done) {
   }
   return false;
 }
+
+/** Rewrite one open task in place, found by the key it had BEFORE the edit.
+ *
+ * Only an OPEN row is touched. Editing a completed task would resurrect it,
+ * and the page never offers that -- a closed task is not on screen to tap. */
+function editTask(key, task, due, category) {
+  task = String(task || '').trim();
+  due = String(due || '').trim();
+  if (!key || !task || !/^\d{4}-\d{2}-\d{2}$/.test(due)) { return false; }
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TASKS_TAB);
+  if (!sheet) { return false; }
+  var values = sheet.getDataRange().getValues();
+  var at = taskColumns(values);
+  if (at.task < 0 || at.due < 0) { return false; }
+  for (var i = 1; i < values.length; i++) {
+    var row = values[i];
+    if (!String(row[at.task] || '').trim()) { continue; }
+    if (at.done >= 0 && String(row[at.done] || '').trim()) { continue; }
+    if (taskKey(row[at.task], row[at.due]) !== key) { continue; }
+    sheet.getRange(i + 1, at.task + 1).setValue(task);
+    // As TEXT, for the same reason addTask does it: a real Date renders in the
+    // viewer's locale over the CSV endpoint, an ISO string does not.
+    sheet.getRange(i + 1, at.due + 1).setValue("'" + due);
+    if (at.category >= 0) {
+      sheet.getRange(i + 1, at.category + 1).setValue(String(category || '').trim());
+    }
+    return true;
+  }
+  return false;
+}
+
 
 /** Append one task. The page sends the date already as yyyy-MM-dd. */
 function addTask(task, due, category) {

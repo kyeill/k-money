@@ -47,6 +47,9 @@ CATEGORY_COLORS = {
     "other": "#8b93a0",        # grey
 }
 OTHER = "other"
+# What the dropdown offers, in the order it offers them. Derived from the map
+# so the two can never disagree about which five exist.
+CATEGORY_NAMES = ("Personal", "Work", "Blog", "Church", "Other")
 
 
 def category_color(name, overrides=None):
@@ -142,18 +145,30 @@ CSS = """
 .tday{margin:18px 0 0}
 .tday h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;
          color:var(--muted);font-weight:600;margin:0 0 7px}
-label.tk{display:flex;gap:11px;align-items:center;background:var(--card);
+.tk{display:flex;gap:11px;align-items:center;background:var(--card);
      border:1px solid var(--line);border-left:4px solid transparent;
-     border-radius:10px;padding:11px 12px;margin:6px 0;cursor:pointer;
+     border-radius:10px;padding:11px 12px;margin:6px 0;
      -webkit-tap-highlight-color:transparent}
-label.tk.tint{border-left-color:var(--tint);
+.tk.tint{border-left-color:var(--tint);
      background:linear-gradient(var(--wash),var(--wash)),var(--card)}
-label.tk input{flex:0 0 auto;width:19px;height:19px;margin:0 1px 0 0;
-               align-self:center;accent-color:var(--accent)}
-.tk .tt{flex:1 1 auto;min-width:0;font-size:15px}
+/* The two targets have to be separate: a tap on the title opens it for
+   editing, a tap on the box completes it. The label is padded out so the box
+   is still a comfortable thumb target on its own. */
+.tk .box{flex:0 0 auto;display:flex;align-items:center;cursor:pointer;
+         margin:-11px 0 -11px -12px;padding:11px 2px 11px 12px}
+.tk input{width:19px;height:19px;margin:0;accent-color:var(--accent);
+          cursor:pointer}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);
+    white-space:nowrap}
+.tk .tt{flex:1 1 auto;min-width:0;font-size:15px;text-align:left;
+        background:none;border:0;padding:11px 0;margin:-11px 0;
+        color:inherit;font-family:inherit;cursor:pointer}
+.tk .tt:hover{text-decoration:underline}
+.tk .tt:focus-visible{outline:2px solid var(--accent);outline-offset:2px;
+                      border-radius:4px}
 /* Ticked rows stay put and fade rather than vanishing under your thumb -- the
    Sheet is the record, and the row goes on the next read. */
-label.tk.done .tt{opacity:.45;text-decoration:line-through}
+.tk.done .tt{opacity:.45;text-decoration:line-through}
 .tk .cat{flex:0 0 auto;font-size:11px;color:var(--muted);
          background:var(--chip);border-radius:5px;padding:1px 6px;
          white-space:nowrap}
@@ -167,14 +182,21 @@ label.tk.done .tt{opacity:.45;text-decoration:line-through}
 #tadd form{display:flex;flex-direction:column;gap:8px;background:var(--card);
            border:1px solid var(--line);border-radius:10px;padding:12px;
            margin:4px 0 2px}
-#tadd input,#tadd button{font:inherit;border-radius:8px;
+#tadd input,#tadd button,#tadd select{font:inherit;border-radius:8px;
            border:1px solid var(--line);padding:9px 10px}
-#tadd input{background:var(--bg);color:var(--ink);width:100%}
+/* Without this the browser draws its own date picker and its calendar icon in
+   LIGHT mode -- a black glyph on a near-black field, which is why the date
+   looked like a plain text box. */
+#tadd input,#tadd select{background:var(--bg);color:var(--ink);width:100%;
+                         color-scheme:dark}
 #tadd input::placeholder{color:var(--muted)}
 #tadd .pair{display:flex;gap:8px}
-#tadd .pair input{flex:1 1 0;min-width:0}
-#tadd button{background:var(--accent);color:#16161a;font-weight:700;
+#tadd .pair input,#tadd .pair select{flex:1 1 0;min-width:0;width:auto}
+#tadd .acts{display:flex;gap:8px}
+#tadd .acts button{flex:1 1 auto}
+#tadd #tgo{background:var(--accent);color:#16161a;font-weight:700;
              border-color:var(--accent);cursor:pointer}
+#tadd #tcancel{background:none;color:var(--muted);cursor:pointer;flex:0 0 auto}
 #tadd button:disabled{opacity:.5;cursor:default}
 @media (min-width:641px){
   .tday{margin:24px 0 0}
@@ -187,15 +209,30 @@ label.tk.done .tt{opacity:.45;text-decoration:line-through}
 
 
 def _task(row):
+    """One task: a checkbox that completes it, and a title that opens it.
+
+    The row used to be a single <label>, so a tap anywhere ticked it. Editing
+    needs its own target, so the title is now a button -- and a button rather
+    than a div because it has to be reachable by keyboard and announce itself
+    as something you can press.
+    """
     tint = row.get("color")
+    due = row["due"]
     return (
-        '<label class="tk%s"%s><input type="checkbox" data-key="%s">'
-        '<span class="tt">%s</span>%s</label>'
+        '<div class="tk%s"%s>'
+        '<label class="box"><input type="checkbox" data-key="%s">'
+        '<span class="sr">Complete</span></label>'
+        '<button type="button" class="tt" data-key="%s" data-task="%s"'
+        ' data-due="%s" data-cat="%s">%s</button>%s</div>'
     ) % (
         " tint" if tint else "",
         ' style="--tint:%s;--wash:%s"' % (ui.esc(tint), ui.wash(tint))
         if tint else "",
         ui.esc(row["key"]),
+        ui.esc(row["key"]),
+        ui.esc(row["task"]),
+        ui.esc(due.isoformat() if hasattr(due, "isoformat") else due),
+        ui.esc(row.get("category") or ""),
         ui.esc(row["task"]),
         '<span class="cat">%s</span>' % ui.esc(row["category"])
         if row.get("category") else "",
@@ -206,13 +243,20 @@ def render(data):
     if data.get("error"):
         return ('<div class="rerr">Could not read the Tasks tab: %s</div>'
                 % ui.esc(data["error"]))
-    out = ['<details id="tadd"><summary>+ Add a task</summary>'
+    options = "".join('<option value="%s">%s</option>' % (ui.esc(n), ui.esc(n))
+                      for n in CATEGORY_NAMES)
+    out = ['<details id="tadd"><summary id="tsum">+ Add a task</summary>'
            '<form id="tform" autocomplete="off">'
+           '<input type="hidden" id="tkey">'
            '<input id="ttask" type="text" placeholder="What needs doing?" '
            'required maxlength="120">'
            '<div class="pair"><input id="tdue" type="date" required>'
-           '<input id="tcat" type="text" placeholder="Category" maxlength="30">'
-           '</div><button type="submit">Add</button></form></details>'
+           '<select id="tcat"><option value="">No category</option>'
+           + options +
+           '</select></div>'
+           '<div class="acts"><button type="submit" id="tgo">Add</button>'
+           '<button type="button" id="tcancel" hidden>Cancel</button></div>'
+           '</form></details>'
            '<div id="tbody">']
     out.append(body(data))
     out.append("</div>")
@@ -336,6 +380,23 @@ JS = """
     keepAdded();
   }
 
+  // An edit has the same export lag as an add, and cannot reuse the add list:
+  // the row is already in the CSV, so it has to be REPLACED as it is read
+  // rather than appended. Keyed by the key it had before the edit.
+  var EDITS={};
+  try{ EDITS=JSON.parse(localStorage.getItem('tedits')||'{}'); }catch(e){}
+  function keepEdits(){
+    var cut=Date.now()-3e5;
+    Object.keys(EDITS).forEach(function(k){
+      if(EDITS[k].at<=cut) delete EDITS[k];
+    });
+    try{ localStorage.setItem('tedits',JSON.stringify(EDITS)); }catch(e){}
+  }
+  function noteEdit(oldKey,task,due,cat){
+    EDITS[oldKey]={task:task,due:due,cat:cat,at:Date.now()};
+    keepEdits();
+  }
+
   function rows(text){
     // A minimal CSV reader: quoted fields with doubled quotes inside, which is
     // everything the gviz endpoint emits.
@@ -405,13 +466,27 @@ JS = """
       if(!due) continue;
       var key=title+'@'+due;
       seen[key]=true;
+      var cat0=(at.category!==undefined?c[at.category]:'')||'';
+      // An edit the Sheet has not caught up with yet. Once the row comes back
+      // already carrying the new values the edit has landed, so it is dropped.
+      // Applied BEFORE the closed() check, or a tick on the edited row would
+      // be tested against the key it used to have.
+      var pend=EDITS[key];
+      if(pend){
+        if(pend.task===title && pend.due===due && pend.cat===cat0){
+          delete EDITS[key];
+        } else {
+          title=pend.task; due=pend.due; cat0=pend.cat;
+          key=title+'@'+due;
+        }
+      }
       if(closed(key)) continue;
       var show=due<now?now:due;
       (byDay[show]=byDay[show]||[]).push({
-        task:title, due:due, key:key,
-        cat:(at.category!==undefined?c[at.category]:'')||''
+        task:title, due:due, key:key, cat:cat0
       });
     }
+    try{ localStorage.setItem('tedits',JSON.stringify(EDITS)); }catch(e){}
     // Anything added in the last few minutes that the export has not caught up
     // with. Once it appears in the CSV it is dropped from here, so it can never
     // be drawn twice.
@@ -434,11 +509,14 @@ JS = """
         return a.due<b.due?-1:a.due>b.due?1:(a.task<b.task?-1:1);
       }).forEach(function(t){
         var col=colourFor(t.cat);
-        out.push('<label class="tk'+(col?' tint':'')+'"'+
+        out.push('<div class="tk'+(col?' tint':'')+'"'+
           (col?' style="--tint:'+col+';--wash:'+washOf(col)+'"':'')+
-          '><input type="checkbox" data-key="'+esc(t.key)+'">'+
-          '<span class="tt">'+esc(t.task)+'</span>'+
-          (t.cat?'<span class="cat">'+esc(t.cat)+'</span>':'')+'</label>');
+          '><label class="box"><input type="checkbox" data-key="'+esc(t.key)+'">'+
+          '<span class="sr">Complete</span></label>'+
+          '<button type="button" class="tt" data-key="'+esc(t.key)+'"'+
+          ' data-task="'+esc(t.task)+'" data-due="'+esc(t.due)+'"'+
+          ' data-cat="'+esc(t.cat)+'">'+esc(t.task)+'</button>'+
+          (t.cat?'<span class="cat">'+esc(t.cat)+'</span>':'')+'</div>');
       });
       out.push('</div>');
     });
@@ -477,7 +555,7 @@ JS = """
     var cb=e.target;
     if(!cb||cb.type!=='checkbox'||!cb.dataset.key) return;
     var key=cb.dataset.key;
-    cb.closest('label').classList.add('done');
+    cb.closest('.tk').classList.add('done');
     remember(key);
     if(!WEBAPP) return;
     fetch(WEBAPP+'?action=task&key='+encodeURIComponent(key)+'&done=1',
@@ -486,26 +564,72 @@ JS = """
     setTimeout(refresh, 1200);
   });
 
+  var keyEl=pane.querySelector('#tkey');
+  var sumEl=pane.querySelector('#tsum');
+  var goEl=pane.querySelector('#tgo');
+  var cancelEl=pane.querySelector('#tcancel');
+  var taskEl=pane.querySelector('#ttask');
+  var dueEl=pane.querySelector('#tdue');
+  var catEl=pane.querySelector('#tcat');
+
+  function reset(){
+    if(!keyEl) return;
+    keyEl.value=''; taskEl.value=''; catEl.value='';
+    dueEl.value=today();
+    if(sumEl) sumEl.textContent='+ Add a task';
+    if(goEl) goEl.textContent='Add';
+    if(cancelEl) cancelEl.hidden=true;
+  }
+  function openFor(btn){
+    if(!keyEl) return;
+    keyEl.value=btn.dataset.key||'';
+    taskEl.value=btn.dataset.task||'';
+    dueEl.value=btn.dataset.due||today();
+    catEl.value=btn.dataset.cat||'';
+    if(sumEl) sumEl.textContent='Editing a task';
+    if(goEl) goEl.textContent='Save';
+    if(cancelEl) cancelEl.hidden=false;
+    if(box) box.open=true;
+    taskEl.focus();
+  }
+  pane.addEventListener('click',function(e){
+    var btn=e.target.closest && e.target.closest('.tt');
+    if(btn) openFor(btn);
+  });
+  if(cancelEl) cancelEl.addEventListener('click',function(){
+    reset(); if(box) box.open=false;
+  });
+  // Tapping the field should OPEN the calendar, not just focus a box that
+  // happens to accept a date. showPicker is ignored where it is unsupported.
+  if(dueEl) dueEl.addEventListener('focus',function(){
+    try{ dueEl.showPicker(); }catch(e){}
+  });
+
   if(form){
     var due=pane.querySelector('#tdue');
     if(due&&!due.value) due.value=today();
     form.addEventListener('submit',function(e){
       e.preventDefault();
-      var task=pane.querySelector('#ttask').value.trim();
-      var when=pane.querySelector('#tdue').value;
-      var cat=pane.querySelector('#tcat').value.trim();
+      var task=taskEl.value.trim();
+      var when=dueEl.value;
+      var cat=catEl.value.trim();
+      var editing=keyEl?keyEl.value:'';
       if(!task||!when||!WEBAPP) return;
-      var btn=form.querySelector('button');
-      btn.disabled=true; btn.textContent='Adding\\u2026';
-      fetch(WEBAPP+'?action=addtask&task='+encodeURIComponent(task)+
-            '&due='+encodeURIComponent(when)+'&cat='+encodeURIComponent(cat),
-            {mode:'no-cors',cache:'no-store'}).catch(function(){});
-      // Drawn from what he typed, straight away -- waiting on the Sheet is
-      // exactly what made an add look like it had failed.
-      noteAdded(task, when, cat);
-      pane.querySelector('#ttask').value='';
-      pane.querySelector('#tcat').value='';
-      btn.disabled=false; btn.textContent='Add';
+      if(editing){
+        fetch(WEBAPP+'?action=edittask&key='+encodeURIComponent(editing)+
+              '&task='+encodeURIComponent(task)+
+              '&due='+encodeURIComponent(when)+'&cat='+encodeURIComponent(cat),
+              {mode:'no-cors',cache:'no-store'}).catch(function(){});
+        noteEdit(editing, task, when, cat);
+      } else {
+        fetch(WEBAPP+'?action=addtask&task='+encodeURIComponent(task)+
+              '&due='+encodeURIComponent(when)+'&cat='+encodeURIComponent(cat),
+              {mode:'no-cors',cache:'no-store'}).catch(function(){});
+        // Drawn from what he typed, straight away -- waiting on the Sheet is
+        // exactly what made an add look like it had failed.
+        noteAdded(task, when, cat);
+      }
+      reset();
       if(box) box.open=false;
       redraw();
       // Then confirm, over a window wide enough for the export to catch up.

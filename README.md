@@ -209,19 +209,44 @@ else — his call. How late it is, is computed and available, just not shown.
 That was the whole objection to a spreadsheet: typing into Sheets on a phone is
 worse than not capturing the thought at all. So the page writes.
 
-**+ Add a task** takes a title, a date and an optional category, and appends a
-row through the Apps Script web app — the same endpoint the reminder checkboxes
-already use. **Ticking a task** writes the date into its `Done` cell, which is
-what removes it from every device.
+**+ Add a task** takes a title, a date and a category, and appends a row through
+the Apps Script web app — the same endpoint the reminder checkboxes already use.
+**Ticking a task** writes the date into its `Done` cell, which is what removes it
+from every device. **Tapping a task's title** opens it in the same form to edit,
+with the button reading Save.
+
+That is why a row is no longer a single `<label>`. It used to be, so a tap
+anywhere ticked it; editing needs its own target, so the title is a `<button>`
+and the checkbox keeps its own padded label. Both stay reachable by thumb and by
+keyboard.
+
+The category is a **dropdown**, not free text — there are five categories and a
+typo can no longer invent a sixth. The date field sets `color-scheme: dark`,
+without which the browser draws its own calendar icon in light mode: a black
+glyph on a near-black field, which is why the date looked like a plain text box.
+Focusing it calls `showPicker()`, so tapping opens the calendar rather than
+merely focusing something that accepts a date.
 
 The tab **re-fetches the Sheet in the browser**, so an added task appears
 immediately rather than at tomorrow's build. Which means the rules exist twice,
 in `tasks.py` and again in JS — much smaller than the Reminders duplication
 (parse, drop done, roll over, group) but the same discipline applies.
 
-A tick and an add are both fire-and-forget `no-cors` calls, so for a few seconds
-the Sheet does not agree yet. `PENDING` in `localStorage` covers that window, as
-it does for reminders.
+A tick, an add and an edit are all fire-and-forget `no-cors` calls, so for a few
+seconds the Sheet does not agree yet — and Google's CSV export lags a write by
+several seconds on top of that. Three `localStorage` lists cover the gap: ticks,
+adds, and edits.
+
+An **edit cannot reuse the add list**: the row is already in the CSV, so it has
+to be *replaced as it is read* rather than appended. Edits are therefore keyed by
+the key the task had **before** the edit, applied while parsing each row, and
+dropped the moment the row comes back already carrying the new values. All three
+lists expire after five minutes, so a write that genuinely failed cannot leave a
+ghost on the page for ever.
+
+Editing only ever touches an **open** row. Editing a completed task would
+resurrect it, and the page never offers that — a closed task is not on screen to
+tap.
 
 **The key is `Task@YYYY-MM-DD`**, built identically in `tasks.py`, in the
 browser copy and in the Apps Script. Row position cannot be the key: sorting the
@@ -639,7 +664,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         484 assertions, no key and no network needed
+python selftest.py         496 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
