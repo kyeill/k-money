@@ -590,6 +590,16 @@ function doGet(e) {
       out.ok = addTask(p.task, p.due, p.cat);
     } else if (p.action === 'edittask') {
       out.ok = editTask(p.key, p.task, p.due, p.cat);
+    } else if (p.action === 'status') {
+      // Booleans only, never the values. Since the credentials moved into
+      // Script Properties there is no way to tell a configured script from an
+      // unconfigured one until a reminder fails to arrive hours later -- and
+      // a silent notifier looks exactly like a quiet day.
+      var s = secrets();
+      out.ok = true;
+      out.provider = PROVIDER;
+      out.pushover = !!(s.user && s.token);
+      out.topic = !!s.topic;
     } else {
       out.error = 'unknown action';
     }
