@@ -111,7 +111,7 @@ one and ticks stop matching the reminders they were meant to silence.
 ## The reminder rules exist three times, and nothing enforces that from outside
 
 `reminders.py` renders the page. The **JS copy** in the same file re-reads the
-Sheet in the browser so a pull-down is live. `apps-script/reminders.gs` is the
+Sheet in the browser so a pull-down is live. `apps-script/Code.js` is the
 only one that actually notifies. All three must agree.
 
 Python and JS are compared directly: run both over the same CSV and hash the
@@ -534,3 +534,57 @@ test:
 Separately, updating a deployment can hand back a **new deployment ID**, which
 silently points `config.json`'s `reminders_webapp` at a dead URL. That has
 happened once. Same probe catches it.
+
+## Deploying the Apps Script from the command line
+
+`clasp` removes the version-dropdown trap above entirely. Setup was done once
+on Kyle's machine; the token lives in `C:\Users\kyleh\.clasprc.json` and the
+script id in a **gitignored** `.clasp.json` at the repo root.
+
+```
+clasp push                 upload apps-script/ to the bound script
+clasp deploy -i <id>       new version AND repoint the existing deployment
+```
+
+`clasp` is not on the PATH of Claude's Git Bash, and neither is node. Both are
+needed, node first, or `clasp.cmd` dies with `'"node"' is not recognized`:
+
+```
+export PATH="/c/Program Files/nodejs:/c/Users/kyleh/AppData/Roaming/npm:$PATH"
+```
+
+Three things had to change before a push was safe, and each would have broken
+something silently:
+
+**The credentials could not stay in the file.** Pushing the repo's copy would
+have overwritten his real Pushover keys with `PUT-YOUR-...` and stopped every
+reminder, with the page still looking perfectly healthy; pulling the live copy
+would have dropped live credentials into a public repo. They now live in Script
+Properties, where the colour write token already lived, and `push` cannot touch
+them. **The properties must exist before the first push**, or reminders break
+in the window between.
+
+**The remote file is called `Code`, not `reminders`.** `clasp push` makes the
+remote match the local rootDir exactly, so pushing `reminders.gs` would have
+deleted `Code.gs` and created a second file. Harmless here only because the
+function set was identical -- with a partial file it would have wiped live code.
+The repo file is now `apps-script/Code.js` to match.
+
+**`appsscript.json` was not in version control at all.** It pins the timezone,
+the V8 runtime and -- the part that matters -- `executeAs: USER_DEPLOYING` with
+`access: ANYONE_ANONYMOUS`, which is what lets the page call the endpoint
+without a Google login. A push without it, or with a guessed one, would have
+made the web app reject every anonymous request.
+
+`clasp status` lists what a push would upload. Run it first; the two PNG icons
+in that folder are correctly untracked, and anything unexpected in the tracked
+list means the manifest or rootDir is wrong.
+
+Kyle's own PowerShell refused to run `npm` and then `clasp.cmd`, first on the
+execution policy (`.ps1` wrappers are blocked -- `npm.cmd` sidesteps it) and
+then with `CommandNotFoundException` on a full path that `Test-Path` confirmed
+existed. That second one was never explained. Running clasp from Claude's shell
+instead sidesteps it, and `clasp login` completes there: it prints a URL, serves
+the OAuth callback on a local port, and finishes on its own once he approves in
+the browser. `--no-localhost` does NOT work -- it wants a code pasted back into
+a prompt that a non-interactive shell cannot answer.

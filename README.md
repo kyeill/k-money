@@ -117,7 +117,7 @@ re-shows a notification hours later with no hint of which occurrence it was,
 and a bare "Laundry" then tells you nothing.
 
 **The page does not send anything.** A static site cannot wake a phone. The
-notifications come from `apps-script/reminders.gs`, an Apps Script bound to the
+notifications come from `apps-script/Code.js`, an Apps Script bound to the
 Sheet running on a 5-minute trigger, which POSTs to **Pushover**. That script
 holds the credentials and they never enter this repo.
 
@@ -157,10 +157,14 @@ NOTES before touching either.
 
 ### Setting the reminders up
 
-In the Sheet: **Extensions → Apps Script**, paste `apps-script/reminders.gs`,
-fill in the Pushover keys at the top, run `setup()`. That installs the
-5-minute trigger, creates the `Done` tab, and sends one message to prove the
-credentials work.
+Deployed with `clasp push` (see NOTES.md); by hand it is **Extensions → Apps
+Script** and a paste of `apps-script/Code.js`.
+
+The Pushover keys are **not in the file** — set `pushoverUser` and
+`pushoverToken` in Project Settings → Script Properties, or run
+`setPushover(user, token)` once. Then run `setup()`: it installs the 5-minute
+trigger, creates the `Done` tab, and sends one message to prove the credentials
+work.
 
 Then, for the checkboxes, deploy the same script as a web app:
 
@@ -751,8 +755,8 @@ site.py      the shell: frame, nav, service worker, manifest, icons
 resolve.py   title -> tmdb id, run by hand
 selftest.py  fixture-driven; no key, no network
 
-apps-script/reminders.gs   NOT part of the build -- paste into the Sheet's
-                           Apps Script editor. The only thing that notifies.
+apps-script/Code.js        NOT part of the build -- shipped with clasp push.
+apps-script/appsscript.json  its manifest; pins the anonymous web app access.
 ```
 
 Read `NOTES.md` before changing the date logic. Every entry there is a trap

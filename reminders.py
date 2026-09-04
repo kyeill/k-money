@@ -2,7 +2,7 @@
 
 The Google Sheet is the source of truth. Two things read it, and they must
 agree: this module, which renders the page, and the Apps Script in
-`apps-script/reminders.gs`, which actually fires the notifications. **The page
+`apps-script/Code.js`, which actually fires the notifications. **The page
 is only a view. Nothing here sends anything** -- a static site cannot wake a
 phone at 7:30am.
 

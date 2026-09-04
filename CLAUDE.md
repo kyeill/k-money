@@ -68,6 +68,12 @@ pass afterwards.
 runs), so nothing else is needed. Confirm with
 `gh run watch <id> -R kyeill/k-money --exit-status`.
 
+The **Apps Script** is a separate deploy and is NOT covered by that. It ships
+with `clasp` — see NOTES.md. Never ask Kyle to redeploy it by hand: the Version
+dropdown in that dialog defaults to the published version, so his Deploy click
+re-publishes the old snapshot and the change looks lost. That cost three round
+trips before clasp existed.
+
 To force a run without a code change, delete
 `output/history/_last_build.txt`, commit and push, then
 `gh workflow run build.yml -R kyeill/k-money`.
