@@ -30,6 +30,12 @@ COLORS = {
     "grey": "#8b93a0", "black": "#6d7480", "white": "#d6d3cd",
 }
 
+# The one blue that is not a category colour. Church uses it for a date
+# inside a fortnight, Teams for an AP ranking and a marquee network, Active for
+# the add control -- four uses across three tabs, so it gets a name here rather
+# than a fourth literal. sports-daily used it first.
+BLUE = "#8fb0d8"
+
 # The strength of the wash under a shaded row. Faint on purpose: at full
 # strength the colour fights the text it sits behind, and a page of saturated
 # cards stops distinguishing anything. Mixed here rather than with CSS

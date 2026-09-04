@@ -148,6 +148,13 @@ CSS = """
 .tday{margin:18px 0 0}
 .tday h2{font-size:12px;text-transform:uppercase;letter-spacing:.08em;
          color:var(--muted);font-weight:600;margin:0 0 7px}
+/* Today in the Church tab's orange, the add control in its blue -- the same
+   two accents that tab already spends, so the app reads as one thing rather
+   than five. Orange marks what is live now; every other day stays muted, which
+   is what makes today findable without a date being read. Kept as a literal
+   because teams.py holds it as one too; selftest.py checks all three against
+   ui.BLUE so a change in one cannot drift from the others. */
+.tday.today h2{color:var(--accent)}
 .tk{display:flex;gap:11px;align-items:center;background:var(--card);
      border:1px solid var(--line);border-left:4px solid transparent;
      border-radius:10px;padding:11px 12px;margin:6px 0;
@@ -179,7 +186,7 @@ CSS = """
 /* The add form. Collapsed to one line until it is wanted, because the tab is
    for reading first and typing second. */
 #tadd{margin:2px 0 0}
-#tadd summary{list-style:none;cursor:pointer;color:var(--accent);
+#tadd summary{list-style:none;cursor:pointer;color:#8fb0d8;
               font-size:14px;font-weight:600;padding:7px 2px}
 #tadd summary::-webkit-details-marker{display:none}
 #tadd form{display:flex;flex-direction:column;gap:8px;background:var(--card);
@@ -282,8 +289,9 @@ def body(data):
     if not data["days"]:
         return "".join(out) + '<div class="tnone">Nothing to do.</div>'
     for day, items in data["days"]:
-        out.append('<div class="tday"><h2>%s</h2>'
-                   % ui.esc(ui.day_heading(day, data["today"])))
+        out.append('<div class="tday%s"><h2>%s</h2>'
+                   % (" today" if day == data["today"] else "",
+                      ui.esc(ui.day_heading(day, data["today"]))))
         out.extend(_task(t) for t in items)
         out.append("</div>")
     return "".join(out)
@@ -507,7 +515,8 @@ JS = """
     var out=[], days=Object.keys(byDay).sort();
     if(!days.length) return '<div class="tnone">Nothing to do.</div>';
     days.forEach(function(day){
-      out.push('<div class="tday"><h2>'+esc(heading(day,now))+'</h2>');
+      out.push('<div class="tday'+(day===now?' today':'')+'">'+
+               '<h2>'+esc(heading(day,now))+'</h2>');
       byDay[day].sort(function(a,b){
         return a.due<b.due?-1:a.due>b.due?1:(a.task<b.task?-1:1);
       }).forEach(function(t){

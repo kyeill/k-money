@@ -1328,7 +1328,9 @@ def test_tasks():
             "unknown": unknown, "error": None, "sheet": "S", "tab": "Tasks",
             "webapp": "https://example.invalid/exec", "overrides": {}}
     html = tasks.render(data)
-    ok("a heading per day", html.count('class="tday"'), 2)
+    # A PREFIX, not an exact match: today's div carries "tday today" now, and
+    # an exact match silently stopped counting it.
+    ok("a heading per day", html.count('class="tday'), 2)
     ok("a checkbox per open task", html.count('type="checkbox"'), 5)
     # The row used to be one <label>, so a tap anywhere ticked it. Editing
     # needs its own target, so the title is a button and the box has its own
@@ -1351,6 +1353,15 @@ def test_tasks():
     # Silently, by his choice -- a thing dodged for a fortnight looks like
     # anything else on the list.
     true("nothing says how late a task is", "late" not in html)
+    # Today wears the Church tab's orange and the add control its blue. Two
+    # accents already spent elsewhere, so the app reads as one thing.
+    true("today's heading is marked", '<div class="tday today">' in html)
+    ok("and only today's", html.count('class="tday today"'), 1)
+    true("every other day is not", '<div class="tday"><h2>' in html)
+    true("today is the orange", ".tday.today h2{color:var(--accent)}" in tasks.CSS)
+    true("the add control is the blue",
+         "#tadd summary{list-style:none;cursor:pointer;color:%s;" % ui.BLUE
+         in tasks.CSS)
     # Every open row, including the one filed under nothing -- an untinted row
     # among tinted ones reads as a rendering fault rather than as a choice.
     ok("every task renders as a colour", html.count("--tint:"), 5)
@@ -1495,6 +1506,11 @@ def test_church():
          ".cday.soon h2{color:var(--accent)}" in church.CSS)
     true("and the second week the Teams rank blue",
          "color:%s" % church.RANK_BLUE in church.CSS)
+    # Four uses across three tabs. teams.py and tasks.py hold it as a literal,
+    # so nothing but this check stops one of them drifting from the others.
+    import tasks
+    ok("the blue has one definition", church.RANK_BLUE, ui.BLUE)
+    ok("and Active spends the same one", ui.BLUE in tasks.CSS, True)
     import teams
     ok("one blue across both tabs, not two",
        church.RANK_BLUE in teams.CSS, True)

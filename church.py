@@ -48,7 +48,7 @@ wash = ui.wash
 SOON_DAYS, NEAR_DAYS = 7, 14
 
 # The same blue the Teams tab uses for a ranking, and sports-daily before it.
-RANK_BLUE = "#8fb0d8"
+RANK_BLUE = ui.BLUE
 
 
 def urgency(day, today):
