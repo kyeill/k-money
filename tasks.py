@@ -546,8 +546,12 @@ JS = """
     if(scratch.innerHTML!==body.innerHTML) body.innerHTML=scratch.innerHTML;
   }
   function url(){
+    // headers=1 for the same reason CSV_URL carries it: without it gviz
+    // guesses the header depth, and ticking a task is exactly what makes it
+    // guess wrong -- the Done column gains a date, the empty rows above it
+    // stop matching, and gviz folds them into the header.
     return 'https://docs.google.com/spreadsheets/d/'+SHEET+
-           '/gviz/tq?tqx=out:csv&sheet='+encodeURIComponent(TAB)+
+           '/gviz/tq?tqx=out:csv&headers=1&sheet='+encodeURIComponent(TAB)+
            '&_='+Date.now();
   }
   function refresh(){

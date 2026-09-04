@@ -25,7 +25,17 @@ KEY = "reminders"
 LABEL = "Reminders"
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-CSV_URL = "https://docs.google.com/spreadsheets/d/%s/gviz/tq?tqx=out:csv"
+# headers=1 is NOT optional. Without it gviz GUESSES how many leading rows
+# are header, and when it guesses more than one it MERGES them into a single
+# row joined by spaces -- the tasks in them vanish from the page while sitting
+# untouched in the Sheet. It guessed seven the day two tasks were ticked,
+# because a date landing in the Done column changed what that column looked
+# like and the empty-Done rows above stopped matching it.
+#
+# Every tab here has exactly one header row, so pin it. Shared by church.py,
+# tasks.py, teams.py and watch.py, which is why it is one constant.
+CSV_URL = ("https://docs.google.com/spreadsheets/d/%s"
+           "/gviz/tq?tqx=out:csv&headers=1")
 DAYS_SHOWN = 8
 # A day reads as day-then-evening, so the first thing at or after this hour
 # gets a gap above it. Display only -- it changes nothing about what fires, and
@@ -695,8 +705,11 @@ JS = """
     // The Sheet allows cross-origin reads, which is the whole reason a
     // pull-down can show an edit made a minute ago rather than this morning's
     // build. cache-busted, or the browser hands back its own copy.
+    // headers=1 for the same reason CSV_URL carries it: without it gviz
+    // guesses the header depth and silently swallows rows into row one.
     return 'https://docs.google.com/spreadsheets/d/'+SHEET+
-           '/gviz/tq?tqx=out:csv'+(tab?'&sheet='+encodeURIComponent(tab):'')+
+           '/gviz/tq?tqx=out:csv&headers=1'+
+           (tab?'&sheet='+encodeURIComponent(tab):'')+
            '&_='+Date.now();
   }
   function readDone(text){

@@ -676,7 +676,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         496 assertions, no key and no network needed
+python selftest.py         511 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

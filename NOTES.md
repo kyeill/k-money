@@ -457,6 +457,41 @@ minutes. Navigations are fetched with `cache:'no-store'`, and the cache name
 carries the build **time**, not just the date — two builds in one day would
 otherwise share a cache name and the old entries would survive.
 
+## gviz GUESSES the header depth, and merges rows into row one
+
+`gviz/tq?tqx=out:csv` decides for itself how many leading rows are header. When
+it decides more than one, it does not skip them -- it **merges them into a
+single row, joined by spaces**, and returns that as the header. The rows are
+gone from the read while sitting untouched in the Sheet:
+
+```
+['Task Set Meeting Date (JG) Email C Group Sunday School Schedule Read Book',
+ 'Due 2026-09-08 2026-09-04 2026-09-04 2026-09-05',
+ 'Category Church Church Church Personal',
+ 'Done ']
+```
+
+That is one header cell holding six task names. Six of eight tasks vanished
+from the Active tab and Kyle reported them "disappearing" after ticking two
+boxes.
+
+**Ticking the boxes is what caused it.** The guess is driven by column type: a
+tick writes a date into `Done`, so that column became a date column, and the
+rows above it -- whose `Done` was empty -- stopped matching and were read as
+more header. The tab had been read correctly for weeks. Nothing about the
+reader changed.
+
+`&headers=1` pins it. Every tab in this Sheet has exactly one header row, so
+there is never a reason to let gviz guess. It is on `reminders.CSV_URL`, which
+church.py, tasks.py, teams.py and watch.py all build from, and separately on
+the two **browser** copies in `reminders.py` and `tasks.py` -- those are their
+own strings, and a Python-only fix leaves the live page still broken while
+every local run looks fine.
+
+`selftest.py` checks the source of every module for an unpinned URL rather than
+fetching one. A live fetch proves nothing here: the guess only goes wrong for
+particular shapes of data, which is exactly why this survived weeks of testing.
+
 ## A Sheet tab is addressed by NAME, and a column is too
 
 Both readers used to take the first tab — `gviz` with no `&sheet=`, Apps Script

@@ -1776,6 +1776,54 @@ def test_page():
     true("an empty list still says something", "Nothing scheduled." in empty)
 
 
+def test_gviz_headers():
+    """Every gviz URL must pin headers=1, in Python and in the browser copies.
+
+    Without it gviz GUESSES how many leading rows are header, and MERGES them
+    into a single space-joined row when it guesses more than one. Six of Kyle's
+    tasks vanished from the page while sitting untouched in the Sheet: ticking
+    two put dates in the Done column, the empty-Done rows above stopped
+    matching that column, and gviz folded seven rows into the header.
+
+    A SOURCE check, not a live one. The guess only goes wrong for certain
+    shapes of data, so a fetch that works today proves nothing about tomorrow
+    -- this read worked for weeks before the first tick broke it.
+    """
+    import glob
+    import io
+    import os
+
+    import reminders
+    import tasks
+
+    true("the shared Python URL pins it", "headers=1" in reminders.CSV_URL)
+    # It has to survive the tab being appended, which is how every caller
+    # builds the real URL.
+    built = reminders.CSV_URL % "SHEET" + "&sheet=Tasks"
+    true("and still pins it once a tab is appended", "headers=1" in built)
+    true("the tab is still addressed by name", "sheet=Tasks" in built)
+
+    # The browser copies are separate strings in separate files, and are
+    # exactly what a Python-only fix would leave broken.
+    for name, mod in (("reminders", reminders), ("tasks", tasks)):
+        ok("the %s browser copy pins it too" % name,
+           mod.JS.count("gviz/tq?tqx=out:csv&headers=1"),
+           mod.JS.count("gviz/tq?tqx=out:csv"))
+
+    # And nothing anywhere may build one without it.
+    here = os.path.dirname(os.path.abspath(__file__))
+    unpinned = []
+    for path in sorted(glob.glob(os.path.join(here, "*.py"))):
+        # Not this file: the check above quotes the pattern it is looking for.
+        if os.path.basename(path) == "selftest.py":
+            continue
+        for line in io.open(path, encoding="utf-8").read().splitlines():
+            if "gviz/tq?tqx=out:csv" in line and "headers=1" not in line:
+                unpinned.append("%s: %s"
+                                % (os.path.basename(path), line.strip()[:50]))
+    ok("no module builds an unpinned gviz URL", unpinned, [])
+
+
 def main():
     # Set for the WHOLE run, not per call site. The hand-added watchlist reads
     # a Google Sheet and remembers the ids it resolved in output/history --
