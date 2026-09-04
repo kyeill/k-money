@@ -5,3 +5,5 @@ secrets.json
 # The built app is published from the workflow, not committed.
 output/*
 !output/history/
+# clasp points at the script bound to his private Sheet; local config only.
+.clasp.json

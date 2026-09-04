@@ -3,8 +3,8 @@
  *
  * This is the ONLY thing that sends notifications. The K Money page is a view;
  * a static site cannot wake a phone. Paste this into the Apps Script editor
- * bound to the reminders Sheet (Extensions -> Apps Script), fill in TOPIC
- * below, then run setup() once.
+ * bound to the reminders Sheet (Extensions -> Apps Script), run
+ * setPushover('user-key', 'app-token') once, then run setup() once.
  *
  * The rules here must match reminders.py in the k-money repo. If you change
  * one, change both -- selftest.py and the browser cross-check compare the
@@ -28,15 +28,67 @@
 // machine, and because a self-hosted or paid ntfy would work from here too.
 var PROVIDER = 'pushover';
 
+// ------------------------------------------------------------ credentials
+//
+// Pushover's two keys and the ntfy topic were literals right here, and that
+// made this file impossible to deploy from the command line. Pushing the
+// repo's copy would have overwritten the real values with placeholders and
+// silently stopped every reminder; pulling the live copy would have dropped
+// live credentials into a public repo. Either way the file could not be both
+// version-controlled and working.
+//
+// So they live in Script Properties, exactly as the colour write token
+// already does: set once from the editor, invisible to clasp, never in git.
+// Nothing above this line is a secret any more, which is the whole point.
+//
+// Run ONCE from the editor, or set them by hand in
+// Project Settings > Script Properties:
+//
+//   setPushover('user-key', 'app-token')
+//   setTopic('ntfy-topic')          // only if PROVIDER ever goes back to ntfy
+//
 // Pushover: both come from pushover.net once you have an account. The user key
 // is on the dashboard; the app token comes from creating an Application.
-var PUSHOVER_USER = 'PUT-YOUR-PUSHOVER-USER-KEY-HERE';
-var PUSHOVER_TOKEN = 'PUT-YOUR-PUSHOVER-APP-TOKEN-HERE';
+//
+// ntfy: anyone who knows the topic can read your reminders AND send
+// notifications to your phone, which is the same reason it is not in here.
 
-// ntfy: anyone who knows this string can read your reminders AND send
-// notifications to your phone, so keep it out of the public repo -- it lives
-// here, in a script bound to your private Sheet, and nowhere else.
-var TOPIC = 'PUT-YOUR-NTFY-TOPIC-HERE';
+var _secrets = null;
+
+/** The three stored values, read once per execution. */
+function secrets() {
+  if (!_secrets) {
+    var p = PropertiesService.getScriptProperties();
+    _secrets = {
+      user: p.getProperty('pushoverUser') || '',
+      token: p.getProperty('pushoverToken') || '',
+      topic: p.getProperty('ntfyTopic') || ''
+    };
+  }
+  return _secrets;
+}
+
+/** Store the Pushover pair. Run once: setPushover('user', 'token').
+ *
+ * Both are trimmed on the way in. A trailing space survives a copy-paste out
+ * of a browser and makes Pushover reject the pair with no useful message. */
+function setPushover(user, token) {
+  user = String(user || '').trim();
+  token = String(token || '').trim();
+  PropertiesService.getScriptProperties()
+    .setProperties({pushoverUser: user, pushoverToken: token});
+  _secrets = null;
+  return 'stored: user ' + user.length + ' chars, token ' + token.length +
+         ' chars';
+}
+
+/** Store the ntfy topic. Run once: setTopic('my-topic'). */
+function setTopic(topic) {
+  topic = String(topic || '').trim();
+  PropertiesService.getScriptProperties().setProperty('ntfyTopic', topic);
+  _secrets = null;
+  return 'stored (' + topic.length + ' chars)';
+}
 
 // The shared team-colour list. sports-daily, standings and k-money all READ
 // this tab over the public CSV endpoint; this script is the only thing that
@@ -94,20 +146,24 @@ function sendTest() {
  * settles it without either value leaving this script.
  */
 function checkCredentials() {
+  var s = secrets();
+  if (!s.user || !s.token) {
+    Logger.log('NOT SET: run setPushover(user, token) once.');
+    return;
+  }
   Logger.log('user  : %s chars, starts "%s"  (dashboard key, usually u...)',
-             PUSHOVER_USER.length, PUSHOVER_USER.charAt(0));
+             s.user.length, s.user.charAt(0));
   Logger.log('token : %s chars, starts "%s"  (Application token, usually a...)',
-             PUSHOVER_TOKEN.length, PUSHOVER_TOKEN.charAt(0));
-  if (PUSHOVER_USER !== PUSHOVER_USER.trim() ||
-      PUSHOVER_TOKEN !== PUSHOVER_TOKEN.trim()) {
+             s.token.length, s.token.charAt(0));
+  if (s.user !== s.user.trim() || s.token !== s.token.trim()) {
     Logger.log('WARNING: one of them has leading or trailing whitespace.');
   }
-  if (PUSHOVER_USER.charAt(0) === 'a' && PUSHOVER_TOKEN.charAt(0) === 'u') {
+  if (s.user.charAt(0) === 'a' && s.token.charAt(0) === 'u') {
     Logger.log('LIKELY SWAPPED: these look the wrong way round.');
   }
   var r = UrlFetchApp.fetch('https://api.pushover.net/1/users/validate.json', {
     method: 'post',
-    payload: {token: PUSHOVER_TOKEN, user: PUSHOVER_USER},
+    payload: {token: s.token, user: s.user},
     muteHttpExceptions: true
   });
   Logger.log('validate: HTTP %s  %s',
@@ -124,16 +180,17 @@ function checkCredentials() {
  */
 function probe() {
   Logger.log('provider: %s', PROVIDER);
+  var s = secrets();
   var r;
   if (PROVIDER === 'pushover') {
     r = UrlFetchApp.fetch('https://api.pushover.net/1/messages.json', {
       method: 'post',
-      payload: {token: PUSHOVER_TOKEN, user: PUSHOVER_USER,
+      payload: {token: s.token, user: s.user,
                 title: 'K Money probe', message: 'probe from apps script'},
       muteHttpExceptions: true
     });
   } else {
-    r = UrlFetchApp.fetch('https://ntfy.sh/' + TOPIC, {
+    r = UrlFetchApp.fetch('https://ntfy.sh/' + s.topic, {
       method: 'post',
       payload: 'probe from apps script',
       headers: {'Title': 'K Money probe'},
@@ -157,7 +214,8 @@ function diagnose() {
   var tries = [
     ['control (example.com)', 'https://example.com/'],
     ['ntfy health          ', 'https://ntfy.sh/v1/health'],
-    ['your topic           ', 'https://ntfy.sh/' + TOPIC + '/json?poll=1']
+    ['your topic           ',
+     'https://ntfy.sh/' + secrets().topic + '/json?poll=1']
   ];
   tries.forEach(function (t) {
     var began = new Date().getTime();
@@ -819,26 +877,26 @@ function saveFired(today, titles) {
  */
 function push(title, body) {
   var url, options;
+  var s = secrets();
   if (PROVIDER === 'pushover') {
-    if (PUSHOVER_USER.indexOf('PUT-YOUR') === 0 ||
-        PUSHOVER_TOKEN.indexOf('PUT-YOUR') === 0) {
-      throw new Error('PUSHOVER_USER / PUSHOVER_TOKEN are not set.');
+    if (!s.user || !s.token) {
+      throw new Error('Pushover is not set up. Run setPushover(user, token).');
     }
     url = 'https://api.pushover.net/1/messages.json';
     options = {
       method: 'post',
-      payload: {token: PUSHOVER_TOKEN, user: PUSHOVER_USER,
+      payload: {token: s.token, user: s.user,
                 title: String(title), message: String(body || ' ')},
       muteHttpExceptions: true
     };
   } else {
-    // ntfy accepts ANY string as a topic name, so an unset TOPIC publishes
-    // happily to a topic called PUT-YOUR-NTFY-TOPIC-HERE and returns 200.
-    // Every reminder would then "send" successfully and never arrive.
-    if (!TOPIC || TOPIC.indexOf('PUT-YOUR') === 0) {
-      throw new Error('TOPIC is not set at the top of this file.');
+    // ntfy accepts ANY string as a topic name, so an unset topic publishes
+    // happily to a topic called '' and returns 200. Every reminder would then
+    // "send" successfully and never arrive.
+    if (!s.topic) {
+      throw new Error('ntfy is not set up. Run setTopic(topic).');
     }
-    url = 'https://ntfy.sh/' + TOPIC;
+    url = 'https://ntfy.sh/' + s.topic;
     options = {
       method: 'post',
       payload: body || ' ',
