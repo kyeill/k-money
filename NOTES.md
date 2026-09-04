@@ -542,9 +542,19 @@ on Kyle's machine; the token lives in `C:\Users\kyleh\.clasprc.json` and the
 script id in a **gitignored** `.clasp.json` at the repo root.
 
 ```
-clasp push                 upload apps-script/ to the bound script
-clasp deploy -i <id>       new version AND repoint the existing deployment
+clasp push -f                     upload apps-script/ to the bound script
+clasp list-deployments            the ids; the @HEAD one is not the live URL
+clasp create-deployment -i <id>   new version AND repoint that deployment
 ```
+
+clasp 3 renamed these. `clasp deploy` and `clasp deployments` are v2 names and
+simply do not exist, so a v2 recipe fails with an unknown-command error rather
+than doing anything harmful. `create-deployment -i` is the whole fix for the
+version-dropdown trap above: it makes a new version AND repoints the existing
+deployment in one step, so the URL in `config.json` never changes.
+
+Verify with `?action=status`, which answers booleans only:
+`{ok:true,provider:pushover,pushover:true,topic:false}`.
 
 `clasp` is not on the PATH of Claude's Git Bash, and neither is node. Both are
 needed, node first, or `clasp.cmd` dies with `'"node"' is not recognized`:
