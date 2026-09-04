@@ -1303,23 +1303,26 @@ def test_tasks():
     ok("case does not change it", tasks.category_color("work"), work)
     true("a different category gets a different one",
          tasks.category_color("Personal") != work)
-    true("it is one of the five", work in tasks.CATEGORY_COLORS.values())
-    ok("no category is no colour", tasks.category_color(""), None)
+    true("it is one of the four", work in tasks.CATEGORY_COLORS.values())
     ok("config can override one",
        tasks.category_color("Work", {"work": "red"}), ui.COLORS["red"])
-    # Five fixed categories, his call, after derived colours put Blog and
+    # Four fixed categories, his call, after derived colours put Blog and
     # Personal on the same pink. Fixed means the collision cannot come back.
-    ok("the five are five different colours",
-       len(set(tasks.CATEGORY_COLORS.values())), 5)
-    ok("his four plus Other are all distinct",
-       len({tasks.category_color(n)
-            for n in ("Work", "Personal", "Blog", "Church", "Other")}), 5)
-    # A typo should look like a task filed under Other, not like a sixth
+    ok("the four are four different colours",
+       len(set(tasks.CATEGORY_COLORS.values())), 4)
+    ok("his four and the grey are all distinct",
+       len(set(tasks.CATEGORY_COLORS.values()) | {tasks.NO_CATEGORY}), 5)
+    # "Other" was a fifth name in the dropdown, which asked him to make a
+    # decision he had already declined to make. Filing under nothing IS the
+    # answer, so the blank wears the grey and no row is left colourless.
+    ok("a blank cell is grey", tasks.category_color(""), tasks.NO_CATEGORY)
+    ok("a whitespace cell is the same",
+       tasks.category_color(" "), tasks.NO_CATEGORY)
+    # A typo should look like a task filed under nothing, not like a fifth
     # category nobody meant to create.
-    ok("anything unrecognised is Other",
-       tasks.category_color("Groceries"),
-       tasks.CATEGORY_COLORS[tasks.OTHER])
-    ok("and a blank cell is still no colour", tasks.category_color(" "), None)
+    ok("anything unrecognised is grey too",
+       tasks.category_color("Groceries"), tasks.NO_CATEGORY)
+    true("Other is no longer one of them", "Other" not in tasks.CATEGORY_NAMES)
 
     data = {"today": today, "days": days, "undated": undated,
             "unknown": unknown, "error": None, "sheet": "S", "tab": "Tasks",
@@ -1334,10 +1337,10 @@ def test_tasks():
     true("and carries what the form needs to open it",
          'data-task="Call the dentist"' in html and 'data-due="2026-08-29"' in html)
     true("the checkbox keeps its own label", 'class="box"' in html)
-    # Five fixed categories means a dropdown, not free text -- a typo can no
-    # longer invent a category, it just lands in Other.
+    # Four fixed categories means a dropdown, not free text -- a typo can no
+    # longer invent a category.
     true("the category is a dropdown", '<select id="tcat"' in html)
-    ok("with the five plus a blank", html.count('<option'), 6)
+    ok("with the four plus a blank", html.count('<option'), 5)
     true("and a way to file nothing", '<option value="">No category</option>' in html)
     true("the form can be cancelled once it is editing",
          'id="tcancel"' in html)
@@ -1348,8 +1351,11 @@ def test_tasks():
     # Silently, by his choice -- a thing dodged for a fortnight looks like
     # anything else on the list.
     true("nothing says how late a task is", "late" not in html)
-    ok("a category renders as a colour", html.count("--tint:"), 4)
-    true("and as a label", '<span class="cat">Work</span>' in html)
+    # Every open row, including the one filed under nothing -- an untinted row
+    # among tinted ones reads as a rendering fault rather than as a choice.
+    ok("every task renders as a colour", html.count("--tint:"), 5)
+    ok("only the named ones carry a label", html.count('<span class="cat">'), 4)
+    true("and it is the name", '<span class="cat">Work</span>' in html)
 
     empty = tasks.render({"today": today, "days": [], "undated": [],
                           "unknown": [], "error": None})

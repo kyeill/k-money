@@ -32,40 +32,43 @@ TAB = "Tasks"
 REQUIRED = ["task", "due"]
 OPTIONAL = ["category", "done"]
 
-# FIVE fixed categories, his call. Derived colours were replaced because they
-# could collide -- Blog and Personal both came out pink -- and because five
+# FOUR fixed categories, his call. Derived colours were replaced because they
+# could collide -- Blog and Personal both came out pink -- and because four
 # names he actually uses is a list, not an algorithm.
 #
 # The shades are picked for a 13% wash on a near-black card, so each is a mid
 # tone: a pure red or yellow at full strength would either shout or vanish.
-# Anything not on this list is OTHER, which is the point of Other being here.
 CATEGORY_COLORS = {
     "personal": "#e8730c",     # orange
     "work": "#d84343",         # red, softened -- #ff0000 reads as an error
     "blog": "#3d8ee0",         # blue, the app's own
     "church": "#e0c341",       # yellow, the one that survives being washed
-    "other": "#8b93a0",        # grey
 }
-OTHER = "other"
+# Grey, and NOT a category. "Other" used to be a fifth name in the dropdown,
+# which asked him to make a decision he had already declined to make -- picking
+# Other and picking nothing meant the same thing. So the dropdown offers a
+# blank, and the blank is what wears the grey.
+NO_CATEGORY = "#8b93a0"
 # What the dropdown offers, in the order it offers them. Derived from the map
-# so the two can never disagree about which five exist.
-CATEGORY_NAMES = ("Personal", "Work", "Blog", "Church", "Other")
+# so the two can never disagree about which four exist.
+CATEGORY_NAMES = ("Personal", "Work", "Blog", "Church")
 
 
 def category_color(name, overrides=None):
-    """One of the five, or None when the cell is blank.
+    """One of the four, or grey.
 
-    An unrecognised category is NOT dropped and NOT given a colour of its own --
-    it is Other. A typo should look like a task filed under Other, not like a
-    sixth category nobody meant to create.
+    Every task gets a colour. A blank cell is grey, and so is an unrecognised
+    one -- a typo should look like a task filed under nothing, not like a fifth
+    category nobody meant to create. There is no colourless row: an untinted
+    row next to tinted ones reads as a rendering fault, not as a choice.
     """
     name = (name or "").strip().lower()
     if not name:
-        return None
+        return NO_CATEGORY
     override = (overrides or {}).get(name)
     if override:
         return ui.COLORS.get(override.lower(), override)
-    return CATEGORY_COLORS.get(name, CATEGORY_COLORS[OTHER])
+    return CATEGORY_COLORS.get(name, NO_CATEGORY)
 
 
 def task_key(task, due):
@@ -425,11 +428,11 @@ JS = """
     return y+'-'+('0'+m[1]).slice(-2)+'-'+('0'+m[2]).slice(-2);
   }
 
-  var CATS=%%CATS%%, OTHER=%%OTHER%%, OVERRIDES=%%OVERRIDES%%;
+  var CATS=%%CATS%%, NONE=%%NONE%%, OVERRIDES=%%OVERRIDES%%;
   function colourFor(name){
     name=(name||'').trim().toLowerCase();
-    if(!name) return null;
-    return OVERRIDES[name] || CATS[name] || OTHER;
+    if(!name) return NONE;
+    return OVERRIDES[name] || CATS[name] || NONE;
   }
   function washOf(hex){
     var r=parseInt(hex.substr(1,2),16), g=parseInt(hex.substr(3,2),16),
@@ -654,7 +657,7 @@ def page_js(data):
               .replace("%%TAB%%", json.dumps(data.get("tab") or TAB))
               .replace("%%WEBAPP%%", json.dumps(data.get("webapp") or ""))
               .replace("%%CATS%%", json.dumps(CATEGORY_COLORS))
-              .replace("%%OTHER%%", json.dumps(CATEGORY_COLORS[OTHER]))
+              .replace("%%NONE%%", json.dumps(NO_CATEGORY))
               .replace("%%OVERRIDES%%", json.dumps(overrides)))
 
 

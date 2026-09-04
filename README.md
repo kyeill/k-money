@@ -220,8 +220,8 @@ anywhere ticked it; editing needs its own target, so the title is a `<button>`
 and the checkbox keeps its own padded label. Both stay reachable by thumb and by
 keyboard.
 
-The category is a **dropdown**, not free text — there are five categories and a
-typo can no longer invent a sixth. The date field sets `color-scheme: dark`,
+The category is a **dropdown**, not free text — there are four categories and a
+typo can no longer invent a fifth. The date field sets `color-scheme: dark`,
 without which the browser draws its own calendar icon in light mode: a black
 glyph on a near-black field, which is why the date looked like a plain text box.
 Focusing it calls `showPicker()`, so tapping opens the calendar rather than
@@ -254,7 +254,7 @@ sheet would repoint every tick at the wrong row.
 
 ### Categories
 
-**Five fixed categories**, in `tasks.py`:
+**Four fixed categories**, in `tasks.py`, plus a grey for everything else:
 
 | | |
 | --- | --- |
@@ -262,20 +262,28 @@ sheet would repoint every tick at the wrong row.
 | Work | red `#d84343` |
 | Blog | blue `#3d8ee0` |
 | Church | yellow `#e0c341` |
-| Other | grey `#8b93a0` |
+| *(no category)* | grey `#8b93a0` |
 
 Colours were derived from the category name at first, so a new one typed on a
 phone needed no commit. That was dropped because derived colours **collide** —
-Blog and Personal both came out pink — and because five names he actually uses
+Blog and Personal both came out pink — and because four names he actually uses
 is a list, not an algorithm.
 
 The shades are picked for a 13% wash on a near-black card, so each is a mid
 tone: a pure red or yellow at full strength would either shout or vanish. Work
 is softened from a true red, which on this page would read as an error.
 
-**Anything not one of the five renders as Other**, which is the point of Other
-being on the list. A typo should look like a task filed under Other, not like a
-sixth category nobody meant to create.
+**There is no "Other".** It was a fifth name in the dropdown, and it asked for a
+decision that had already been declined — picking Other and picking nothing said
+the same thing, so the list carried a choice that did no work. The dropdown now
+offers a blank, and the blank is what wears the grey.
+
+So **every task has a colour**, and anything unrecognised gets the grey as well:
+a typo should look like a task filed under nothing, not like a fifth category
+nobody meant to create. No row is left untinted — one colourless row among
+coloured ones reads as a rendering fault rather than as a choice. The grey is
+the only one that carries no label beside the title, because there is no name
+to print.
 
 ### Before the tab exists
 
