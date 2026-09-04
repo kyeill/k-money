@@ -508,3 +508,29 @@ requests default fine.
 Studio discovery picks up **making-of specials** (Marvel's *Assembled*) and the
 occasional short. There is no clean field to filter them on — `config.json`'s
 `ignore` list is the intended answer.
+
+## Saving an Apps Script does NOT change what the web app runs
+
+`/exec` serves a frozen **version**, not the editor's contents. Ctrl+S changes
+the editor and nothing else, so a script can be "saved" and correct while the
+live endpoint answers `unknown action` for the function you just added.
+
+Deploy → Manage deployments → pencil is not enough either. That dialog's
+**Version** dropdown defaults to the version already published, and clicking
+Deploy with it untouched re-publishes that same frozen snapshot. The dropdown
+must be changed to **New version** first. This cost three round trips with
+Kyle, each ending in "should be good now" and a probe still reporting
+`unknown action` — the failure is completely silent from the editor's side.
+
+Probe the endpoint rather than trusting the dialog. Any action name the live
+code does not know answers `{"ok":false,"error":"unknown action"}`; one it does
+know answers `{"ok":false}` for bad arguments. That difference is the whole
+test:
+
+```
+.../exec?action=edittask&key=x&task=y&due=2026-09-04
+```
+
+Separately, updating a deployment can hand back a **new deployment ID**, which
+silently points `config.json`'s `reminders_webapp` at a dead URL. That has
+happened once. Same probe catches it.
