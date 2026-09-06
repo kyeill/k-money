@@ -533,6 +533,25 @@ The general shape: **a column that cannot be read must be named on the page.**
 Silence here has cost two debugging passes — eight reminders on the wrong
 cadence, and a whole tab reading empty.
 
+## The crest governs the Teams bubble's height, not the type
+
+The first two rows are `max(crest, name line)`. At 17.5px the crest is taller
+than the 16.2px name line, so **raising the crest raises the bubble** even when
+nothing else changes -- and shrinking the names alone saves nothing at all.
+
+That is worth knowing before trying to make the bubble shorter again. Going the
+other way, restoring the old 20px crest costs about 2.5px per row and puts the
+height back over 80% unless the padding drops to 4.5px, which was measured and
+rejected: content that close to the border reads worse than a slightly smaller
+crest.
+
+The numbers in `teams.py` -- 6.5px padding, 1px row gap, 17.5px crest, 13.25px
+names, 11.75px third line -- came from rendering four densities with real games
+and measuring them in a browser at 375px wide. None of them can be re-derived
+from the file, so `selftest.py` holds them literally. An edit that looks
+harmless (rounding the padding, restoring a "nicer" 13px) silently undoes a
+decision that took a round of measuring to make.
+
 ## ESPN: the four things that make a Teams row wrong
 
 Each cost a check against the live API on 2026-09-01.

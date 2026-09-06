@@ -408,8 +408,25 @@ for the same reason — a dark navy would vanish against this ground. The Church
 tab borrows the same blue for its second week, so there is one blue across the
 app rather than two that nearly match.
 
-Crests are **20px** and team names **14.5px**, mirroring sports-daily: the two
-pages sit side by side on the same phone and were a size apart.
+### How tall a game reads
+
+The bubble is **68.4px** at 375px wide, down from 86.2px — 79%, chosen from
+four densities rendered with real games and measured in a browser rather than
+estimated.
+
+The height came off in this order, and the order is the point: **vertical
+padding** (10px → 6.5px), then the **row gap** (3px → 1px), then the crest and
+the type, and those only a little. Padding and the gap cost nothing legible;
+the team names carry the row.
+
+Crests were **20px** and team names **14.5px**, mirroring sports-daily, because
+the two pages sit side by side on the same phone and were a size apart once.
+Shrinking the bubble broke that pairing deliberately. A version holding 20px
+crests reached the same 80% — the crest governs the first two rows, so the
+names could have stayed at 14.5px for free — but it had to take the padding
+down to **4.5px**, and content that close to the border reads worse than a
+crest half a step smaller. That was the trade, and it was made with both
+versions side by side.
 
 The date and the time are one column — same size, same weight, same colour.
 They were always the same size; it was the muted grey that made the time read
@@ -676,7 +693,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         515 assertions, no key and no network needed
+python selftest.py         533 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
