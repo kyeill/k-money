@@ -408,24 +408,32 @@ for the same reason — a dark navy would vanish against this ground. The Church
 tab borrows the same blue for its second week, so there is one blue across the
 app rather than two that nearly match.
 
-### How tall a game reads
+### One crest, and how tall a game reads
 
-The bubble is **69px** at 375px wide, down from 86.2px — 80%, measured in a
-browser rather than estimated.
+The bubble shows **one crest: the opponent's**, spanning all three lines and
+centred against them. Kyle's own crest was the least informative thing in the
+row — the bubble already says which of his teams it is, twice, in the name and
+in the wash.
 
-**None of it comes out of the crest or the team names.** Padding went 10px →
-4.5px, the row gap 3px → 1px, and the third line 13px → 11.5px. Crests stay at
-**20px** and names at **14.5px**, mirroring sports-daily — those two pages sit
-side by side on the same phone and were a size apart once.
+It comes from the same side the **stripe colour** does, so the crest and the
+coloured bar can never disagree about who the opponent is.
 
-That is free, which is the useful part: the 20px crest is taller than the
-18.85px name line, so **the crest sets the height of the first two rows** and
-the names ride along. Shrinking the names alone saves nothing at all.
+**Dropping to one crest made the bubble shorter and the crest bigger at the
+same time**, which is the rare change that costs nothing. A crest sitting *in*
+a row sets that row's height, so the two 20px crests were holding both name
+lines 1.15px taller than their text needed. Spanning the rows takes the crest
+out of the height calculation entirely: it went 20px → **30px**, and the
+padding went back *up* from 4.5px to 6px.
 
-It took two goes to find that. The first attempt shrank everything a little —
-17.5px crest, 13.25px names — hit 79%, and read too small the moment it was on
-a phone. Same height, worse page. Height was never the thing to take out of the
-type.
+**The type was never part of the saving.** Team names are 14.5px, unchanged
+through all of it, mirroring sports-daily — those two pages sit side by side on
+the same phone and were a size apart once. Only the third line moved, 13px →
+11.5px.
+
+Getting there took three goes, and the middle one is the lesson. An attempt
+that shrank everything a little — 17.5px crest, 13.25px names — hit the same
+height and read too small the moment it was on a phone. Same number, worse
+page. **Take height out of whitespace and arrangement before type.**
 
 The date and the time are one column — same size, same weight, same colour.
 They were always the same size; it was the muted grey that made the time read
@@ -692,7 +700,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         536 assertions, no key and no network needed
+python selftest.py         539 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

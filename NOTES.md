@@ -533,36 +533,46 @@ The general shape: **a column that cannot be read must be named on the page.**
 Silence here has cost two debugging passes — eight reminders on the wrong
 cadence, and a whole tab reading empty.
 
-## The crest governs the Teams bubble's height, not the type
+## A crest in a row sets that row's height; a crest spanning rows does not
 
-The first two rows are `max(crest, name line)`. The 20px crest is taller than
-the 18.85px name line, so **the crest sets those rows and the names are free**.
-Shrinking the names alone saves nothing; shrinking the crest is the only thing
-that moves those two rows.
+The Teams bubble's first two rows are `max(crest, name line)`. Two 20px crests
+were therefore holding both name lines 1.15px taller than their 18.85px text
+needed, and no amount of shrinking the *names* could recover it.
 
-That is why the bubble got to 80% without touching either. Padding went 10px to
-4.5px, the row gap 3px to 1px, the third line 13px to 11.5px. Crest and names
-are exactly what they always were.
+Moving to ONE crest -- the opponent's -- with `grid-row:1 / span 3` and
+`align-self:center` takes the crest out of the height calculation completely.
+The crest grew from 20px to 30px, the padding went back UP from 4.5px to 6px,
+and the bubble still got shorter. Three things improving together is a sign the
+constraint was in the layout, not in the values.
 
-**A first attempt shrank everything a little and had to be reverted.** 17.5px
-crest, 13.25px names, 6.5px padding: 79%, near-identical height, and Kyle's
-reaction on the phone was immediate -- "oops too small". The lesson is not that
-the numbers were wrong but that the *choice* was: given a height target, take
-it out of whitespace before type, because a bubble with generous padding and
-small text reads worse than a tight one with legible text, at the same height.
+**The crest must be the OPPONENT's**, and it is derived from the same `other`
+side the stripe colour comes from, so the two can never disagree. His own crest
+on every row would say nothing -- the name and the wash already identify which
+of his teams it is. `selftest.py` asserts the direction, because backwards is
+silent and looks fine.
 
-That also means the mockup misled him, and it is worth knowing why. Four
-densities in columns on a desktop page made 79% and 80% look interchangeable --
-they differ by 0.6px. What separated them was type size, which a desktop
-column at arm's length flatters and a phone does not. **Show density choices at
-the size they will be used, or expect a revert.**
+### Getting here took three rounds, and the middle one is the lesson
 
-The numbers in `teams.py` -- 4.5px padding, 1px row gap, 20px crest, 14.5px
+| | crest | names | padding | height |
+| --- | --- | --- | --- | --- |
+| original | 20px x2 | 14.5px | 10px | 86.2px |
+| shrink everything | 17.5px x2 | 13.25px | 6.5px | 68.4px -- **reverted** |
+| whitespace only | 20px x2 | 14.5px | 4.5px | 69px |
+| one crest | 30px x1 | 14.5px | 6px | shorter still |
+
+The reverted row hit the target on the first try and was wrong anyway: "oops
+too small". **Take height out of whitespace and arrangement before type.**
+
+It is also worth knowing why the mockup failed to catch it. Four densities as
+columns on a desktop page made 79% and 80% look interchangeable -- they differ
+by 0.6px -- so the only thing separating them was type size, which a desktop
+column at arm's length flatters and a phone does not. **Show a size choice at
+the size it will be used**, one at a time, full width.
+
+The numbers in `teams.py` -- 6px padding, 1px row gap, 30px crest, 14.5px
 names, 11.5px third line -- were measured in a browser at 375px wide. None can
 be re-derived from the file, so `selftest.py` holds them literally, including
-assertions that the reverted values are *gone*. An edit that looks harmless
-(rounding the padding, restoring a "nicer" 13px) silently undoes a decision
-that took two rounds to make.
+assertions that each superseded value is *gone*.
 
 ## ESPN: the four things that make a Teams row wrong
 

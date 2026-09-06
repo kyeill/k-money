@@ -1089,7 +1089,8 @@ def test_teams_weeks():
         when = teams.local(day + "T18:00")
         return {"id": day, "day": when.date(), "at": when, "title": "x",
                 "competition": "c", "network": None, "time": "1:00 PM",
-                "stripe": None, "wash": "#ffcb05", "logos": [], "past": False}
+                "stripe": None, "wash": "#ffcb05", "crest": (None, None),
+                "past": False}
 
     rows = [game("2026-09-05"), game("2026-09-26")]
     spans = [("2026-08-22", "2027-02-01")]
@@ -1158,12 +1159,20 @@ def test_teams_normalize():
     # flag this reads "12:00 AM", which looks like a real midnight fixture.
     ok("an unset kickoff is TBD, not midnight", row["time"], "TBD")
     ok("but the day is still right", str(row["day"]), "2026-09-26")
-    # sports-daily's rule: the -dark variant reads on a dark page, and each
+    # ONE crest, and it is the OPPONENT's -- Michigan is the followed team
+    # here, so Iowa's is the one that shows. Getting this backwards would put
+    # his own crest on every row and say nothing, which is the whole reason the
+    # second crest went.
+    ok("the crest is the opponent's, not his own",
+       tuple(row["crest"]), ("i.png", "i.png"))
+    # sports-daily's rule: the -dark variant reads on a dark page, and the
     # crest carries the plain URL to fall back to because not every team has
-    # one on the CDN.
-    ok("the dark crest is preferred, with the plain one to fall back to",
-       [tuple(x) for x in row["logos"]],
-       [("i.png", "i.png"), ("m.png", "m.png")])
+    # one on the CDN. Both are "i.png" here only because the fixture's URL has
+    # no /500/ segment to swap.
+    true("and it carries a fallback", len(row["crest"]) == 2)
+    # The stripe and the crest must name the SAME side, or the row shows one
+    # team's colour beside another team's badge.
+    ok("the stripe is that same opponent's colour", row["stripe"], "#ffcd00")
     true("a future game is not past", not row["past"])
 
     played = dict(event, date="2026-08-30T16:00Z", timeValid=True)
@@ -1238,8 +1247,13 @@ def test_teams_render():
          ".gm.tint .c,.gm.tint .net{color:#a3a39d}" in teams.CSS)
     ok("and a stripe where the opponent has a usable colour",
        html.count("--tint:"), 4)
-    true("both logos are drawn", html.count("<img") >= 8)
-    true("logos are lazy", 'loading="lazy"' in html)
+    # One crest per game now, not two.
+    ok("one crest per game", html.count("<img"), html.count('class="gm'))
+    true("crests are lazy", 'loading="lazy"' in html)
+    # Spanning all three rows is what lets it be bigger AND the bubble shorter:
+    # a crest that occupies a row sets that row's height.
+    true("the crest spans the bubble and is centred",
+         ".gm .cr{grid-row:1 / span 3;align-self:center;" in teams.CSS)
 
     empty = teams.render({"today": dt.date(2026, 9, 1), "weeks": [], "error": None})
     true("nothing scheduled says so", "Nothing scheduled." in empty)
@@ -1853,56 +1867,55 @@ def test_gviz_headers():
 def test_teams_density():
     """The game bubble's height was chosen by measurement, so hold the numbers.
 
-    86.2px was the height at 375px wide before this; 69px is where it landed.
-    None of these values can be re-derived from the file, so an edit that looks
-    harmless -- rounding the padding, restoring a "nicer" 13px -- silently
-    undoes a decision that took two rounds of measuring to make.
+    86.2px at 375px wide before any of this. Two crests at 20px each held both
+    name lines taller than their text needed, because a crest that occupies a
+    row sets that row's height.
 
-    The crest and the names are NOT part of the saving, and must not become
-    part of it. The first attempt shrank everything a little, reached the same
-    height with a 17.5px crest and 13.25px names, and read too small the moment
-    it was on a phone. The whole 20% now comes out of padding, the row gap and
-    the third line, which is why those three are pinned hardest here.
+    Dropping to ONE crest, spanning all three rows and centred, took the crest
+    out of the height entirely -- so it could grow from 20px to 30px while the
+    bubble got shorter AND the padding went back up. That is the rare change
+    that costs nothing, and it is worth not undoing by accident.
+
+    The type is not part of any of this and never was. An earlier attempt took
+    the height out of the names instead, reached the same number, and read too
+    small the moment it was on a phone.
     """
     import teams
 
     for value, why in (
-        ("padding:4.5px 12px", "vertical padding, where the height came from"),
+        ("padding:6px 12px", "vertical padding"),
         ("row-gap:1px", "the gap between the three lines"),
-        ("grid-template-columns:20px 1fr auto", "the crest column"),
-        ("width:20px;height:20px", "the crest, unchanged"),
-        ("font-size:14.5px;line-height:1.3", "the team names, unchanged"),
+        ("grid-template-columns:30px 1fr auto", "the crest column"),
+        ("width:30px;height:30px", "the crest itself"),
+        ("font-size:14.5px;line-height:1.3", "the team names, untouched"),
     ):
         true("the phone bubble keeps %s (%s)" % (value, why), value in teams.CSS)
 
     ok("the third line is one size, used three times",
        teams.CSS.count("font-size:11.5px"), 3)
 
-    # The crest and the column reserving space for it have to agree, or the
-    # crest is laid out in a track of the wrong width.
+    # Spanning is the whole mechanism. Without it the crest occupies row 1,
+    # sets its height, and the bubble grows by the difference.
+    true("the crest spans all three rows and is centred",
+         ".gm .cr{grid-row:1 / span 3;align-self:center;" in teams.CSS)
     true("the crest column matches the crest",
-         "grid-template-columns:20px" in teams.CSS
-         and "width:20px;height:20px" in teams.CSS)
+         "grid-template-columns:30px" in teams.CSS
+         and "width:30px;height:30px" in teams.CSS)
 
-    # The pairing the failed attempt broke: sports-daily and this page sit side
-    # by side on the same phone, and were a size apart once already.
-    true("the crest still matches sports-daily at 20px",
-         "width:20px;height:20px" in teams.CSS)
-    true("and the team name at 14.5px", "font-size:14.5px" in teams.CSS)
-
-    # Desktop is the same trade at a different scale, not a second design.
-    for value in ("padding:6px 14px", "grid-template-columns:22px 1fr auto",
-                  "width:22px;height:22px", "font-size:15px",
+    # Desktop is the same arrangement one step larger, not a second design.
+    for value in ("padding:7px 14px", "grid-template-columns:34px 1fr auto",
+                  "width:34px;height:34px", "font-size:15px",
                   "font-size:12.5px"):
         true("the desktop block keeps %s" % value, value in teams.CSS)
     # The DECLARATION, not the word: the comment above it says "row-gap" too.
     ok("and inherits the row gap rather than repeating it",
        teams.CSS.count("row-gap:"), 1)
 
-    # What the shrink actually removed, and what the failed attempt left behind.
-    # "13px" is not listed: it still appears in .wnone, a different thing.
-    for gone in ("padding:10px 12px", "row-gap:3px", "padding:12px 14px",
-                 "font-size:13.25px", "width:17.5px", "font-size:11.75px"):
+    # What earlier rounds left behind. "13px" is not listed: it still appears
+    # in .wnone, a different thing that stays where it is.
+    for gone in ("padding:10px 12px", "padding:4.5px 12px", "row-gap:3px",
+                 "font-size:13.25px", "width:17.5px", "font-size:11.75px",
+                 "width:20px;height:20px"):
         true("%s is gone" % gone, gone not in teams.CSS)
 
 

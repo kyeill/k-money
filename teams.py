@@ -613,7 +613,12 @@ def normalize(event, sport, follow, today, colors=None, overrides=None):
         # Per team, because yellow needs more of itself than blue does: at the
         # 13% the other tabs use, every yellow goes brown against this card.
         "wash_strength": follow.get("wash_strength"),
-        "logos": [_logo(first.get("team") or {}), _logo(second.get("team") or {})],
+        # ONE crest, the opponent's. Kyle knows which of his own teams he is
+        # looking at -- the bubble says so twice already, in the name and in
+        # the wash -- so his own crest was the least informative thing in the
+        # row. `other` is the same side the stripe colour comes from, so the
+        # crest and the stripe can never disagree about who the opponent is.
+        "crest": _logo(other),
         # The dark variant does not exist for every team on the CDN, so each
         # crest carries the plain URL to fall back to rather than showing the
         # browser's broken-image glyph.
@@ -814,11 +819,18 @@ CSS = """
    attempt shrank everything a little and landed at the same height with 17.5px
    crests and 13.25px names; shipped, it read too small. Height was never the
    thing to take out of the type. */
-.gm{display:grid;grid-template-columns:20px 1fr auto;
-    column-gap:9px;row-gap:1px;align-items:center;
+.gm{display:grid;grid-template-columns:30px 1fr auto;
+    column-gap:10px;row-gap:1px;align-items:center;
     background:var(--card);border:1px solid var(--line);
     border-left:4px solid transparent;border-radius:10px;
-    padding:4.5px 12px;margin:6px 0}
+    padding:6px 12px;margin:6px 0}
+/* One crest, spanning all three rows and centred against them. Spanning is the
+   whole trick: a crest that occupies a row SETS that row's height, so the two
+   20px crests were holding both name lines 1.15px taller than their text
+   needed. Out of the rows, the crest costs nothing and can be larger than
+   either of the two it replaced. */
+.gm .cr{grid-row:1 / span 3;align-self:center;
+        width:30px;height:30px;object-fit:contain;display:block}
 /* Two layers, as on the Church tab: the wash is translucent, so without the
    card colour under it the page background shows through and a shaded row
    comes out DARKER than a plain one. */
@@ -827,13 +839,10 @@ CSS = """
 /* Already played. It stays on the page -- a week that quietly empties itself
    as it goes is worse than one that shows what happened. */
 .gm.done{opacity:.55}
-/* 20px and 14.5px are sports-daily's, mirrored deliberately: the two pages sit
-   side by side on the same phone and were a size apart once. UNCHANGED by the
-   shrink, and they cost nothing to keep -- the 20px crest is taller than the
-   18.85px name line, so the crest sets the height of the first two rows and
-   the names ride along free. Shrinking the names alone would save nothing at
-   all; shrinking the crest is what raises or lowers those rows. */
-.gm img{width:20px;height:20px;object-fit:contain;display:block}
+/* 14.5px is sports-daily's, mirrored deliberately: the two pages sit side by
+   side on the same phone and were a size apart once. Unchanged through two
+   rounds of shrinking -- the height has come out of whitespace and the crest
+   arrangement, never the names. */
 .gm .n1,.gm .n2{font-weight:600;font-size:14.5px;line-height:1.3;min-width:0}
 /* The connector is part of the first line, not a column of its own: giving it
    one would leave a ragged gap after every short team name. */
@@ -863,11 +872,10 @@ CSS = """
 @media (min-width:641px){
   .wk{margin:24px 0 0}
   .wk h2{font-size:13px}
-  /* The same trade as the phone: padding and the third line give way, the
-     crest and the names do not. row-gap is inherited above, not repeated. */
-  .gm{padding:6px 14px;margin:8px 0;column-gap:11px;
-      grid-template-columns:22px 1fr auto}
-  .gm img{width:22px;height:22px}
+  /* The same arrangement, one step larger. row-gap is inherited above. */
+  .gm{padding:7px 14px;margin:8px 0;column-gap:12px;
+      grid-template-columns:34px 1fr auto}
+  .gm .cr{width:34px;height:34px}
   .gm .n1,.gm .n2{font-size:15px}
   .gm .r,.gm .c,.gm .net{font-size:12.5px}
 }
@@ -883,27 +891,36 @@ def _wash(row):
 
 
 def _game(row):
-    """One bubble: two team lines with their own right-hand figure, then a
-    quieter line for the competition and the network."""
-    tint = row.get("stripe")
-    logos = row.get("logos") or [None, None]
+    """One bubble: the opponent's crest, two team lines with their own
+    right-hand figure, then a quieter line for the competition and network.
 
-    def crest(pair):
-        src, plain = (pair if isinstance(pair, (list, tuple)) else (pair, None))
-        if not src:
-            return "<span></span>"
+    The crest spans all three rows and is centred against them. That is what
+    lets it be BIGGER than the two it replaced while making the bubble
+    SHORTER: it no longer sets the height of any row, so the name lines are
+    free to be the shortest thing they can be.
+    """
+    tint = row.get("stripe")
+    pair = row.get("crest") or (None, None)
+    src, plain = (pair if isinstance(pair, (list, tuple)) else (pair, None))
+    if src:
         # Not every team has a -dark crest on the CDN; swap to the plain one
         # rather than leaving the browser's broken-image glyph in the row.
         swap = (' onerror="this.onerror=null;this.src=&quot;%s&quot;"'
                 % ui.esc(plain)) if plain and plain != src else ""
-        return '<img loading="lazy" alt="" src="%s"%s>' % (ui.esc(src), swap)
+        crest = '<img class="cr" loading="lazy" alt="" src="%s"%s>' % (
+            ui.esc(src), swap)
+    else:
+        # Still an element, so the grid keeps its first column and the two
+        # name lines do not slide left on the one row that has no crest.
+        crest = '<span class="cr"></span>'
 
     date = ui.esc(row["at"].strftime("%a %b ")) + str(row["at"].day)
     return (
         '<div class="gm%s%s"%s>'
-        '%s<span class="n1">%s <span class="j">%s</span></span>'
+        '%s'
+        '<span class="n1">%s <span class="j">%s</span></span>'
         '<span class="r d">%s</span>'
-        '%s<span class="n2">%s</span><span class="r t">%s</span>'
+        '<span class="n2">%s</span><span class="r t">%s</span>'
         '<span class="c">%s</span><span class="net%s">%s</span>'
         "</div>"
     ) % (
@@ -911,11 +928,10 @@ def _game(row):
         " done" if row.get("past") else "",
         ' style="--tint:%s;--wash:%s"' % (ui.esc(tint), _wash(row))
         if tint else ' style="--wash:%s"' % _wash(row),
-        crest(logos[0]),
+        crest,
         row["first"],            # already escaped; carries the rank's markup
         ui.esc(row["joiner"]),
         date,
-        crest(logos[1] if len(logos) > 1 else None),
         row["second"],
         ui.esc(row["time"]),
         ui.esc(row["competition"]),
