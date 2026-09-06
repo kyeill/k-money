@@ -806,16 +806,19 @@ CSS = """
    belongs to that name's line. The grid is what keeps the date level with the
    first team and the time with the second -- laid out as separate blocks they
    drift apart the moment a name wraps. */
-/* 68.4px tall at 375px wide, down from 86.2px -- 79%, his pick from a set
-   measured in the live page rather than estimated. The height came off in this
-   order: vertical padding (10 to 6.5), the row gap (3 to 1), then the crest and
-   the type, and only a little. Padding and the gap cost nothing legible; the
-   team names carry the row. */
-.gm{display:grid;grid-template-columns:17.5px 1fr auto;
+/* 69px tall at 375px wide, down from 86.2px -- 80%, measured in the live page
+   rather than estimated.
+
+   ALL of it comes out of padding (10px to 4.5px), the row gap (3px to 1px) and
+   the third line. The crest and the team names do not move at all. A first
+   attempt shrank everything a little and landed at the same height with 17.5px
+   crests and 13.25px names; shipped, it read too small. Height was never the
+   thing to take out of the type. */
+.gm{display:grid;grid-template-columns:20px 1fr auto;
     column-gap:9px;row-gap:1px;align-items:center;
     background:var(--card);border:1px solid var(--line);
     border-left:4px solid transparent;border-radius:10px;
-    padding:6.5px 12px;margin:6px 0}
+    padding:4.5px 12px;margin:6px 0}
 /* Two layers, as on the Church tab: the wash is translucent, so without the
    card colour under it the page background shows through and a shaded row
    comes out DARKER than a plain one. */
@@ -824,19 +827,14 @@ CSS = """
 /* Already played. It stays on the page -- a week that quietly empties itself
    as it goes is worse than one that shows what happened. */
 .gm.done{opacity:.55}
-/* These WERE sports-daily's 20px and 14.5px, mirrored deliberately because the
-   two pages sit side by side on the same phone and were a size apart once.
-   Shrinking the bubble broke that pairing on purpose, his call: a version
-   holding 20px crests reached the same 79-80% but paid for it with 4.5px of
-   padding, and content that close to the border reads worse than a crest half
-   a step smaller.
-
-   The crest is what governs the first two rows -- at 17.5px it is still taller
-   than the 16.2px name line, so the names could have stayed at 14.5px for
-   free. They came down anyway, to keep the bubble in proportion rather than
-   leaving big type in a short box. */
-.gm img{width:17.5px;height:17.5px;object-fit:contain;display:block}
-.gm .n1,.gm .n2{font-weight:600;font-size:13.25px;line-height:1.22;min-width:0}
+/* 20px and 14.5px are sports-daily's, mirrored deliberately: the two pages sit
+   side by side on the same phone and were a size apart once. UNCHANGED by the
+   shrink, and they cost nothing to keep -- the 20px crest is taller than the
+   18.85px name line, so the crest sets the height of the first two rows and
+   the names ride along free. Shrinking the names alone would save nothing at
+   all; shrinking the crest is what raises or lowers those rows. */
+.gm img{width:20px;height:20px;object-fit:contain;display:block}
+.gm .n1,.gm .n2{font-weight:600;font-size:14.5px;line-height:1.3;min-width:0}
 /* The connector is part of the first line, not a column of its own: giving it
    one would leave a ragged gap after every short team name. */
 .gm .j{color:var(--muted);font-weight:400}
@@ -846,12 +844,12 @@ CSS = """
 /* The date and the time are one column, not a label and a footnote: same
    size, same weight, same colour. They were already the same size -- it was
    the muted grey that made the time read as the smaller of the two. */
-.gm .r{text-align:right;font-size:11.75px;font-weight:600;
+.gm .r{text-align:right;font-size:11.5px;font-weight:600;
        font-variant-numeric:tabular-nums;white-space:nowrap}
 /* The third row is the quiet one: competition on the left, network on the
    right, both muted so the teams stay the loudest thing in the bubble. */
-.gm .c{grid-column:2;color:var(--muted);font-size:11.75px}
-.gm .net{color:var(--muted);font-size:11.75px;text-align:right;white-space:nowrap}
+.gm .c{grid-column:2;color:var(--muted);font-size:11.5px}
+.gm .net{color:var(--muted);font-size:11.5px;text-align:right;white-space:nowrap}
 /* A washed row is a lighter ground than the plain card, so the ordinary muted
    grey loses contrast on it -- 4.33 against maize at 13%, just under readable.
    The gentlest lift that clears 4.5 rather than the brightest: this holds 4.82,
@@ -865,12 +863,12 @@ CSS = """
 @media (min-width:641px){
   .wk{margin:24px 0 0}
   .wk h2{font-size:13px}
-  /* Scaled by the same factors as the phone, so the two do not drift into
-     different designs. row-gap is inherited from the rule above, not repeated. */
-  .gm{padding:8px 14px;margin:8px 0;column-gap:11px;
-      grid-template-columns:19px 1fr auto}
-  .gm img{width:19px;height:19px}
-  .gm .n1,.gm .n2{font-size:13.75px}
+  /* The same trade as the phone: padding and the third line give way, the
+     crest and the names do not. row-gap is inherited above, not repeated. */
+  .gm{padding:6px 14px;margin:8px 0;column-gap:11px;
+      grid-template-columns:22px 1fr auto}
+  .gm img{width:22px;height:22px}
+  .gm .n1,.gm .n2{font-size:15px}
   .gm .r,.gm .c,.gm .net{font-size:12.5px}
 }
 """

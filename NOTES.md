@@ -535,22 +535,34 @@ cadence, and a whole tab reading empty.
 
 ## The crest governs the Teams bubble's height, not the type
 
-The first two rows are `max(crest, name line)`. At 17.5px the crest is taller
-than the 16.2px name line, so **raising the crest raises the bubble** even when
-nothing else changes -- and shrinking the names alone saves nothing at all.
+The first two rows are `max(crest, name line)`. The 20px crest is taller than
+the 18.85px name line, so **the crest sets those rows and the names are free**.
+Shrinking the names alone saves nothing; shrinking the crest is the only thing
+that moves those two rows.
 
-That is worth knowing before trying to make the bubble shorter again. Going the
-other way, restoring the old 20px crest costs about 2.5px per row and puts the
-height back over 80% unless the padding drops to 4.5px, which was measured and
-rejected: content that close to the border reads worse than a slightly smaller
-crest.
+That is why the bubble got to 80% without touching either. Padding went 10px to
+4.5px, the row gap 3px to 1px, the third line 13px to 11.5px. Crest and names
+are exactly what they always were.
 
-The numbers in `teams.py` -- 6.5px padding, 1px row gap, 17.5px crest, 13.25px
-names, 11.75px third line -- came from rendering four densities with real games
-and measuring them in a browser at 375px wide. None of them can be re-derived
-from the file, so `selftest.py` holds them literally. An edit that looks
-harmless (rounding the padding, restoring a "nicer" 13px) silently undoes a
-decision that took a round of measuring to make.
+**A first attempt shrank everything a little and had to be reverted.** 17.5px
+crest, 13.25px names, 6.5px padding: 79%, near-identical height, and Kyle's
+reaction on the phone was immediate -- "oops too small". The lesson is not that
+the numbers were wrong but that the *choice* was: given a height target, take
+it out of whitespace before type, because a bubble with generous padding and
+small text reads worse than a tight one with legible text, at the same height.
+
+That also means the mockup misled him, and it is worth knowing why. Four
+densities in columns on a desktop page made 79% and 80% look interchangeable --
+they differ by 0.6px. What separated them was type size, which a desktop
+column at arm's length flatters and a phone does not. **Show density choices at
+the size they will be used, or expect a revert.**
+
+The numbers in `teams.py` -- 4.5px padding, 1px row gap, 20px crest, 14.5px
+names, 11.5px third line -- were measured in a browser at 375px wide. None can
+be re-derived from the file, so `selftest.py` holds them literally, including
+assertions that the reverted values are *gone*. An edit that looks harmless
+(rounding the padding, restoring a "nicer" 13px) silently undoes a decision
+that took two rounds to make.
 
 ## ESPN: the four things that make a Teams row wrong
 

@@ -1853,51 +1853,57 @@ def test_gviz_headers():
 def test_teams_density():
     """The game bubble's height was chosen by measurement, so hold the numbers.
 
-    86.2px was the height at 375px wide before this; 68.4px is what Kyle picked
-    from four options rendered with real games. None of these values can be
-    re-derived from the file, so an edit that looks harmless -- rounding the
-    padding, restoring a "nicer" 13px -- silently undoes a decision that took a
-    round of measuring to make.
+    86.2px was the height at 375px wide before this; 69px is where it landed.
+    None of these values can be re-derived from the file, so an edit that looks
+    harmless -- rounding the padding, restoring a "nicer" 13px -- silently
+    undoes a decision that took two rounds of measuring to make.
 
-    The crest is the part to be careful with. It governs the height of the first
-    two rows, because 17.5px is taller than the 16.2px name line: raising it
-    raises the bubble even if nothing else changes, and the 20px it used to be
-    puts the height straight back to 80%+ unless the padding drops to 4.5px.
+    The crest and the names are NOT part of the saving, and must not become
+    part of it. The first attempt shrank everything a little, reached the same
+    height with a 17.5px crest and 13.25px names, and read too small the moment
+    it was on a phone. The whole 20% now comes out of padding, the row gap and
+    the third line, which is why those three are pinned hardest here.
     """
     import teams
 
     for value, why in (
-        ("padding:6.5px 12px", "vertical padding, the largest single saving"),
+        ("padding:4.5px 12px", "vertical padding, where the height came from"),
         ("row-gap:1px", "the gap between the three lines"),
-        ("grid-template-columns:17.5px 1fr auto", "the crest column"),
-        ("width:17.5px;height:17.5px", "the crest itself"),
-        ("font-size:13.25px;line-height:1.22", "the team names"),
+        ("grid-template-columns:20px 1fr auto", "the crest column"),
+        ("width:20px;height:20px", "the crest, unchanged"),
+        ("font-size:14.5px;line-height:1.3", "the team names, unchanged"),
     ):
         true("the phone bubble keeps %s (%s)" % (value, why), value in teams.CSS)
 
     ok("the third line is one size, used three times",
-       teams.CSS.count("font-size:11.75px"), 3)
+       teams.CSS.count("font-size:11.5px"), 3)
 
-    # The crest and the column that reserves space for it have to agree, or the
+    # The crest and the column reserving space for it have to agree, or the
     # crest is laid out in a track of the wrong width.
     true("the crest column matches the crest",
-         "grid-template-columns:17.5px" in teams.CSS
-         and "width:17.5px" in teams.CSS)
+         "grid-template-columns:20px" in teams.CSS
+         and "width:20px;height:20px" in teams.CSS)
 
-    # Desktop is the same design at a different scale, not a second one.
-    for value in ("padding:8px 14px", "grid-template-columns:19px 1fr auto",
-                  "width:19px;height:19px", "font-size:13.75px",
+    # The pairing the failed attempt broke: sports-daily and this page sit side
+    # by side on the same phone, and were a size apart once already.
+    true("the crest still matches sports-daily at 20px",
+         "width:20px;height:20px" in teams.CSS)
+    true("and the team name at 14.5px", "font-size:14.5px" in teams.CSS)
+
+    # Desktop is the same trade at a different scale, not a second design.
+    for value in ("padding:6px 14px", "grid-template-columns:22px 1fr auto",
+                  "width:22px;height:22px", "font-size:15px",
                   "font-size:12.5px"):
         true("the desktop block keeps %s" % value, value in teams.CSS)
     # The DECLARATION, not the word: the comment above it says "row-gap" too.
     ok("and inherits the row gap rather than repeating it",
        teams.CSS.count("row-gap:"), 1)
 
-    # The sizes it no longer uses. Listed by hand because "13px" also appears
-    # in .wnone, which is a different thing and stays where it is.
-    for gone in ("font-size:14.5px", "width:20px;height:20px",
-                 "padding:10px 12px", "row-gap:3px", "font-size:15px"):
-        true("the pre-shrink %s is gone" % gone, gone not in teams.CSS)
+    # What the shrink actually removed, and what the failed attempt left behind.
+    # "13px" is not listed: it still appears in .wnone, a different thing.
+    for gone in ("padding:10px 12px", "row-gap:3px", "padding:12px 14px",
+                 "font-size:13.25px", "width:17.5px", "font-size:11.75px"):
+        true("%s is gone" % gone, gone not in teams.CSS)
 
 
 def main():
