@@ -1572,13 +1572,39 @@ def test_maskable_icon():
                pixels(0, size - 1), pixels(size - 1, size - 1)]
     ok("full bleed -- every corner is background", corners, [mod.BG] * 4)
 
-    fg = [(x, y) for y in range(size) for x in range(size)
-          if pixels(x, y) == mod.FG]
-    true("there is a glyph at all", len(fg) > size * size * 0.04)
+    # BOTH tones, and measured as "not background" rather than "exactly the
+    # accent". Two things would slip past an accent-only check: the grey arms
+    # are the parts that reach FURTHEST, and the mark is antialiased now, so
+    # its outermost pixels are blends rather than any exact colour.
+    lit = [(x, y) for y in range(size) for x in range(size)
+           if pixels(x, y) != mod.BG]
+    true("there is a mark at all", len(lit) > size * size * 0.04)
+    true("the accent is present", any(pixels(x, y) == mod.FG for x, y in lit))
+    true("and the muted tone is present",
+         any(pixels(x, y) == mod.MU for x, y in lit))
+
     centre = (size - 1) / 2.0
-    worst = max(((x - centre) ** 2 + (y - centre) ** 2) ** 0.5 for x, y in fg)
-    true("the glyph stays inside the 80%% safe zone (%.3f <= 0.400)"
+    def _r(x, y):
+        return ((x - centre) ** 2 + (y - centre) ** 2) ** 0.5
+    worst = max(_r(x, y) for x, y in lit)
+    true("the mark stays inside the 80%% safe zone (%.3f <= 0.400)"
          % (worst / size), worst / size <= 0.40)
+
+    # The promise made concrete: mask to the circle Android crops to and check
+    # nothing is lost. The radius check above is the same arithmetic, but this
+    # fails loudly with a COUNT of what a launcher would cut, which is the
+    # thing that actually matters on the phone.
+    clipped = [(x, y) for x, y in lit if _r(x, y) > 0.40 * size]
+    ok("a circular launcher mask removes none of it", clipped, [])
+
+    # A squircle crops less than a circle, so it cannot clip what the circle
+    # keeps -- but the notification size is where a mark that is too fine
+    # disappears, and this one has to survive it.
+    small = mod._png(48)
+    spx = _decode(small, 48)
+    slit = [(x, y) for y in range(48) for x in range(48) if spx(x, y) != mod.BG]
+    true("it still reads at 48px, the notification size",
+         len(slit) > 48 * 48 * 0.04)
 
 
 def _decode(data, size):

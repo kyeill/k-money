@@ -428,6 +428,29 @@ from local `date` output**. On ubuntu-latest it works correctly: the run at
 2026-08-30T01:02Z stamped `2026-08-29`, which is the right Eastern date, and is
 how the conversion was confirmed to work where it matters.
 
+## An icon that is too SMALL cannot be fixed by redrawing it
+
+The first K spanned 0.42 of the frame. Sports Daily's ring spans 0.60. Kyle
+called the icon clunky, and eleven alternative letterforms -- bold, light,
+slab, rounded, italic, stencil, lowercase -- did not help, because none of them
+touched the actual fault: the mark floated in the middle of its tile with dead
+space all round it, and every variant inherited that.
+
+Check the mark's SPAN against its siblings before redrawing anything. The
+safe-zone limit of 0.400 from centre is generous: a mark spanning 0.24-0.76
+still reaches only 0.360, so there is no tension between "big" and "safe".
+
+Two further things the current mark depends on:
+
+**Both tones must be measured.** The arms are the muted grey and they are the
+parts that reach FURTHEST from centre. A safe-zone check that looks for the
+accent colour only would pass while the arms were being cropped. `selftest.py`
+measures every pixel that is not the background, which also survives the
+antialiasing -- the outermost pixels are blends and match no exact colour.
+
+**Antialiasing is not decoration here.** The mark is two diagonals; hard on/off
+edges made them visibly stepped at 192px. `_png` supersamples 4x and averages.
+
 ## "any maskable" is a promise about the artwork, not just a manifest string
 
 Declaring `"purpose": "any maskable"` tells Android to treat the icon as

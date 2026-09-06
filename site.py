@@ -20,9 +20,11 @@ SITE = os.path.join(HERE, "output", "site")
 
 APP = "K Money"
 
-# Same two colours as the page, and as sports-daily's icon.
+# The page's own colours. BG and FG are sports-daily's icon colours too; MU
+# is this page's --muted, which is what Standings greys its lower rows with.
 BG = (0x16, 0x16, 0x1A)
 FG = (0xE0, 0x83, 0x4F)
+MU = (0x9A, 0x9A, 0x95)
 
 FONT = ('<link rel="preconnect" href="https://fonts.googleapis.com">'
         '<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>'
@@ -188,11 +190,30 @@ def _seg_dist(px, py, ax, ay, bx, by):
     return ((px - (ax + t * dx)) ** 2 + (py - (ay + t * dy)) ** 2) ** 0.5
 
 
+# The mark, in fractions of the icon's width. One even stroke throughout --
+# the earlier K set a rectangular stem against thinner arms, which is part of
+# why it read clunky beside its siblings.
+STEM = (0.34, 0.24, 0.34, 0.76)         # x0, y0, x1, y1
+ARMS = ((0.35, 0.50, 0.68, 0.26), (0.35, 0.50, 0.68, 0.74))
+STROKE = 0.055                          # half-width
+SS = 4                                  # supersampling factor
+
+
 def _png(size):
-    """A flat 'K' on a dark ground, drawn by pixel maths.
+    """A two-tone 'K' on a dark ground, drawn by pixel maths.
 
     No image library on this machine, so this is the same zlib+struct approach
     sports-daily uses for its ring.
+
+    **The stem is the accent, the arms are muted.** That is Standings' device --
+    accent on the one thing that matters, grey on the rest -- and it is what
+    makes three separate apps read as one family without any of them copying
+    another's shape.
+
+    Drawn BIG on purpose. The mark spans 0.24-0.76, about 0.55 of the frame,
+    against the ring's 0.60. The version before this spanned 0.42 and floated
+    in the middle of its own tile, which no change of letterform would have
+    fixed.
 
     Two rules follow from the manifest declaring **maskable**: Android masks
     the icon to the launcher's shape (circle, squircle, teardrop) and may crop
@@ -201,31 +222,37 @@ def _png(size):
     1. FULL BLEED. The background must reach every corner -- no rounded
        rectangle of its own, or the mask rounds an already-rounded corner and
        leaves a notch.
-    2. The glyph must sit inside the SAFE ZONE, the centred circle of 80%
-       diameter. This K spans 0.29-0.71 vertically and reaches x=0.71, putting
-       its furthest corner 0.30 from centre against a safe radius of 0.40.
-    """
-    stem_x0, stem_x1 = 0.31, 0.39
-    top, bottom = 0.29, 0.71
-    junction = (0.39, 0.50)
-    arm_end_y = (top, bottom)
-    arm_x = 0.67
-    half = 0.042
+    2. The mark must sit inside the SAFE ZONE, the centred circle of 80%
+       diameter. This one reaches 0.360 from centre against a safe radius of
+       0.400. selftest.py measures it rather than trusting this comment, and
+       measures EVERY non-background pixel -- checking only the accent would
+       miss the grey arms, which are the parts that reach furthest.
 
+    Supersampled (see SS) and averaged: the diagonals are the whole mark here,
+    and hard on/off edges made them visibly stepped.
+    """
     rows = []
     for y in range(size):
         row = bytearray([0])            # filter byte: none
-        fy = (y + 0.5) / size
         for x in range(size):
-            fx = (x + 0.5) / size
-            on = stem_x0 <= fx <= stem_x1 and top <= fy <= bottom
-            if not on:
-                for end_y in arm_end_y:
-                    if _seg_dist(fx, fy, junction[0], junction[1],
-                                 arm_x, end_y) <= half:
-                        on = True
-                        break
-            row += bytes(FG if on else BG)
+            stem = arms = 0
+            for sy in range(SS):
+                fy = (y + (sy + 0.5) / SS) / size
+                for sx in range(SS):
+                    fx = (x + (sx + 0.5) / SS) / size
+                    if _seg_dist(fx, fy, STEM[0], STEM[1],
+                                 STEM[2], STEM[3]) <= STROKE:
+                        stem += 1
+                    elif any(_seg_dist(fx, fy, a[0], a[1], a[2], a[3]) <= STROKE
+                             for a in ARMS):
+                        arms += 1
+            n = float(SS * SS)
+            px = list(BG)
+            for colour, hits in ((MU, arms), (FG, stem)):
+                if hits:
+                    a = hits / n
+                    px = [px[i] + (colour[i] - px[i]) * a for i in range(3)]
+            row += bytes(int(round(v)) for v in px)
         rows.append(bytes(row))
     raw = b"".join(rows)
 

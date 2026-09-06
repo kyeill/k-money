@@ -676,7 +676,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         511 assertions, no key and no network needed
+python selftest.py         515 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
@@ -718,9 +718,23 @@ The icons follow `sports-daily`'s structure — PNGs at 180/192/512 drawn by
 pixel maths (there is no image library on this machine), with the manifest
 declaring `"purpose": "any maskable"` so Android treats them as adaptive and
 masks them to the launcher's shape. That declaration constrains the artwork:
-full bleed to every corner, glyph inside the centred 80% safe zone. Both are
+full bleed to every corner, mark inside the centred 80% safe zone. Both are
 asserted in `selftest.py` by decoding the generated PNG — see NOTES before
 changing the geometry.
+
+**The mark is a two-tone K**: accent stem, muted arms, one even stroke weight,
+spanning about 0.55 of the frame. Each of those is deliberate.
+
+The two tones are Standings' device — accent on the one thing that matters,
+grey on the rest — and they are what make three apps read as a family without
+any of them copying another's shape. Sports Daily is a ring, Standings is a set
+of rows, this is a K; what they share is the treatment, not the geometry.
+
+The size is the part that took a round to learn. The K before this spanned 0.42
+of the frame against the ring's 0.60, and floated in the middle of its own
+tile — it read as cramped and clunky whatever letterform it wore, and eleven
+alternative letterforms did not fix it because the letterform was never the
+problem. Drawing it big was.
 
 ## Adding a tab
 
