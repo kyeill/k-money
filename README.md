@@ -418,12 +418,19 @@ in the wash.
 It comes from the same side the **stripe colour** does, so the crest and the
 coloured bar can never disagree about who the opponent is.
 
-**Dropping to one crest made the bubble shorter and the crest bigger at the
-same time**, which is the rare change that costs nothing. A crest sitting *in*
-a row sets that row's height, so the two 20px crests were holding both name
-lines 1.15px taller than their text needed. Spanning the rows takes the crest
-out of the height calculation entirely: it went 20px → **30px**, and the
-padding went back *up* from 4.5px to 6px.
+**Dropping to one crest bought a bigger crest and roomier padding for
+nothing.** A crest sitting *in* a row sets that row's height, so the two 20px
+crests were holding both name lines 1.15px taller than their text needed.
+Spanning the rows takes the crest out of the height calculation entirely.
+
+Measured, the bubble is **69.7px** — 81% of the original 86.2px, and 0.7px
+*taller* than the 69px two-crest version, not shorter. Freeing the crest saved
+2.3px; putting the padding back up from 4.5px to 6px spent 3px. The win is what
+that height now buys: a 30px crest instead of two 20px ones, and 6px of
+breathing room instead of 4.5px.
+
+If it ever needs to be genuinely shorter, the padding is the dial: 4.5px puts
+it at 66.7px (77%) with everything else unchanged.
 
 **The type was never part of the saving.** Team names are 14.5px, unchanged
 through all of it, mirroring sports-daily — those two pages sit side by side on

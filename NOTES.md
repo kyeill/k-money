@@ -541,9 +541,18 @@ needed, and no amount of shrinking the *names* could recover it.
 
 Moving to ONE crest -- the opponent's -- with `grid-row:1 / span 3` and
 `align-self:center` takes the crest out of the height calculation completely.
-The crest grew from 20px to 30px, the padding went back UP from 4.5px to 6px,
-and the bubble still got shorter. Three things improving together is a sign the
-constraint was in the layout, not in the values.
+
+**Check the arithmetic before claiming a win.** This was first written up as
+"bigger crest, more padding, AND shorter", which measurement did not support:
+freeing the crest saves 1.15px per name row, 2.3px in all, and raising the
+padding from 4.5px to 6px spends 3px. The shipped bubble is 69.7px against the
+two-crest 69px -- 0.7px TALLER. The change is still clearly worth it, because
+that near-identical height now carries a 30px crest instead of two 20px ones
+and 6px of padding instead of 4.5px. But it buys quality, not height, and the
+docs said otherwise until the live page was measured.
+
+Padding is the dial if height is what is actually wanted: 4.5px gives 66.7px
+(77%), 4px gives 65.7px (76%), everything else unchanged.
 
 **The crest must be the OPPONENT's**, and it is derived from the same `other`
 side the stripe colour comes from, so the two can never disagree. His own crest
@@ -558,7 +567,7 @@ silent and looks fine.
 | original | 20px x2 | 14.5px | 10px | 86.2px |
 | shrink everything | 17.5px x2 | 13.25px | 6.5px | 68.4px -- **reverted** |
 | whitespace only | 20px x2 | 14.5px | 4.5px | 69px |
-| one crest | 30px x1 | 14.5px | 6px | shorter still |
+| one crest | 30px x1 | 14.5px | 6px | 69.7px |
 
 The reverted row hit the target on the first try and was wrong anyway: "oops
 too small". **Take height out of whitespace and arrangement before type.**
