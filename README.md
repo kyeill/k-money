@@ -775,6 +775,17 @@ tile — it read as cramped and clunky whatever letterform it wore, and eleven
 alternative letterforms did not fix it because the letterform was never the
 problem. Drawing it big was.
 
+### The notification badge
+
+`apps-script/pushover-icon-72.png` and `-192.png` are the icon Pushover shows on
+a reminder. They are **not part of any build** and nothing uploads them:
+Pushover keeps its own copy, so changing the file here does nothing at all until
+it is uploaded by hand at <https://pushover.net/apps>.
+
+They are drawn by the app icon's own `_png()`, so the home screen and the
+notifications cannot drift apart. To redraw them after an icon change, run
+`regen_badge.py` in the repo root.
+
 ## Adding a tab
 
 `tabs.py` is the only file that knows tabs exist. A tab is a module with:
@@ -810,6 +821,7 @@ selftest.py  fixture-driven; no key, no network
 
 apps-script/Code.js        NOT part of the build -- shipped with clasp push.
 apps-script/appsscript.json  its manifest; pins the anonymous web app access.
+apps-script/pushover-icon-*.png  the notification badge, uploaded BY HAND
 ```
 
 Read `NOTES.md` before changing the date logic. Every entry there is a trap
