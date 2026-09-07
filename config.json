@@ -72,8 +72,8 @@
       {
         "id": "130",
         "name": "Michigan",
-        "wash": "#fad105",
-        "_note": "His pick 2026-08-30, tuned on his own PHONE against real rows -- the same hex renders differently there than on a desktop LCD, so a low-alpha wash over a near-black card cannot be judged from my screenshots. He tried 28% first and found it too yellow; this is back at the shared 13% with a slightly greener maize than ESPN's #ffcb05. wash_strength is still supported per team and simply not needed here.",
+        "wash": "#3d8ee0",
+        "_note": "The app's own blue, his call 2026-09-07: Michigan took over the blue and Tottenham went grey. Before that this was maize #fad105, picked 2026-08-30 and tuned on his own PHONE -- the same hex renders differently there than on a desktop LCD, so a low-alpha wash over a near-black card cannot be judged from a screenshot. That tuning is retired, not lost: if maize ever comes back, #fad105 at the shared 13% is the answer, not ESPN's #ffcb05, and not 28%, which he tried and found too yellow. wash_strength is still supported per team and simply not needed here.",
         "sports": [
           {"path": "football/college-football", "label": "College Football", "mode": "schedule",
            "_note_marquee": "The showcase windows college football names for itself. Matched on network AND kickoff together -- FOX has a 3:30 window of its own, so the channel alone would light up half the season. Ranges, not exact times, because a window shifts occasionally.",
@@ -88,8 +88,8 @@
       {
         "id": "367",
         "name": "Tottenham",
-        "wash": "#3d8ee0",
-        "_note": "ESPN gives Tottenham #ffffff primary and navy alternate -- neither works as a wash on a dark card, so this is the app's own blue.",
+        "wash": "#8b93a0",
+        "_note": "Grey, the same one the Church tab washes an uncoloured row with (ui.COLORS['gray']). His call 2026-09-07. ESPN gives Tottenham #ffffff primary and navy alternate and neither works as a wash on a dark card, so it was the app's blue until Michigan took that over. Grey is not a fallback here -- it is the point: with one opponent crest and one opponent stripe, every remaining colour in the row belongs to the opponent, and the wash says only which competition family the row is in.",
         "sports": [
           {"path": "soccer/eng.1", "label": "Premier League", "mode": "scoreboard",
            "_note_marquee": "The Saturday NBC match. The range is wide because Britain and the States change their clocks on different dates, which moves it an hour for a fortnight each year.",

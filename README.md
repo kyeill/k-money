@@ -382,23 +382,31 @@ old beats one that cannot be read at all.
 Each `<img>` carries the plain URL as an `onerror` fallback, since not every
 team has a dark variant on the CDN.
 
-The **wash is yours** — maize for Michigan, blue for Tottenham, fixed in
-`config.json` rather than taken from ESPN, which has Michigan's primary as navy
-with maize only as the alternate, and Tottenham's as **white**.
+The **wash is yours** — `#3d8ee0` blue for Michigan, `#8b93a0` grey for
+Tottenham, fixed in `config.json` rather than taken from ESPN, which has
+Michigan's primary as navy with maize only as the alternate, and Tottenham's as
+**white**.
 
-Michigan is `#fad105`, a slightly greener maize than ESPN's `#ffcb05`, at the
-shared 13%. **He picked it on his own phone**, and that matters: a low-alpha
-wash over a near-black card is exactly where displays diverge, so the same hex
-is genuinely a different colour on a phone OLED and a desktop LCD. It could not
-be settled from screenshots on my side, and 28% looked right to me and too
-yellow to him.
+The grey is the Church tab's (`ui.COLORS["gray"]`), and it is not a fallback —
+it is the point. With one opponent crest and one opponent stripe, every other
+colour in the row already belongs to the opponent, so a second team-identifying
+colour was saying what the names say plainly.
+
+Michigan was maize `#fad105` until 2026-09-07 and that history is worth
+keeping, because it cost a round to settle: **he picked it on his own phone**,
+and a low-alpha wash over a near-black card is exactly where displays diverge —
+the same hex is genuinely a different colour on a phone OLED and a desktop LCD.
+28% looked right on my screen and too yellow on his. If maize ever returns,
+`#fad105` at the shared 13% is the answer, not ESPN's `#ffcb05`.
 
 **Strength is still per team** (`wash_strength`), because it was needed while
 that was being worked out and the next colour may need it again. Nothing sets
 it today.
 
 A washed row is a lighter ground than the plain card, so the ordinary muted grey
-loses contrast on it — **4.33** against this maize, just under readable. The
+loses contrast on it — **4.33** against the maize this replaced, just under
+readable, and the lift is kept because it is the *worst* case that has to pass,
+not the current one. The
 competition and network line lifts to `#a3a39d` on any tinted row, which holds
 4.82. Deliberately the *gentlest* lift that clears the bar rather than the
 brightest, so the third line stays visibly quieter than the names above it.
