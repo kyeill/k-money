@@ -72,7 +72,24 @@ jobs:
           # [skip ci] is essential: this repo builds on push, so without it the
           # commit retriggers the workflow forever.
           git diff --staged --quiet || git commit -m "Record first-seen dates [skip ci]"
-          git push
+          # REBASE FIRST, and retry. A plain `git push` here fails whenever ANY
+          # commit lands while the build is running -- the build takes ~40s, and
+          # pushing twice inside that window is normal when a change and its
+          # docs go up separately. The build itself had already succeeded; only
+          # this step failed, which still fails the job and skips the deploy, so
+          # a perfectly good site was not published because of a race that has
+          # nothing to do with the site.
+          #
+          # Only output/history is touched here, and only by this job, so a
+          # rebase cannot conflict -- it is the rejected push that is the
+          # problem, not the content.
+          for attempt in 1 2 3; do
+            git pull --rebase --quiet && git push && exit 0
+            echo "push attempt $attempt was beaten to it; retrying"
+            sleep 5
+          done
+          echo "::error::could not push the history commit after 3 attempts"
+          exit 1
       # v5, not v3: v3 pulled in upload-artifact@v4, which targets Node 20 and
       # was being force-run on Node 24 with a deprecation annotation on every
       # run. Taken deliberately rather than waiting for the fallback to be

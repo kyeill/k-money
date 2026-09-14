@@ -734,3 +734,26 @@ project attached and this script has none.
 If a complaint needs to be reproducible on demand, clear `lastComplaint` in
 Project Settings > Script Properties -- but that re-arms a real notification to
 his phone, so ask first.
+
+## The build's own git push races any commit made while it runs
+
+`build.yml` commits `output/history` and pushes it. That push used no
+`--rebase`, so **any** commit landing during the ~40s build made it fail:
+
+```
+! [rejected]  main -> main (fetch first)
+```
+
+Pushing twice in a minute is completely normal -- a change, then its docs -- so
+this was waiting to happen rather than exotic. It bit on 2026-09-14.
+
+What makes it worth guarding rather than shrugging at: **the build had already
+succeeded.** Only the history push failed, and that failed the job, and a failed
+build job SKIPS the deploy. So a perfectly good site went unpublished because of
+a race with nothing to do with the site.
+
+The step now pulls with `--rebase` and retries three times. A rebase cannot
+conflict here -- `output/history` is touched by nothing except this job.
+
+The same shape exists in standings, whose README already says to
+`git pull --rebase` before pushing for exactly this reason.
