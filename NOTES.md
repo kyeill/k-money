@@ -706,3 +706,31 @@ instead sidesteps it, and `clasp login` completes there: it prints a URL, serves
 the OAuth callback on a local port, and finishes on its own once he approves in
 the browser. `--no-localhost` does NOT work -- it wants a code pasted back into
 a prompt that a non-interactive shell cannot answer.
+
+## The only alert the reminders script can send is the sheet complaint
+
+A reminder whose SEND fails is logged and retried, never pushed -- `tick()`
+catches it, logs, and leaves the row unstamped so the next tick tries again. So
+an unexpected notification from K Money can only be **"K Money: reminders sheet
+problem"**, which fires when `readRules()` throws: an empty grid, or a header
+whose first words do not match `EXPECT`.
+
+It fires **once a day**, guarded by the `lastComplaint` property. That guard
+exists because the trigger runs 288 times a day and a broken sheet would
+otherwise be a notification storm -- but it also means a second failure the
+same day leaves no trace at all.
+
+`?action=status` reports `lastComplaint`, `lastComplaintAt`,
+`lastComplaintError`, `firedDate`, `firedCount` and `rules`. Use it before
+guessing: on 2026-09-14 it showed a complaint that day, 5 reminders fired, and
+54 rules read cleanly on demand -- so the failure was transient and the sheet
+was never actually broken.
+
+**The error text is now kept** (`lastComplaintError`). Before that the alert
+went to his phone and nowhere else, so a swiped notification was the only
+record. The execution log would have had it, but `clasp tail-logs` needs a GCP
+project attached and this script has none.
+
+If a complaint needs to be reproducible on demand, clear `lastComplaint` in
+Project Settings > Script Properties -- but that re-arms a real notification to
+his phone, so ask first.
