@@ -596,10 +596,31 @@ function doGet(e) {
       // unconfigured one until a reminder fails to arrive hours later -- and
       // a silent notifier looks exactly like a quiet day.
       var s = secrets();
+      var props = PropertiesService.getScriptProperties();
       out.ok = true;
       out.provider = PROVIDER;
       out.pushover = !!(s.user && s.token);
       out.topic = !!s.topic;
+      // The DATE of the last "reminders sheet problem" alert, and what fired
+      // today. Neither is a secret and both answer the only question anyone
+      // asks after an unexpected notification: was that us, and when?
+      //
+      // A send that fails is only logged, never pushed -- so an alert Kyle
+      // receives can ONLY be the sheet complaint, and this says whether one
+      // was sent and on what day. Without it the answer needs the Apps Script
+      // execution log, which needs a GCP project this one does not have.
+      out.lastComplaint = props.getProperty('lastComplaint') || null;
+      out.lastComplaintAt = props.getProperty('lastComplaintAt') || null;
+      out.lastComplaintError = props.getProperty('lastComplaintError') || null;
+      var raw = props.getProperty('fired');
+      try {
+        var f = raw ? JSON.parse(raw) : null;
+        out.firedDate = f ? f.date : null;
+        out.firedCount = f && f.titles ? f.titles.length : 0;
+      } catch (e) {
+        out.firedDate = 'unparseable';
+      }
+      out.rules = readRules().length;
     } else {
       out.error = 'unknown action';
     }
@@ -809,7 +830,16 @@ function tick() {
     // otherwise turn one problem into a notification storm.
     var props = PropertiesService.getScriptProperties();
     if (props.getProperty('lastComplaint') !== today) {
-      props.setProperty('lastComplaint', today);
+      // Keep the TEXT, not just the date. The alert goes to his phone and
+      // nowhere else, so without this the only record of what actually broke
+      // is a notification he may have swiped away -- and the execution log
+      // needs a GCP project this script does not have. 300 chars is plenty for
+      // a thrown Error and stays well inside the 9KB per-property limit.
+      props.setProperties({
+        lastComplaint: today,
+        lastComplaintError: String(err).slice(0, 300),
+        lastComplaintAt: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm')
+      });
       try { push('K Money: reminders sheet problem', String(err)); } catch (e) {}
     }
     throw err;
