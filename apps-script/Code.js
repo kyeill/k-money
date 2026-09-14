@@ -101,6 +101,23 @@ var COLORS_TAB = 'Colors';
 var TZ = 'America/New_York';   // times in the Sheet are read as this zone
 var GRACE_MINUTES = 15;        // how late a reminder may fire before it is skipped
 
+// Google's own services fail transiently, and Apps Script surfaces it as a
+// thrown Error indistinguishable in shape from a real problem:
+//
+//   Exception: Service Spreadsheets failed while accessing document with id ...
+//
+// That one woke Kyle at 2:05pm on 2026-09-14 with a notification he could do
+// nothing about: the read before it worked, the read after it worked, and the
+// next tick was five minutes away. A malformed header needs him immediately; a
+// Google blip needs nobody. Telling them apart is the difference between an
+// alert that means something and one he learns to ignore.
+var TRANSIENT = /Service Spreadsheets|Service invoked too many times|internal error|try again|timed out|timeout|temporarily unavailable|Service unavailable|We're sorry, a server error/i;
+
+// How many CONSECUTIVE failed reads a transient error may cause before it is
+// treated as real. Ticks are 5 minutes apart, so this is 15 minutes of Google
+// being unable to open the sheet -- past that it is worth knowing about.
+var TRANSIENT_STREAK = 3;
+
 // Ticks live in a second tab so every device sees them and this script can too.
 // setup() creates it; nothing to do by hand.
 var REMINDERS_TAB = 'Reminders';
@@ -620,7 +637,17 @@ function doGet(e) {
       } catch (e) {
         out.firedDate = 'unparseable';
       }
-      out.rules = readRules().length;
+      // Guarded: status is what gets checked WHEN something is wrong, and the
+      // most likely thing wrong is that the spreadsheet service is refusing to
+      // open the document. Throwing here would turn the diagnostic into a
+      // second failure.
+      try {
+        out.rules = readRules().length;
+      } catch (err) {
+        out.rules = null;
+        out.rulesError = String(err).slice(0, 200);
+      }
+      out.readFailures = Number(props.getProperty('readFailures') || 0);
     } else {
       out.error = 'unknown action';
     }
@@ -818,33 +845,75 @@ function addTask(task, due, category) {
 function tick() {
   var now = new Date();
   var today = Utilities.formatDate(now, TZ, 'yyyy-MM-dd');
-  var minutesNow = Number(Utilities.formatDate(now, TZ, 'HH')) * 60 +
-                   Number(Utilities.formatDate(now, TZ, 'mm'));
 
+  var props = PropertiesService.getScriptProperties();
   var rules;
   try {
-    rules = readRules();
+    rules = readOnce();
   } catch (err) {
-    // Tell someone rather than failing silently -- but ONCE A DAY, not every
-    // five minutes. The trigger runs 288 times a day, and a broken sheet would
-    // otherwise turn one problem into a notification storm.
-    var props = PropertiesService.getScriptProperties();
-    if (props.getProperty('lastComplaint') !== today) {
-      // Keep the TEXT, not just the date. The alert goes to his phone and
-      // nowhere else, so without this the only record of what actually broke
-      // is a notification he may have swiped away -- and the execution log
-      // needs a GCP project this script does not have. 300 chars is plenty for
-      // a thrown Error and stays well inside the 9KB per-property limit.
-      props.setProperties({
-        lastComplaint: today,
-        lastComplaintError: String(err).slice(0, 300),
-        lastComplaintAt: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm')
-      });
-      try { push('K Money: reminders sheet problem', String(err)); } catch (e) {}
-    }
+    if (!complainIfReal(err, today, now, props)) { return; }
     throw err;
   }
+  // A clean read ends any run of failures. Kept as a property rather than a
+  // variable because each tick is a separate execution with no memory.
+  props.deleteProperty('readFailures');
+  finishTick(rules, now, today);
+}
 
+
+/** readRules(), retried once. Most service blips do not survive one retry. */
+function readOnce() {
+  try {
+    return readRules();
+  } catch (err) {
+    if (!TRANSIENT.test(String(err))) { throw err; }
+    Utilities.sleep(2000);
+    return readRules();
+  }
+}
+
+
+/**
+ * Decide whether a failed read is worth waking him for. Returns true if the
+ * error should also be rethrown (so the execution is recorded as failed).
+ *
+ * A transient error gets silence until it has happened TRANSIENT_STREAK times
+ * in a row. Anything else -- a header that does not match, an empty grid -- is
+ * his to fix and says so at once.
+ */
+function complainIfReal(err, today, now, props) {
+  var text = String(err);
+  var streak = Number(props.getProperty('readFailures') || 0) + 1;
+  props.setProperty('readFailures', String(streak));
+  if (TRANSIENT.test(text) && streak < TRANSIENT_STREAK) {
+    Logger.log('transient read failure %s of %s: %s',
+               streak, TRANSIENT_STREAK, text);
+    return false;
+  }
+  // Tell someone rather than failing silently -- but ONCE A DAY, not every five
+  // minutes. The trigger runs 288 times a day, and a broken sheet would
+  // otherwise turn one problem into a notification storm.
+  if (props.getProperty('lastComplaint') !== today) {
+    // Keep the TEXT, not just the date. The alert goes to his phone and
+    // nowhere else, so without this the only record of what actually broke is
+    // a notification he may have swiped away -- and the execution log needs a
+    // GCP project this script does not have. 300 chars is plenty for a thrown
+    // Error and stays well inside the 9KB per-property limit.
+    props.setProperties({
+      lastComplaint: today,
+      lastComplaintError: String(err).slice(0, 300),
+      lastComplaintAt: Utilities.formatDate(now, TZ, 'yyyy-MM-dd HH:mm')
+    });
+    try { push('K Money: reminders sheet problem', String(err)); } catch (e) {}
+  }
+  return true;
+}
+
+
+/** The rest of a tick, once the rules are in hand. */
+function finishTick(rules, now, today) {
+  var minutesNow = Number(Utilities.formatDate(now, TZ, 'HH')) * 60 +
+                   Number(Utilities.formatDate(now, TZ, 'mm'));
   var fired = loadFired(today);
   // Ticked on any device, via the Done tab -- which is the whole reason the
   // ticks live in the Sheet rather than in one phone's localStorage.

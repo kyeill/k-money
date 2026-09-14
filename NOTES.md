@@ -721,10 +721,39 @@ otherwise be a notification storm -- but it also means a second failure the
 same day leaves no trace at all.
 
 `?action=status` reports `lastComplaint`, `lastComplaintAt`,
-`lastComplaintError`, `firedDate`, `firedCount` and `rules`. Use it before
-guessing: on 2026-09-14 it showed a complaint that day, 5 reminders fired, and
-54 rules read cleanly on demand -- so the failure was transient and the sheet
-was never actually broken.
+`lastComplaintError`, `firedDate`, `firedCount`, `rules` and `readFailures`.
+Use it before guessing: on 2026-09-14 it showed a complaint that day, 5
+reminders fired, and 54 rules read cleanly on demand -- so the failure was
+transient and the sheet was never actually broken.
+
+### Google fails transiently, and it used to wake him for it
+
+The 2026-09-14 alert turned out to be Google, not the sheet:
+
+```
+Exception: Service Spreadsheets failed while accessing document with id ...
+```
+
+Apps Script throws that in exactly the same shape as a real problem, so the
+complaint could not tell them apart and pushed a 2:05pm notification about
+something that needed nobody: the read before worked, the read after worked,
+and the next tick was five minutes away.
+
+Three things now stand between a blip and his phone:
+
+* `readOnce()` retries a transient failure once after 2s. Most do not survive.
+* `TRANSIENT` matches the known service-failure wording, and such an error is
+  logged silently until it has happened `TRANSIENT_STREAK` (3) times in a row
+  -- 15 minutes of Google being unable to open the sheet.
+* Anything NOT matching -- a header mismatch, an empty grid -- still complains
+  at once, because that is his to fix and waiting helps nobody.
+
+`readFailures` counts the current run and is cleared by any clean read.
+
+**`status` guards its own `readRules()` call** for the same reason: status is
+what gets checked when something is wrong, and the likeliest wrong thing is the
+spreadsheet service refusing to open the document. Throwing there would turn
+the diagnostic into a second failure.
 
 **The error text is now kept** (`lastComplaintError`). Before that the alert
 went to his phone and nowhere else, so a swiped notification was the only
