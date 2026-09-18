@@ -446,16 +446,34 @@ def side_name(competitor):
     return ("#%d %s" % (rank, name)) if rank else name
 
 
-def side_html(competitor):
+def side_html(competitor, underline=False):
     """The same name with the rank marked up.
 
     Kept separate from `side_name` because the rank has to survive as MARKUP:
     build one string and escape it whole and the span comes out as text.
+
+    `underline` wraps the NAME only, never the rank: "#10 Liverpool" underlines
+    Liverpool, so the line reads as marking the club rather than the number.
     """
     team = competitor.get("team") or {}
     name = ui.esc(team.get("displayName") or team.get("name") or "?")
+    if underline:
+        name = '<span class="op">%s</span>' % name
     rank = rank_of(competitor)
     return ('<span class="rk">#%d</span> %s' % (rank, name)) if rank else name
+
+
+def names_match(opponent, names):
+    """True when the opponent is one of `names`, as a whole-name substring.
+
+    Substring so "Ohio State" catches "Ohio State Buckeyes" without the config
+    having to spell out mascots. Nothing on these lists is a prefix of another
+    team that could be met -- "Manchester City" does not catch United, and
+    "Michigan State" is the only Michigan ever listed, since Michigan itself is
+    never the opponent.
+    """
+    opponent = (opponent or "").lower()
+    return any(n and n.lower() in opponent for n in names or [])
 
 
 def matchup_parts(home, away, soccer, neutral):
@@ -556,7 +574,8 @@ def _logo(team):
     return (override or plain.replace("/500/", "/500-dark/")), plain
 
 
-def normalize(event, sport, follow, today, colors=None, overrides=None):
+def normalize(event, sport, follow, today, colors=None, overrides=None,
+              marks=None):
     """One ESPN event -> one row, or None if it is not a real fixture."""
     comps = event.get("competitions") or []
     if not comps:
@@ -599,6 +618,14 @@ def normalize(event, sport, follow, today, colors=None, overrides=None):
     if colors and not other.get("color"):
         other.update(colors.get(other.get("id")) or {})
 
+    # Two ways an opponent is marked, both named in config.json so the lists
+    # change without a code edit: `rivals` puts the whole matchup in capitals,
+    # `underline` marks the opponent's name alone.
+    marks = marks or {}
+    opponent = other.get("displayName") or other.get("name") or ""
+    rival = names_match(opponent, marks.get("rivals"))
+    underline = names_match(opponent, marks.get("underline"))
+
     soccer = sport["path"].startswith("soccer/")
     when = local(event.get("date") or comp.get("date") or "")
     day = when.date()
@@ -612,9 +639,12 @@ def normalize(event, sport, follow, today, colors=None, overrides=None):
         "day": day,
         "at": when,
         "title": matchup(home, away, soccer, comp.get("neutralSite")),
-        "first": side_html(first),
+        "first": side_html(first, underline and first is theirs),
         "joiner": joiner,
-        "second": side_html(second),
+        "second": side_html(second, underline and second is theirs),
+        # The big rivalries, in capitals -- BOTH names, because the rivalry is
+        # the pairing, not the opponent alone. Set per row so render stays dumb.
+        "rival": rival,
         "competition": competition_label(event, comp, sport["label"]),
         "network": network,
         "marquee": timed and is_marquee(when, network,
@@ -788,6 +818,8 @@ def build(today=None, cfg=None, record=True):
 
     spans = [s for s in (season_span(p) for p in conf.get("anchors") or []) if s]
     overrides = color_overrides(cfg, conf)
+    marks = {"rivals": conf.get("rivals") or [],
+             "underline": conf.get("underline") or []}
     rows, colors, failed = [], {}, []
     for follow in conf["follow"]:
         for sport in follow.get("sports") or []:
@@ -810,7 +842,7 @@ def build(today=None, cfg=None, record=True):
             for event in events:
                 row = normalize(event, sport, follow, today,
                                 colors.get(sport["path"]),
-                                overrides)
+                                overrides, marks)
                 if row:
                     rows.append(row)
 
@@ -905,6 +937,15 @@ CSS = """
 /* The connector is part of the first line, not a column of its own: giving it
    one would leave a ragged gap after every short team name. */
 .gm .j{color:var(--muted);font-weight:400}
+/* A rivalry: both names in capitals. The connector sits INSIDE the first name's
+   span, so it would inherit the capitals too -- "AT" and "VS." -- and is put
+   back explicitly. The rank is digits and is unaffected either way. */
+.gm.rival .n1,.gm.rival .n2{text-transform:uppercase;letter-spacing:.02em}
+.gm.rival .j{text-transform:none;letter-spacing:normal}
+/* An opponent worth marking: the NAME is underlined, never the rank. Offset
+   and thinned so the line sits clear of descenders rather than striking them. */
+.gm .op{text-decoration:underline;text-decoration-thickness:1px;
+        text-underline-offset:3px}
 /* A rank reads better in light blue -- the same one the marquee network uses,
    and for the same reason: a dark navy would vanish against this ground. */
 .gm .rk{color:#8fb0d8}
@@ -977,7 +1018,7 @@ def _game(row):
 
     date = ui.esc(row["at"].strftime("%a %b ")) + str(row["at"].day)
     return (
-        '<div class="gm%s%s"%s>'
+        '<div class="gm%s%s%s"%s>'
         '%s'
         '<span class="n1">%s <span class="j">%s</span></span>'
         '<span class="r d">%s</span>'
@@ -987,6 +1028,7 @@ def _game(row):
     ) % (
         " tint" if tint else "",
         " done" if row.get("past") else "",
+        " rival" if row.get("rival") else "",
         ' style="--tint:%s;--wash:%s"' % (ui.esc(tint), _wash(row))
         if tint else ' style="--wash:%s"' % _wash(row),
         crest,

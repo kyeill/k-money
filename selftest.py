@@ -1214,6 +1214,34 @@ def test_teams_normalize():
     ok("a college preseason game is dropped by name too",
        teams.normalize(named_pre, sport, follow, dt.date(2026, 9, 1), {}), None)
 
+    # His marks, from config.json. The fixture is #22 Iowa at #16 Michigan, so
+    # Iowa is the opponent and is printed FIRST (college reads away at home).
+    marks = {"rivals": ["Iowa"], "underline": ["Iowa"]}
+    marked = teams.normalize(event, sport, follow, dt.date(2026, 9, 1), {},
+                             marks=marks)
+    true("a rival opponent marks the row", marked["rival"])
+    ok("the underline wraps the opponent's NAME, after the rank",
+       marked["first"],
+       '<span class="rk">#22</span> <span class="op">Iowa Hawkeyes</span>')
+    true("and never his own team", 'class="op"' not in marked["second"])
+    plain = teams.normalize(event, sport, follow, dt.date(2026, 9, 1), {},
+                            marks={"rivals": ["Ohio State"],
+                                   "underline": ["Liverpool"]})
+    true("an unlisted opponent is not a rival", not plain["rival"])
+    true("and is not underlined", 'class="op"' not in plain["first"])
+    true("no marks at all is the old behaviour",
+         not teams.normalize(event, sport, follow,
+                             dt.date(2026, 9, 1), {})["rival"])
+    # Substring on the full name, so the config needs no mascots -- but must
+    # not bleed: Manchester City is not United, and Michigan State is not
+    # Michigan.
+    true("'Ohio State' catches the full name",
+         teams.names_match("Ohio State Buckeyes", ["Ohio State"]))
+    true("'Manchester City' does not catch United",
+         not teams.names_match("Manchester United", ["Manchester City"]))
+    true("'Michigan State' does not catch Michigan",
+         not teams.names_match("Michigan Wolverines", ["Michigan State"]))
+
     # A competition neither followed team is in should never reach the page.
     other = json.loads(json.dumps(event))
     for c in other["competitions"][0]["competitors"]:
@@ -1279,6 +1307,15 @@ def test_teams_render():
     # a crest that occupies a row sets that row's height.
     true("the crest spans the bubble and is centred",
          ".gm .cr{grid-row:1 / span 3;align-self:center;" in teams.CSS)
+    # A rivalry is the PAIRING, so both names go to capitals -- but the
+    # connector lives inside the first name's span and would read "AT" or
+    # "VS." unless it is put back.
+    true("a rival row puts both names in capitals",
+         ".gm.rival .n1,.gm.rival .n2{text-transform:uppercase" in teams.CSS)
+    true("but not the connector",
+         ".gm.rival .j{text-transform:none" in teams.CSS)
+    true("an underlined name is underlined",
+         ".gm .op{text-decoration:underline" in teams.CSS)
 
     empty = teams.render({"today": dt.date(2026, 9, 1), "weeks": [], "error": None})
     true("nothing scheduled says so", "Nothing scheduled." in empty)

@@ -68,6 +68,10 @@
       "football/college-football",
       "basketball/mens-college-basketball"
     ],
+    "rivals": ["Michigan State", "Ohio State", "Notre Dame", "Arsenal", "Chelsea"],
+    "_rivals": "Both team names in CAPITALS when the opponent is one of these -- the connector ('at', 'vs.') stays as it is. Matched as a substring of the opponent's full name, so 'Ohio State' is enough for 'Ohio State Buckeyes'. His list, 2026-09-18.",
+    "underline": ["Liverpool", "Manchester City", "Manchester United"],
+    "_underline": "The OPPONENT's name underlined, not the whole matchup and not the rank. His list, 2026-09-18 -- he wrote Manchester City twice; Manchester United is the assumed second, completing the big-six set with the two rivals above. Remove it here if that was wrong.",
     "follow": [
       {
         "id": "130",

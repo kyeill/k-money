@@ -432,6 +432,31 @@ for the same reason — a dark navy would vanish against this ground. The Church
 tab borrows the same blue for its second week, so there is one blue across the
 app rather than two that nearly match.
 
+### Rivals and marked opponents
+
+Two lists in `config.json`'s `teams` block, so they change without a code edit:
+
+| List | Effect | Today |
+| --- | --- | --- |
+| `rivals` | **Both** team names in capitals — the rivalry is the pairing | Michigan State, Ohio State, Notre Dame, Arsenal, Chelsea |
+| `underline` | The **opponent's** name underlined, nothing else | Liverpool, Manchester City, Manchester United |
+
+Matched as a substring of the opponent's full name, so `Ohio State` is enough
+for "Ohio State Buckeyes". Nothing on either list is a prefix of a team that
+could be met: `Manchester City` does not catch United, and `Michigan State` is
+the only Michigan listed because Michigan itself is never the opponent.
+
+Two details that are easy to undo by accident:
+
+* **The connector stays lower case.** "at" / "vs." lives *inside* the first
+  name's span, so it inherits the capitals and would read "AT" unless put back
+  (`.gm.rival .j{text-transform:none}`).
+* **The underline marks the name, never the rank** — `#10 Liverpool` underlines
+  Liverpool only — and it follows the opponent whichever side is printed first.
+
+He wrote Manchester City twice; Manchester United is the assumed second, noted
+beside the list in `config.json`.
+
 ### One crest, and how tall a game reads
 
 The bubble shows **one crest: the opponent's**, spanning all three lines and
@@ -731,7 +756,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         549 assertions, no key and no network needed
+python selftest.py         561 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
