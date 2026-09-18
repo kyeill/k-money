@@ -336,22 +336,38 @@ which moves the Saturday match by an hour for a fortnight each year.
 `marquee_windows` sits per sport in `config.json`. Today three of the 49 games
 qualify.
 
-### Two endpoints, because neither is enough
+### One endpoint, asked two different ways
 
-| Team | Endpoint | Why |
+Everything now comes from a team's **schedule**, per competition:
+
+| Team | Call | Why |
 | --- | --- | --- |
-| Michigan FB / BB | `teams/130/schedule` | A whole season in one small call, with AP rankings |
-| Tottenham | `scoreboard?dates=` per competition | The team endpoint knows only its league, and would miss the Carabao Cup entirely |
+| Michigan FB / BB | `teams/130/schedule?seasontype=2` and `=3` | Regular season and postseason, with AP rankings |
+| Tottenham | `soccer/<comp>/teams/367/schedule` plain **and** `?fixture=true` | Soccer splits results from fixtures; asking per competition keeps the Carabao Cup and drops friendlies |
 
-The schedule endpoint returns **team colours as `null`**, so the opponent's
-stripe is looked up from the league's `/teams` list. The scoreboard carries
-colours already.
+Tottenham used to come from `scoreboard?dates=<range>`. **ESPN stopped accepting
+date ranges on the scoreboard in September 2026** — any length, any sport,
+`400 Failed to get events endpoint` — and every Tottenham game vanished from the
+live page. See NOTES.
 
-**No `season` parameter, and no falling back a year.** ESPN returns the current
-season on its own, and a fallback is actively wrong: ask basketball for last
-season and it happily returns thirty-four games from last winter. Michigan
-basketball is simply **absent** until ESPN publishes the schedule — silence, by
-his choice, not a placeholder.
+The schedule endpoint returns **team colours as `null`**, so every opponent's
+stripe is looked up from that league's `/teams` list, clubs included now.
+
+**The season TYPE is always named.** Left out, ESPN picks one, and its pick
+moves through the year: in September basketball's default is the empty
+preseason, so Michigan basketball showed nothing for weeks while all 25 games
+of its season were published. Regular season and postseason are asked for
+explicitly, so bowls and March appear when ESPN adds them.
+
+**No season-YEAR parameter, and no falling back a year.** ESPN returns the
+current season on its own, and a year fallback is actively wrong: ask
+basketball for last season and it happily returns thirty-four games from last
+winter. Season *type* is a different thing and selects only within the current
+season.
+
+**A competition ESPN will not serve is named on the page**, in amber above the
+first week. An unreachable competition and an empty one used to look identical,
+which is how a whole club disappeared without a word.
 
 ### Colour
 
@@ -715,7 +731,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         539 assertions, no key and no network needed
+python selftest.py         549 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

@@ -587,15 +587,16 @@ assertions that each superseded value is *gone*.
 
 Each cost a check against the live API on 2026-09-01.
 
-**Team colours are null on the team-schedule endpoint** and present on the
-scoreboard. So the opponent's stripe for a college game has to be looked up
-from that league's `/teams` list; soccer gets it for free.
+**Team colours are null on the team-schedule endpoint.** So every opponent's
+stripe is looked up from that league's `/teams` list. Soccer used to get it for
+free from the scoreboard; since the move to team schedules it does not.
 
-**`teams/<id>/schedule` with an explicit `season` is a trap.** Ask basketball
-for last season and it returns thirty-four games from last winter, all of them
-looking perfectly valid. No parameter, no fallback: ESPN returns the current
-season on its own, and an unpublished schedule should be absent rather than
-wrong.
+**`teams/<id>/schedule` with an explicit `season` YEAR is a trap.** Ask
+basketball for last season and it returns thirty-four games from last winter,
+all of them looking perfectly valid. No year parameter, no fallback.
+
+**But the season TYPE must be named, or ESPN picks one.** See the section below
+-- leaving it out is what made Michigan basketball look unpublished.
 
 **`timeValid: false` means the kickoff is not set.** ESPN stamps those games at
 midnight Eastern, so without the check a Big Ten game five weeks out renders
@@ -786,3 +787,63 @@ conflict here -- `output/history` is touched by nothing except this job.
 
 The same shape exists in standings, whose README already says to
 `git pull --rebase` before pushing for exactly this reason.
+
+## ESPN changed two things in September 2026, and both failed silently
+
+### The scoreboard no longer takes a date RANGE
+
+Every `scoreboard?dates=YYYYMMDD-YYYYMMDD` call now answers
+
+```
+400 {"code":400,"message":"Failed to get events endpoint."}
+```
+
+Any length -- a single week fails -- and any sport: college football, the
+control, fails too. A single day still works, and so does no date at all, which
+is why `season_span()` (a bare scoreboard call for the calendar) survived.
+
+Tottenham was built on the range call, so every Tottenham game vanished from
+the live page. **Two things hid it.** Locally, `_get` fell back to a stale cache
+and the tab looked complete. And `build()` had a `failed` list that nothing ever
+filled or rendered, so on the build machine -- which has no cache -- six
+competitions failed and the page simply showed fewer games.
+
+Clubs now read `soccer/<comp>/teams/<id>/schedule`, **twice**: plain for
+results, `?fixture=true` for what is to come. Soccer splits them; college does
+not. Per competition, because the all-competitions view includes pre-season
+friendlies. A fetch that returns nothing at all now lands in `failed` and is
+named on the page in amber.
+
+### Without a season type, ESPN chooses -- and chooses badly
+
+Michigan basketball's schedule call returned **zero** events while its 25-game
+2026-27 regular season was published. The default season type in September is
+the preseason, which is empty. `?seasontype=2` returns all 25. Football only
+ever worked because its default happened to be the regular season.
+
+`SEASON_TYPES = (2, 3)` asks for regular season and postseason by name. For a
+month this looked like "ESPN has not published it yet", which is exactly what
+the old docstring predicted and why nobody questioned it.
+
+### And the soccer league is seasonType ONE on the team schedule
+
+The exhibition filter dropped anything at `seasonType.id == "1"`, which is the
+college preseason. On a soccer team schedule, id "1" is the league itself:
+`"2026-27 English Premier League"`. So the new source fetched 38 league games
+and `normalize` threw away all 38, silently, while the Carabao Cup at id "3"
+came through -- which is what gave it away.
+
+Exhibitions are now identified by NAME (`EXHIBITION` matches friendly,
+exhibition, pre-season), and the bare-id rule is kept only outside soccer.
+
+### What to take from it
+
+Three separate silent failures in one tab, each invisible for a different
+reason: a cache, an unrendered error list, and a filter that was correct for
+the source it was written against. `selftest.py` now checks the SOURCE for a
+date range and for the season type, because no fixture can reproduce ESPN's
+current behaviour -- and the league-at-type-1 test was confirmed to fail
+against the old rule before being trusted.
+
+**This almost certainly affects sports-daily, standings and games-history**,
+which all talk to the same scoreboard. Checked separately.

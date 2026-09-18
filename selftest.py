@@ -1189,6 +1189,31 @@ def test_teams_normalize():
     ok("a friendly is dropped",
        teams.normalize(friendly, sport, follow, dt.date(2026, 9, 1), {}), None)
 
+    # seasonType id "1" does NOT mean exhibition everywhere. On a soccer TEAM
+    # SCHEDULE it is the league itself: "2026-27 English Premier League"
+    # arrives as id "1". A bare id rule dropped all 38 of Tottenham's league
+    # games the moment the source moved off the scoreboard, silently, while the
+    # Carabao Cup (id "3") came through -- which is what gave it away.
+    soccer = {"path": "soccer/eng.1", "label": "Premier League"}
+    spurs = {"id": "367", "wash": "#8b93a0"}
+    league = json.loads(json.dumps(event))
+    league["competitions"][0]["competitors"][0]["team"]["id"] = "367"
+    league["seasonType"] = {"id": "1",
+                            "name": "2026-27 English Premier League"}
+    true("a soccer LEAGUE game at seasonType 1 is kept",
+         teams.normalize(league, soccer, spurs, dt.date(2026, 9, 1), {})
+         is not None)
+    # Friendlies are named as such, and that is what excludes them now.
+    club_friendly = dict(league, seasonType={"id": "1",
+                                             "name": "2026 Club Friendly"})
+    ok("a soccer friendly is still dropped, by its name",
+       teams.normalize(club_friendly, soccer, spurs, dt.date(2026, 9, 1), {}),
+       None)
+    # And college keeps the bare-id rule, where type 1 IS the preseason.
+    named_pre = dict(event, seasonType={"id": "1", "name": "Preseason"})
+    ok("a college preseason game is dropped by name too",
+       teams.normalize(named_pre, sport, follow, dt.date(2026, 9, 1), {}), None)
+
     # A competition neither followed team is in should never reach the page.
     other = json.loads(json.dumps(event))
     for c in other["competitions"][0]["competitors"]:
@@ -1917,6 +1942,54 @@ def test_teams_density():
                  "font-size:13.25px", "width:17.5px", "font-size:11.75px",
                  "width:20px;height:20px"):
         true("%s is gone" % gone, gone not in teams.CSS)
+
+
+def test_espn_sources():
+    """How ESPN is asked, which it changed under us in September 2026.
+
+    Two separate failures, both silent:
+
+    * The scoreboard stopped accepting date RANGES -- any length, any sport --
+      answering 400 "Failed to get events endpoint". Every Tottenham game
+      vanished from the live page. A stale local cache hid it here.
+    * Michigan basketball's team schedule answered with ZERO games while its
+      25-game season was published, because without a season type ESPN picks
+      one, and in September basketball's pick is the empty preseason.
+
+    Source checks, because a live fetch proves nothing about either: both only
+    fail against ESPN's current behaviour, which a fixture cannot reproduce.
+    """
+    import inspect
+    import io
+    import os
+    import teams
+
+    here = os.path.dirname(os.path.abspath(__file__))
+    src = io.open(os.path.join(here, "teams.py"), encoding="utf-8").read()
+    code = "\n".join(line for line in src.splitlines()
+                     if not line.lstrip().startswith("#"))
+    true("no scoreboard call carries a date range",
+         '"dates"' not in code and "'dates'" not in code)
+
+    ok("college asks for regular season and postseason by name",
+       teams.SEASON_TYPES, (2, 3))
+    body = inspect.getsource(teams._schedule_events)
+    true("and actually sends it", '"seasontype"' in body)
+
+    club = inspect.getsource(teams._club_events)
+    true("clubs read the team schedule", "/teams/%s/schedule" in club)
+    true("for fixtures as well as results", '"fixture"' in club)
+
+    # Unreachable must say so. An empty competition and an unreachable one
+    # looked identical, which is how a whole club disappeared without a word.
+    html = teams.render({"today": dt.date(2026, 9, 18), "weeks": [],
+                         "error": None, "failed": ["Premier League"]})
+    true("a competition ESPN would not serve is named on the page",
+         'class="wfail"' in html and "Premier League" in html)
+    true("and nothing is said when nothing failed",
+         'class="wfail"' not in teams.render(
+             {"today": dt.date(2026, 9, 18), "weeks": [], "error": None,
+              "failed": []}))
 
 
 def main():

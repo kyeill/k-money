@@ -563,9 +563,22 @@ def normalize(event, sport, follow, today, colors=None, overrides=None):
         return None
     comp = comps[0]
     # Exhibitions and friendlies are not games he wants on the page.
+    #
+    # Identified by what they are CALLED, not by seasonType id alone. The id
+    # means different things in different places: in college, type 1 is the
+    # preseason; on a soccer TEAM SCHEDULE, type 1 is the league itself --
+    # "2026-27 English Premier League" arrives as id "1". A bare `id == "1"`
+    # rule dropped all 38 of Tottenham's league games the moment the source
+    # switched from the scoreboard to the team schedule, while the Carabao Cup
+    # (id "3") came through, which is what gave it away.
     kind = (comp.get("type") or {}).get("abbreviation") or ""
-    season_type = (event.get("seasonType") or {}).get("id")
-    if kind.upper() in ("EXH", "FRIENDLY") or season_type == "1":
+    season = event.get("seasonType") or {}
+    label = season.get("name") or season.get("abbreviation") or ""
+    if kind.upper() in ("EXH", "FRIENDLY") or EXHIBITION.search(label):
+        return None
+    # The bare id is still right for college, where a preseason game can carry
+    # no useful name -- so it stays, scoped to where it means preseason.
+    if season.get("id") == "1" and not sport["path"].startswith("soccer/"):
         return None
 
     sides = comp.get("competitors") or []
@@ -690,37 +703,72 @@ def _teams_colors(path):
     return out
 
 
+# Regular season, then postseason. Asked for BY NAME rather than left to ESPN.
+SEASON_TYPES = (2, 3)
+
+# What a game is CALLED when it does not count. Matched against the season
+# type's name, because its id is not consistent across sports -- see normalize.
+EXHIBITION = re.compile(r"friendl|exhibition|pre-?season", re.I)
+
+
 def _schedule_events(sport, follow, today):
-    """A college team's season, as ESPN currently defines it.
+    """A college team's season: regular season plus postseason. None if ESPN
+    could not be reached for any of it.
 
-    NO season parameter, and no falling back to the previous year. ESPN returns
-    the current season on its own, and a fallback would be actively wrong: ask
-    basketball for last season and it happily returns thirty-four games from
-    last winter. Michigan basketball is simply absent until ESPN publishes the
-    schedule, which is what he asked for -- silence, not a placeholder.
+    **The season TYPE is asked for explicitly.** Without it ESPN picks one, and
+    its pick changes through the year: in September basketball's default is
+    the preseason, which is empty, so the endpoint answered with zero games
+    while all 25 of Michigan's 2026-27 regular season sat one parameter away.
+    That read as "not published yet" for weeks. Football happened to default to
+    the regular season, which is the only reason it ever worked. Postseason is
+    asked for too, so bowls and March appear when ESPN adds them rather than
+    when its default next moves.
+
+    Still NO season-YEAR parameter, and no falling back to the previous year: a
+    year fallback would be actively wrong -- ask basketball for last season and
+    it happily returns thirty-four games from last winter. Season TYPE is a
+    different thing and carries no such risk; it only ever selects within the
+    current season.
     """
-    data = _get("%s/teams/%s/schedule" % (sport["path"], follow["id"]),
-                cache_key="sched-%s-%s" % (sport["path"], follow["id"]))
-    return (data or {}).get("events") or []
+    events, reached = [], False
+    for kind in SEASON_TYPES:
+        data = _get("%s/teams/%s/schedule" % (sport["path"], follow["id"]),
+                    params={"seasontype": kind},
+                    cache_key="sched-%s-%s-t%d" % (sport["path"], follow["id"], kind))
+        if data is not None:
+            reached = True
+            events.extend(data.get("events") or [])
+    return events if reached else None
 
 
-def _scoreboard_events(sport, follow, spans):
-    """A club across one competition. Filtered to the followed team here,
-    because a season of Premier League is 380 matches and 38 are his."""
-    lo = min([s[0] for s in spans if s], default=None)
-    hi = max([s[1] for s in spans if s], default=None)
-    if not lo or not hi:
-        return []
-    window = "%s-%s" % (lo.replace("-", ""), hi.replace("-", ""))
-    data = _get(sport["path"] + "/scoreboard",
-                params={"dates": window, "limit": 1000},
-                cache_key="sb-%s-%s" % (sport["path"], window))
-    out = []
-    for event in (data or {}).get("events") or []:
-        sides = (event.get("competitions") or [{}])[0].get("competitors") or []
-        if any((c.get("team") or {}).get("id") == follow["id"] for c in sides):
-            out.append(event)
-    return out
+def _club_events(sport, follow):
+    """A club across one competition: results AND fixtures. None if ESPN could
+    not be reached for either.
+
+    This was one scoreboard call with a date range, filtered to the club. In
+    September 2026 ESPN stopped accepting date RANGES on the scoreboard at all
+    -- any length, any sport, even a single week answers
+
+        400 {"code":400,"message":"Failed to get events endpoint."}
+
+    while a single day still works. Every Tottenham game vanished from the live
+    page as a result, and nothing said so: locally a stale cache papered over
+    it, and the build machine has no cache.
+
+    The team schedule replaces it, per competition. For soccer it splits in
+    two -- the plain call returns results and `fixture=true` returns what is
+    still to come -- so both are asked for. Scoped to one competition it never
+    includes pre-season friendlies, which the all-competitions view does.
+    """
+    events, reached = [], False
+    for kind, params in (("res", None), ("fix", {"fixture": "true"})):
+        data = _get("%s/teams/%s/schedule" % (sport["path"], follow["id"]),
+                    params=params,
+                    cache_key="club-%s-%s-%s" % (sport["path"], follow["id"], kind))
+        if data is not None:
+            reached = True
+            events.extend(data.get("events") or [])
+    return events if reached else None
 
 
 def build(today=None, cfg=None, record=True):
@@ -745,10 +793,20 @@ def build(today=None, cfg=None, record=True):
         for sport in follow.get("sports") or []:
             if sport.get("mode") == "schedule":
                 events = _schedule_events(sport, follow, today)
-                if sport["path"] not in colors:
-                    colors[sport["path"]] = _teams_colors(sport["path"])
             else:
-                events = _scoreboard_events(sport, follow, spans)
+                events = _club_events(sport, follow)
+            # BOTH need this now. The team schedule returns colours as null
+            # whatever the sport, and clubs only ever had them because the
+            # scoreboard carried them inline.
+            if sport["path"] not in colors:
+                colors[sport["path"]] = _teams_colors(sport["path"])
+            if events is None:
+                # Said on the page, not just in the build log. An empty
+                # competition and an unreachable one look identical otherwise
+                # -- which is exactly how every Tottenham game disappeared
+                # without a word.
+                failed.append(sport.get("label") or sport["path"])
+                continue
             for event in events:
                 row = normalize(event, sport, follow, today,
                                 colors.get(sport["path"]),
@@ -869,6 +927,9 @@ CSS = """
    week's marquee games are findable without reading every row. */
 .gm .net.marquee{color:#8fb0d8}
 .wnone{color:var(--muted);font-size:13px;padding:1px 2px 8px}
+/* A competition ESPN would not serve. Quiet but not muted: it is the only thing
+   on the tab that says games are MISSING rather than merely absent. */
+.wfail{color:#e0a72b;font-size:13px;padding:10px 2px 2px}
 @media (min-width:641px){
   .wk{margin:24px 0 0}
   .wk h2{font-size:13px}
@@ -944,9 +1005,15 @@ def render(data):
     if data.get("error"):
         return ('<div class="rerr">Could not read the schedule: %s</div>'
                 % ui.esc(data["error"]))
-    if not data["weeks"]:
-        return '<div class="wnone">Nothing scheduled.</div>'
     out = []
+    failed = data.get("failed") or []
+    if failed:
+        out.append('<div class="wfail">Could not reach ESPN for %s, so those '
+                   'games are missing.</div>'
+                   % ui.esc(", ".join(failed)))
+    if not data["weeks"]:
+        out.append('<div class="wnone">Nothing scheduled.</div>')
+        return "".join(out)
     for monday, games in data["weeks"]:
         out.append('<div class="wk"><h2>%s</h2>' % ui.esc(week_heading(monday)))
         if games:
