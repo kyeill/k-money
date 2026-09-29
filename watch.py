@@ -338,6 +338,42 @@ def _save_pinned(rows):
         pass
 
 
+# A revival carries its original's name, and TMDB ranks by popularity, so the
+# show that ran for nine years outranks the one airing next week. Only consulted
+# when a title matches more than one series EXACTLY -- a rare, cheap case.
+RUNNING = ("Returning Series", "In Production", "Planned")
+
+
+def pick_hit(kind, title, hits, lang="en-US"):
+    """The match he meant: the one still releasing episodes, if there is a tie.
+
+    TMDB's first result for "Scrubs" is the 2001 series -- Canceled in 2010 --
+    because it is far more popular than the 2026 revival that has an episode
+    airing tomorrow. Same for "Harry Potter", where the films outrank the new
+    series. Both times he had to say which one he meant.
+
+    So when several series share the title EXACTLY, the one that is still
+    running wins. Exact match matters: "Scrubs" must not be resolved by
+    "Scrubs: Interns", and a title with one match never costs a call.
+    """
+    if not hits:
+        return None
+    if kind != "tv" or len(hits) < 2:
+        return hits[0]
+    wanted = (title or "").strip().lower()
+    same = [h for h in hits if (h.get("name") or "").strip().lower() == wanted]
+    if len(same) < 2:
+        return hits[0]
+    for hit in same[:4]:
+        try:
+            info = tmdb.detail("tv", hit["id"], lang) or {}
+        except Exception:
+            continue
+        if info.get("next_episode_to_air") or info.get("status") in RUNNING:
+            return hit
+    return hits[0]
+
+
 def hand_added(cfg, lang, unresolved=None):
     """Everything pinned by hand: the Sheet's Watchlist tab, plus config.json.
 
@@ -390,6 +426,7 @@ def hand_added(cfg, lang, unresolved=None):
                 hits = tmdb.search(kind, row["title"], lang)
                 if hits:
                     break
+            hits = [pick_hit(kind, row["title"], hits, lang)] if hits else hits
             if not hits:
                 unresolved.append(row["title"])
                 print("watchlist: NO MATCH for %r" % row["title"])

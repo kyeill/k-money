@@ -375,6 +375,57 @@ def test_sheet_watchlist_merge():
             sheet_watchlist_env(tmp)
 
 
+def test_revival_wins():
+    """A revival shares its original's name, and TMDB ranks by popularity.
+
+    "Scrubs" returns the 2001 series first -- Canceled in 2010 -- ahead of the
+    2026 revival with an episode airing tomorrow. Same shape as "Harry
+    Potter", where the films outrank the new series. Both times Kyle had to say
+    which one he meant, so a title matching several series EXACTLY now goes to
+    whichever is still releasing.
+    """
+    import tmdb
+    import watch
+
+    hits = [{"id": 4556, "name": "Scrubs", "first_air_date": "2001-10-02"},
+            {"id": 295778, "name": "Scrubs", "first_air_date": "2026-02-25"},
+            {"id": 17486, "name": "Scrubs: Interns", "first_air_date": "2009-01-01"}]
+    status = {4556: {"status": "Canceled"},
+              295778: {"status": "Returning Series",
+                       "next_episode_to_air": {"air_date": "2026-09-30"}},
+              17486: {"status": "Ended"}}
+
+    real = tmdb.detail
+    tmdb.detail = lambda kind, tid, lang="en-US": status.get(int(tid), {})
+    try:
+        ok("the running series wins a tie on the title",
+           watch.pick_hit("tv", "Scrubs", hits)["id"], 295778)
+        # Exact match only: "Scrubs" must not be answered with Scrubs: Interns,
+        # which is a different show that merely starts with the same word.
+        ok("a near-miss title is not a tie",
+           watch.pick_hit("tv", "Scrubs: Interns", hits)["id"], 4556)
+        # One match, or a film: the top hit stands and no detail call is made.
+        calls = []
+        tmdb.detail = lambda *a, **k: calls.append(a) or {}
+        ok("a single match is taken as is",
+           watch.pick_hit("tv", "Scrubs", hits[:1])["id"], 4556)
+        ok("and costs no extra call", calls, [])
+        ok("films are left alone",
+           watch.pick_hit("movie", "Scrubs", hits)["id"], 4556)
+        ok("still nothing asked for a film", calls, [])
+    finally:
+        tmdb.detail = real
+
+    # Everything dead: the most popular still wins, rather than nothing.
+    tmdb.detail = lambda kind, tid, lang="en-US": {"status": "Ended"}
+    try:
+        ok("all ended falls back to the top hit",
+           watch.pick_hit("tv", "Scrubs", hits)["id"], 4556)
+    finally:
+        tmdb.detail = real
+    ok("no hits stays None", watch.pick_hit("tv", "Scrubs", []), None)
+
+
 def test_no_refresh_flash():
     """The tab opens on a baked copy and then refetches. Rebuilding identical
     rows and assigning them anyway tears the list down and rebuilds it, which

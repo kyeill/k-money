@@ -718,6 +718,18 @@ After that it is read, never guessed — so a wrong match is a line in a diff
 rather than a show that quietly turns into a different show. The build prints
 what each title resolved to the first time.
 
+**A revival beats its original on a tie.** TMDB ranks by popularity, so
+"Scrubs" comes back as the 2001 series — Canceled in 2010 — ahead of the 2026
+revival that has an episode airing this week, and "Harry Potter" comes back as
+the films. When several *series* match the title **exactly**, whichever is
+still releasing wins: `pick_hit()` checks `next_episode_to_air` and the status.
+Exact match matters, or "Scrubs" would be answered with *Scrubs: Interns*, and
+a title with a single match costs no extra call at all.
+
+That rule only applies the first time a title is resolved. **Scrubs was already
+remembered as the 2001 show** and was corrected in `watchlist.json` by hand;
+the `Id` column overrules everything if you ever want to be explicit.
+
 That same file is the **fallback if the sheet cannot be read**. An empty
 response is not an empty list: a Watchlist tab with nothing on it still returns
 its header row, so nothing at all means the fetch failed, and honouring that
@@ -756,7 +768,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         561 assertions, no key and no network needed
+python selftest.py         569 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

@@ -847,3 +847,30 @@ against the old rule before being trusted.
 
 **This almost certainly affects sports-daily, standings and games-history**,
 which all talk to the same scoreboard. Checked separately.
+
+## A revival outranked by its own original
+
+TMDB's search ranks by popularity, and a revival carries the original's exact
+name. So:
+
+* `search/tv?query=Scrubs` returns **4556**, the 2001 series, Canceled in 2010.
+  The 2026 revival is **295778**, "Returning Series", next episode 2026-09-30.
+* `Harry Potter` returns the films ahead of the new series.
+
+Kyle had to say which one he meant BOTH times, which is the tell that the
+default was wrong rather than the titles being ambiguous.
+
+`watch.pick_hit()` breaks the tie: among series whose name matches the query
+EXACTLY, the one with a `next_episode_to_air` or a running status wins. Three
+things keep it cheap and safe:
+
+* only for `tv`, and only when two or more hits match exactly -- normally zero
+  extra calls
+* EXACT match, so "Scrubs" is never answered with "Scrubs: Interns"
+* if nothing is running, the top hit still wins rather than nothing
+
+**It does not repair what is already remembered.** Ids are resolved once and
+stored in `output/history/watchlist.json`; Scrubs was already there as 4556 and
+was edited to 295778 by hand. A title that has ever resolved keeps its id until
+that file or the sheet's `Id` column says otherwise -- which is the point of
+remembering, not a bug.
