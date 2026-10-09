@@ -333,7 +333,9 @@ range rather than an exact time, partly because a window shifts occasionally and
 partly because Britain and the States change their clocks on different dates,
 which moves the Saturday match by an hour for a fortnight each year.
 
-`marquee_windows` sits per sport in `config.json`. Today three of the 49 games
+`marquee_windows` sits per sport in `config.json`. Network names are matched
+**case-insensitively**, because ESPN alternates between `FOX` and `Fox` and an
+exact match silently stopped lighting up the noon window (see NOTES). Today three of the 49 games
 qualify.
 
 ### One endpoint, asked two different ways
@@ -768,7 +770,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         569 assertions, no key and no network needed
+python selftest.py         576 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

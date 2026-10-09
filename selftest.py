@@ -1101,6 +1101,25 @@ def test_teams_marquee():
     true("no network, no marquee", not teams.is_marquee(at(5, 12), None, cfb))
     true("no windows, no marquee", not teams.is_marquee(at(5, 12), "FOX", []))
 
+    # ESPN changes its mind about capitals between seasons: it sent FOX in
+    # September 2026 and Fox by October. The window names its networks, so the
+    # day the casing changed the noon window stopped matching and Michigan at
+    # Ohio State silently lost its highlight -- a week with no marquee game
+    # looks exactly like a week with no marquee game.
+    true("the window matches whatever case ESPN sends",
+         teams.is_marquee(at(5, 12), "Fox", cfb))
+    true("and the time still has to be right",
+         not teams.is_marquee(at(5, 15, 30), "Fox", cfb))
+
+    # The channel's own name is capitals, and the page says so.
+    ok("Fox is shown as FOX", teams.network_name("Fox"), "FOX")
+    ok("FOX stays FOX", teams.network_name("FOX"), "FOX")
+    # The lookup is case-insensitive, so the same drift in any other spelling
+    # ESPN alternates is already covered.
+    ok("a mapped name in either case", teams.network_name("fox sports 1"), "FS1")
+    ok("an unmapped name is left alone", teams.network_name("TNT"), "TNT")
+    ok("nothing in, nothing out", teams.network_name(None), None)
+
 
 def test_teams_rounds():
     """Cup rounds live in season.slug, not in a note."""

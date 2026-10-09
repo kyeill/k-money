@@ -874,3 +874,35 @@ stored in `output/history/watchlist.json`; Scrubs was already there as 4556 and
 was edited to 295778 by hand. A title that has ever resolved keeps its id until
 that file or the sheet's `Id` column says otherwise -- which is the point of
 remembering, not a bug.
+
+## ESPN changed FOX to Fox, and the marquee window went quiet
+
+The showcase windows in `config.json` name their networks (`"networks": ["FOX"]`),
+and the match was an exact `in` test. ESPN sent **FOX** in September 2026 and
+**Fox** by October, so the noon Saturday window stopped matching.
+
+Nothing looked broken. **Michigan at Ohio State, noon on FOX, simply was not
+blue** -- and a week with no marquee game is indistinguishable from a week with
+no marquee game. It surfaced only because Kyle asked for FOX in capitals and
+then, separately, whether the colouring rule still existed. Two questions, one
+cause.
+
+Both halves are fixed:
+
+* `NETWORK_NAMES` maps `Fox` to `FOX`, and is now looked up
+  **case-insensitively** -- so the same drift in any other spelling ESPN
+  alternates ("FOX Sports 1" / "Fox Sports 1") is already covered.
+* `is_marquee()` compares network names **case-insensitively** too. The config
+  should not have to track ESPN's house style.
+
+A raw dump of what ESPN actually sends is the way to check this; at the time
+only `Fox` had drifted, with BTN, CBS, FS1, NBC and TNT unchanged:
+
+```python
+for m, n in teams._broadcast_names(comp): ...
+```
+
+**The general shape, worth remembering:** a rule that only ever ADDS emphasis
+fails silently, because its absence looks like the ordinary case. Anything
+matching an external string exactly is one upstream edit away from doing
+nothing at all.

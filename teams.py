@@ -288,9 +288,22 @@ STREAMING = ("Peacock", "Paramount+", "ESPN+", "Prime Video", "Apple TV",
              "Apple TV+", "Netflix", "Max", "HBO Max", "Fubo", "B1G+",
              "ESPN3", "ESPN Unlimited", "ESPN Select", "Peacock Premium")
 # ESPN alternates spellings between games; these are the ones that fit.
+#
+# "Fox" is the channel's own name in capitals, and ESPN sends it either way --
+# it said FOX in September and Fox by October. That is not only cosmetic: the
+# marquee windows name their networks, so the day the casing changed, the FOX
+# noon window stopped matching and Michigan at Ohio State quietly lost its
+# highlight. Looked up CASE-INSENSITIVELY below for the same reason.
 NETWORK_NAMES = {"USA Net": "USA", "CBS Sports Network": "CBSSN",
                  "SEC Network+": "SECN+", "NBC Sports": "NBC",
-                 "Big Ten Network": "BTN", "FOX Sports 1": "FS1"}
+                 "Big Ten Network": "BTN", "FOX Sports 1": "FS1",
+                 "Fox": "FOX"}
+_BY_LOWER = {k.lower(): v for k, v in NETWORK_NAMES.items()}
+
+
+def network_name(name):
+    """ESPN's spelling of a channel, mapped to the one this page uses."""
+    return _BY_LOWER.get((name or "").strip().lower(), name)
 
 
 def _broadcast_names(comp):
@@ -323,7 +336,7 @@ def pick_network(comp):
     which is the honest answer -- that feed is only useful if you happen to
     get it.
     """
-    entries = [(m, NETWORK_NAMES.get(n, n)) for m, n in _broadcast_names(comp)]
+    entries = [(m, network_name(n)) for m, n in _broadcast_names(comp)]
     national = [n for m, n in entries if m == "national"]
     if not national:
         return None
@@ -358,7 +371,11 @@ def is_marquee(when, network, windows):
         days = window.get("days") or []
         if days and when.strftime("%a") not in days:
             continue
-        if network not in (window.get("networks") or []):
+        # Case-insensitively. The names come from ESPN, which changes its mind
+        # about capitals between seasons, and a window that silently stops
+        # matching looks exactly like a week with no marquee game in it.
+        if network.lower() not in [str(n).lower()
+                                   for n in window.get("networks") or []]:
             continue
         if window.get("from") and clock_now < _minutes(window["from"]):
             continue
