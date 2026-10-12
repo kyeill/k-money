@@ -282,6 +282,31 @@ The filter runs locally against `genre_ids` on the discover results rather than
 through `without_genres`, because the film rule ANDs two genres and the
 `without_genres` separators do not express that reliably.
 
+### ...but a brand-new TMDB entry has no genres at all
+
+*Krypto Saves the Day!: Robo-Pal* reached the live page on **2026-10-12** with
+`genre_ids: []`. Every other short in that series carries Animation and was
+filtered correctly; this one had simply not been tagged yet. **A genre filter
+is only as good as the tagging, and the tagging arrives late** -- so the newest
+item in a banned series is exactly the one that gets through, every time.
+
+Guessing from the blanks is not the answer: an untagged entry could just as
+easily be a real film, and dropping it would be the failure that matters.
+`exclude_preschool` is unchanged.
+
+Instead `config.json` grew **`ignore_titles`** -- a case-insensitive substring
+of the title, listed in `_comment_ignore_titles_list` with the reason, the way
+`ignore` already works for ids. Krypto is the first entry (his call,
+2026-10-12). Two deliberate choices in `watch.ignored_title`:
+
+* It is matched against the title **the page shows**, from the detail call, not
+  the cheaper discover row. The two can differ, and a ban that tests something
+  other than what Kyle reads is a ban he cannot reason about. One banned title
+  costs one detail call, which is nothing.
+* It **never applies to a watchlist entry**. A substring is a blunt instrument
+  and a hand-added title is explicit; the reverse would make a pin fail
+  silently, which is the one thing pins exist to prevent.
+
 ## A studio files its own podcasts under its own company
 
 And TMDB types them **Miniseries**, so `with_type=2|4` does not catch them.

@@ -33,6 +33,17 @@
     "movie/806704",
     "movie/1504329"
   ],
+  "_comment_ignore_titles": "Same idea as `ignore`, but matched as a case-insensitive SUBSTRING of the title, and only against titles found by studio -- never against anything on the Watchlist tab. For a recurring thing where a new id appears every few weeks and an id list would be endless.",
+  "ignore_titles": [
+    "Krypto Saves the Day"
+  ],
+  "_comment_ignore_titles_list": [
+    "Krypto Saves the Day   DC Studios shorts, Disney-Jr. tier. The preschool",
+    "                       filter normally catches them on Animation, but TMDB",
+    "                       creates each one UNTAGGED and adds the genres days",
+    "                       later -- Robo-Pal reached the page on 2026-10-12",
+    "                       with genre_ids: []. His call: drop the lot by name."
+  ],
   "_comment_ignore_list": [
     "NOT THE DCU -- will never come back:",
     "  movie/806704   The Batman: Part II -- Elseworlds, not the DCU",

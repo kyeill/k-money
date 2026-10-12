@@ -757,6 +757,12 @@ status. Entries here need `type` and `id`; leave the id `null` and
 `ignore` takes `"movie/1234"` or a bare id, for anything discovery keeps
 surfacing that you do not care about.
 
+`ignore_titles` is the same thing by **name** -- a case-insensitive substring
+of the title as the page shows it, for a recurring thing where a new id turns
+up every few weeks and an id list would never be finished. It is applied to
+studio discovery only, never to a watchlist entry: a pattern is blunt, and
+something you added by hand is an instruction.
+
 A watchlist entry is **pinned**: it is never dropped for its status. TMDB calls
 Peacemaker "Ended" while season 3 is announced, and a title you added by hand
 silently disappearing is indistinguishable from a bug.
@@ -770,7 +776,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         576 assertions, no key and no network needed
+python selftest.py         585 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

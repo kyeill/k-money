@@ -1817,6 +1817,53 @@ def test_ignore():
          not gone & {r["title"] for r in data["rows"]})
 
 
+def test_ignore_titles():
+    true("a plain substring, case-insensitively",
+         watch.ignored_title("Krypto Saves the Day!: Robo-Pal",
+                             ["krypto saves the day"]))
+    true("and the other way round",
+         watch.ignored_title("krypto saves the day!: space busted",
+                             ["Krypto Saves the Day"]))
+    true("an unrelated title survives",
+         not watch.ignored_title("Avengers: Doomsday", ["Krypto"]))
+    true("no patterns bans nothing",
+         not watch.ignored_title("Avengers: Doomsday", []))
+    true("neither does a blank pattern",
+         not watch.ignored_title("Avengers: Doomsday", [""]))
+    true("a missing title is not a match",
+         not watch.ignored_title(None, ["Krypto"]))
+
+    # End to end: the ban applies to what discovery found...
+    cfg = dict(CFG, ignore_titles=["avengers"])
+    tmdb.use_fixtures(fixtures())
+    with tempfile.TemporaryDirectory() as tmp:
+        saved, watch.SEEN = watch.SEEN, os.path.join(tmp, "seen.json")
+        try:
+            data = watch.build(today=TODAY, cfg=cfg, record=False)
+        finally:
+            watch.SEEN = saved
+    titles = {r["title"] for r in data["rows"]}
+    true("a banned title never reaches the page",
+         "Avengers: Doomsday" not in titles)
+    true("and the rest of the slate is untouched",
+         "Daredevil: Born Again" in titles)
+
+    # ...and NEVER to something he put on the Watchlist himself. A pattern is a
+    # blunt instrument; a hand-added entry is an explicit instruction.
+    cfg = dict(CFG, ignore_titles=["avengers"],
+               watchlist=[{"title": "Avengers: Doomsday", "type": "movie",
+                           "id": "1000", "label": "Custom"}])
+    tmdb.use_fixtures(fixtures())
+    with tempfile.TemporaryDirectory() as tmp:
+        saved, watch.SEEN = watch.SEEN, os.path.join(tmp, "seen.json")
+        try:
+            data = watch.build(today=TODAY, cfg=cfg, record=False)
+        finally:
+            watch.SEEN = saved
+    true("a hand-added title outranks the ban",
+         "Avengers: Doomsday" in {r["title"] for r in data["rows"]})
+
+
 def test_new_badge():
     tmdb.use_fixtures(fixtures())
     with tempfile.TemporaryDirectory() as tmp:

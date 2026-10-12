@@ -443,11 +443,30 @@ def hand_added(cfg, lang, unresolved=None):
     return items + kept
 
 
+def ignored_title(title, patterns):
+    """Does this title match one of the auto-discovery title bans?
+
+    Case-insensitive substring, because the thing being banned is usually a
+    recurring series of shorts whose episodes differ only after the colon.
+
+    Only applied to titles found BY STUDIO. Anything Kyle added by hand is
+    there because he wants it, and no pattern should second-guess that.
+
+    Matched against the title as the PAGE shows it, from the detail call,
+    rather than the cheaper discover row: the two can differ, and a ban that
+    tests something other than what Kyle reads is a ban he cannot reason
+    about. One banned title therefore costs one detail call, which is nothing.
+    """
+    low = (title or "").strip().lower()
+    return any(p and str(p).strip().lower() in low for p in patterns or [])
+
+
 def collect(cfg, today, record=True, unresolved=None):
     """Every candidate title, deduped, as rows. Network-heavy; call once."""
     lang = cfg.get("language", "en-US")
     region = cfg.get("region", "US")
     ignore = {str(x) for x in cfg.get("ignore") or []}
+    ignore_titles = cfg.get("ignore_titles") or []
     wanted = {}          # "kind/id" -> (source label, pinned by hand?)
 
     for fr in cfg.get("franchises") or []:
@@ -472,6 +491,8 @@ def collect(cfg, today, record=True, unresolved=None):
         if key in ignore or tid in ignore:
             continue
         row = make_row(kind, tmdb.detail(kind, tid, lang), source, region, today)
+        if not pinned and ignored_title(row.get("title"), ignore_titles):
+            continue
         row["pinned"] = pinned
         rows.append(row)
 
