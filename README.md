@@ -584,6 +584,17 @@ under position would have read the details as the date and dropped every row.
 Order them however you like; a heading nobody recognises is named on the page,
 because an ignored column should not be invisible.
 
+Like Reminders and Active, **the tab re-reads the Sheet in the browser** — on
+open and whenever the app comes back to the foreground — so something added
+five minutes ago is there, rather than waiting for tomorrow's build. The daily
+build still bakes a snapshot, so the tab paints instantly and works offline.
+
+That makes the rules exist twice, in `read_events`/`render` and again in
+`church.JS`, and the second copy is only worth having if it agrees with the
+first. `python jsdiff.py` runs the real JS under node against eleven CSVs and
+diffs the HTML against Python's; `selftest.py` calls it and skips quietly where
+node is absent.
+
 A row is the Watchlist's shape — title above, quieter detail below — so the app
 reads as one app rather than three. A `Details` cell that just repeats the
 `Title` is dropped: the same line twice reads as a bug, not as detail.
@@ -776,7 +787,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         585 assertions, no key and no network needed
+python selftest.py         615 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
@@ -873,12 +884,14 @@ tmdb.py      the only thing that talks to TMDB; disk-cached
 watch.py     the Watchlist tab -- date logic, ordering, and its own render
 teams.py     the Teams tab -- ESPN schedules, weeks, colours
 church.py    the Church tab -- dated events, no cadences, no notifications
+tasks.py     the Active tab -- open tasks rolled forward, add and edit
 reminders.py the Reminders tab -- sheet rules, and the same rules again in JS
 ui.py        shared render helpers
 tabs.py      the registry; this list's ORDER is the nav order
 site.py      the shell: frame, nav, service worker, manifest, icons
 resolve.py   title -> tmdb id, run by hand
 selftest.py  fixture-driven; no key, no network
+jsdiff.py    runs a tab's browser copy under node and diffs it against Python
 
 apps-script/Code.js        NOT part of the build -- shipped with clasp push.
 apps-script/appsscript.json  its manifest; pins the anonymous web app access.

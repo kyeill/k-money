@@ -1567,6 +1567,87 @@ def test_tasks():
     true("a pending add expires even if the Sheet never shows it", "3e5" in js)
 
 
+def test_church_js():
+    """The Church tab re-reads its Sheet in the browser, so the rules exist
+    twice. Twice in one week Kyle added an event, opened the app and saw
+    yesterday's page -- that is what this is for."""
+    import church
+    # Pointed at the fixture: KMONEY_CHURCH_CSV is NOT one of the variables
+    # main() stubs, and without it build() would reach the real Sheet.
+    os.environ["KMONEY_CHURCH_CSV"] = os.path.join(HERE, "fixtures",
+                                                   "church.csv")
+    try:
+        data = church.build(today="2026-08-30",
+                            cfg=dict(CFG, reminders_sheet="S"))
+        # A read that failed. The file is absent, so fetch returns "" and
+        # read_events refuses it -- no network, and the same shape as a Google
+        # outage at 6am.
+        os.environ["KMONEY_CHURCH_CSV"] = os.path.join(HERE, "fixtures",
+                                                       "no-such-file.csv")
+        blind = church.build(today="2026-08-30",
+                             cfg=dict(CFG, reminders_sheet="S"))
+    finally:
+        os.environ.pop("KMONEY_CHURCH_CSV", None)
+    js = church.page_js(data)
+    true("the fixture read cleanly", not data["error"] and data["days"])
+    true("and the other one did not", bool(blind["error"]))
+
+    true("the browser gets the sheet and the tab",
+         '"S"' in js and '"Church"' in js)
+    true("no unreplaced placeholders", "%%" not in js)
+    true("it re-reads on open", "refresh();" in js)
+    true("and again when the app comes back to the foreground",
+         "visibilitychange" in js)
+    # The gviz trap, which has now cost a debugging pass in three repos: without
+    # headers=1 the endpoint GUESSES the header depth and space-joins the rows
+    # it guessed, after which every column lookup here misses.
+    true("the header depth is pinned", "headers=1" in js)
+    true("and the tab is asked for by name",
+         "sheet='+encodeURIComponent(TAB)" in js)
+    # Asking Google for a tab that does not exist returns the FIRST one, so a
+    # typo here would silently render the Active tab's rows as church events.
+    ok("the tab name is the configured one", data["tab"], "Church")
+
+    # The constants have to come from Python, not be written out again.
+    true("the urgency boundaries are not a second opinion",
+         "SOON=%d" % church.SOON_DAYS in js and
+         "NEAR=%d" % church.NEAR_DAYS in js)
+    true("nor is the palette", ui.COLORS["orange"] in js)
+    true("and the wash is the one strength the app uses",
+         ",0.13)" in js)
+
+    # sheet and tab survive the error paths: a failed read at build time is the
+    # case that most wants the browser to try again.
+    true("a failed read still hands the browser its sheet",
+         '"S"' in church.page_js(blind))
+    true("and the page still has something to paint into",
+         'id="cbody"' in church.render(blind))
+    true("even though it reports the error",
+         'class="rerr"' in church.render(blind))
+
+    # A restructured tab must keep the baked page rather than paint a blank
+    # list over a correct one.
+    true("no Title or no Date means paint nothing",
+         "if(at.title===undefined||at.date===undefined) return null" in js)
+    true("and an unchanged list is not repainted",
+         "if(scratch.innerHTML!==body.innerHTML)" in js)
+    # A real control character here would be a browser syntax error that the
+    # Read tool does not display -- the corrupted-escape trap in NOTES.
+    ok("the JS carries no stray control characters",
+       [c for c in js if ord(c) < 32 and c != "\n"], [])
+
+    # The assertions above prove the code is PRESENT. Only this proves it is
+    # right: the real JS, under node, against the same CSV as render().
+    import jsdiff
+    results = jsdiff.check()
+    if results is None:
+        print("note  node is absent, so the Church JS was not run")
+        return
+    for name, agreed, _, _ in results:
+        true("python and the browser agree: " + name, agreed)
+    true("and there were cases to compare", len(results) >= 10)
+
+
 def test_church():
     """Dated events, grouped, from today onward. Much simpler than Reminders:
     every row carries its own date, so there is no cadence to recompute and

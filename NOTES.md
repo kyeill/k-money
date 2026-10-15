@@ -307,6 +307,55 @@ of the title, listed in `_comment_ignore_titles_list` with the reason, the way
   and a hand-added title is explicit; the reverse would make a pin fail
   silently, which is the one thing pins exist to prevent.
 
+## A tab that only re-reads its Sheet once a day looks broken
+
+Two mornings running, Kyle added something to the Church tab, opened the app
+and did not see it. Nothing was wrong: Reminders and Active re-fetch the Sheet
+in the browser, and Church did not, so it showed whatever the 6am build had
+found. With the scheduled build running **four to five hours late** on this
+account, "tomorrow's build" can mean lunchtime.
+
+The fix is the refresh those two already had. Three things were worth getting
+right rather than copying:
+
+* **The `#cbody` wrapper is outside the error branch.** Reminders returns early
+  on a failed read and emits no wrapper, so a 6am Google outage leaves that tab
+  stuck with the error until 6am tomorrow -- the one case that most wants the
+  browser to try again. Church always emits something to paint into.
+* **`build()` carries `sheet` and `tab` on every path**, including the error
+  paths, for the same reason: `page_js` needs them precisely when the
+  build-time read failed.
+* **A restructured tab paints nothing.** No Title or no Date column returns
+  `null` and the baked page stands. A blank list over a correct one would be
+  worse than stale.
+
+### The rules now exist twice, so something has to hold them together
+
+A text assertion over the JS source -- which is all the Reminders and Active
+tests do -- proves the code is *present*, not that it is *right*. `jsdiff.py`
+runs the real JS under **node** against eleven CSVs and diffs the HTML against
+what `render` produced from the same bytes: escaping, both urgency boundaries,
+a reordered header, every date form Sheets exports, a details cell repeating
+its title, an unreadable date. `selftest.py` calls it and skips with a printed
+note where node is absent.
+
+One difference is real and harmless: `html.escape` writes an apostrophe as
+`&#x27;` and the browser copy writes `&#39;`. Both decode to the same
+character, and `paint()` compares `innerHTML` *after* the browser has
+normalised them, so it can cause neither a visible difference nor a repaint
+loop. `jsdiff.canon` folds it.
+
+### `church.JS` is a RAW string, and has to be
+
+The JS contains its own backslash escapes -- `\n` and `\r` in the CSV reader,
+`\d` in the date regexes. In an ordinary triple-quoted Python string the first
+two become **real control characters inside a JS string literal**: a syntax
+error in the browser that the Read tool does not display. `tasks.py` solves the
+same problem by doubling every backslash; `r"""` is the version that cannot be
+got wrong later. The first draft of this change hit the bug via a bash heredoc
+within ten minutes, exactly as the entry below predicts, so `selftest.py` now
+asserts the emitted JS carries no control characters at all.
+
 ## A studio files its own podcasts under its own company
 
 And TMDB types them **Miniseries**, so `with_type=2|4` does not catch them.
