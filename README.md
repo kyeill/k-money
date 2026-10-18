@@ -49,7 +49,7 @@ Blank rows are ignored too.
 | --- | --- |
 | exactly one | that weekday — `4th` + Sun is the 4th Sunday |
 | none | **day of the month** — `25th` is the 25th, `Last` the last day |
-| two or more | ambiguous, so it stays weekly rather than guessing |
+| two or more | **each of them** — `1st` + Wed + Sun is the 1st Wednesday and the 1st Sunday |
 
 A day a month does not have simply does not fire: `30th` skips February rather
 than landing somewhere else. (`Weekday`, if you re-add the column, takes
@@ -149,11 +149,18 @@ list restored this morning would be worse than the baked one — and older keys
 are pruned. Every access is wrapped, because a page opened from a `data:` URL
 throws on `localStorage` rather than returning nothing.
 
-Which means the rules exist **twice**: in `reminders.py` and again in JS. That
-duplication is deliberate and it is *checked* — `selftest.py` asserts the Python
-side, and a browser cross-check runs both over the same CSV across month ends,
-quarter boundaries and a leap year, comparing the rendered HTML exactly. See
-NOTES before touching either.
+Which means the rules exist **three times**: in `reminders.py`, again in the
+browser copy, and a third time in `apps-script/Code.js` — the one that actually
+sends the notification. A rule the three read differently is a reminder that
+shows on the page and never reaches the phone, or the reverse, and that is
+exactly what happened (see NOTES).
+
+So they are *checked*, as a **calendar**: `python jsdiff.py` asks all three
+which days every rule in the fixture fires on, for 420 days from a fixed
+Monday, and diffs the answers. A schedule is the whole meaning of a rule, so
+nothing less would do. `selftest.py` runs it and skips quietly where node is
+absent. Before this existed the cross-check was a `window.__remBuild` hook that
+nothing called — the duplication was documented as checked and was not.
 
 ### Setting the reminders up
 
@@ -787,7 +794,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         615 assertions, no key and no network needed
+python selftest.py         644 assertions, no key and no network needed
 ```
 
 Python is not on PATH:

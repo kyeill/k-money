@@ -307,6 +307,60 @@ of the title, listed in `_comment_ignore_titles_list` with the reason, the way
   and a hand-added title is explicit; the reverse would make a pin fail
   silently, which is the one thing pins exist to prevent.
 
+## "Two ticks with an nth is ambiguous" cost him a wrong reminder for months
+
+`💵 Update Paystubs` had Wed **and** Sun ticked, `nth` of `1st`, and Months of
+Jan/Apr/Jul/Oct. It fired **every Wednesday and every Sunday** of those four
+months: 34 times a year for a row that plainly means twice a quarter. Kyle
+noticed because it kept appearing, and asked why a monthly reminder was running
+weekly.
+
+The cause was a deliberate decision, which is what made it survive. The
+inference that turns an nth into a weekday handled one tick ("4th" + Sun = the
+4th Sunday) and no ticks ("25th" = the 25th), and called **two or more ticks
+ambiguous** -- so it inferred nothing, `monthly` came out False, and the row
+fell through to the weekly grid. `selftest.py` asserted that as correct
+behaviour, in as many words.
+
+Both halves of that were wrong:
+
+* **It is not ambiguous.** "1st" with Wed and Sun ticked is the 1st Wednesday
+  and the 1st Sunday. The nth distributes over the ticked days; nothing has to
+  be guessed. The old code could not express it only because `weekday` held one
+  string.
+* **Falling back to weekly is the worst available answer.** Of all the ways to
+  resolve a supposed ambiguity, the fallback chosen was the one that fires four
+  or five times *more* often than any reading of the row intends -- and says
+  nothing. An over-firing reminder reads as "I must have set it up that way".
+
+`nth_days` now carries the ticked days and the nth applies to each. One tick and
+no ticks behave exactly as before; a year-long diff of every rule confirmed
+only Paystubs moved, from 34 fires a year to 8.
+
+**The shape worth remembering:** when a rule cannot express what a row says,
+refusing it loudly beats falling back to a different rule quietly. The fallback
+here was indistinguishable from a deliberate weekly schedule.
+
+## The reminder rules exist three times, and nothing compared them
+
+`reminders.py`, its browser copy, and `apps-script/Code.js` -- and the third is
+the one that sends the notification. The nth bug above was in **all three**, so
+the page and the phone agreed with each other while both were wrong, which is
+the most convincing way to be wrong.
+
+README claimed the duplication was cross-checked. It was not: the hook that
+cross-check used, `window.__remBuild`, is still in the file and **nothing has
+called it** for as long as git remembers. A dead test hook reads exactly like a
+live one.
+
+`jsdiff.py` now compares them as a **calendar** -- every rule, every day it
+fires on, 420 days from a fixed Monday, across all three. The Apps Script is
+driven under node with `SpreadsheetApp` and `Utilities` stubbed; the browser
+copy exports `__remRules` and `__remFires` above its pane check, so it loads
+with no DOM at all. Sabotaging one branch of `Code.js` and watching the check
+report it is how this was proved to work, and is worth repeating after any
+change to it.
+
 ## A tab that only re-reads its Sheet once a day looks broken
 
 Two mornings running, Kyle added something to the Church tab, opened the app

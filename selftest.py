@@ -687,10 +687,31 @@ def test_reminder_rules():
     true("a section header row is not a rule",
          "HOUSEHOLD" not in [r["title"] for r in _rules()])
 
-    # Two days ticked with an nth is genuinely ambiguous, so no inference: it
-    # stays weekly rather than guessing which day the nth applies to.
-    ok("an ambiguous nth does not become monthly",
-       by["Ambiguous nth"]["monthly"], False)
+    # Two days ticked with an nth used to be called "genuinely ambiguous" and
+    # left weekly. That was wrong twice over. It is not ambiguous -- "2nd" with
+    # Mon and Tue ticked is the 2nd Monday AND the 2nd Tuesday, the nth simply
+    # applies to each -- and falling back to weekly is the worst available
+    # reading of a row somebody meant as monthly: four or five times too often,
+    # in silence. It took Kyle asking why Update Paystubs ran weekly to find
+    # it, and it had been wrong in all three copies, the Apps Script that sends
+    # his notifications included.
+    two = by["Two ticks one nth"]
+    ok("two ticks and an nth IS monthly", two["monthly"], True)
+    ok("the nth applies to each ticked day", two["nth_days"], [0, 1])
+    ok("and no single weekday is invented", two["weekday"], "")
+    # October 2026: Mondays are 5/12/19/26, Tuesdays 6/13/20/27.
+    true("the 2nd Monday fires", fires("Two ticks one nth", "2026-10-12"))
+    true("the 2nd Tuesday fires too", fires("Two ticks one nth", "2026-10-13"))
+    ok("the 1st Monday does not", fires("Two ticks one nth", "2026-10-05"),
+       False)
+    ok("nor the 3rd Tuesday", fires("Two ticks one nth", "2026-10-20"), False)
+    ok("nor a day that is neither", fires("Two ticks one nth", "2026-10-14"),
+       False)
+    # One tick is unchanged: it still names the weekday, so nothing that
+    # already worked moves.
+    ok("one tick still names its weekday", by["Fourth Sun"]["weekday"], "Sun")
+    ok("and carries no day list", by["Fourth Sun"]["nth_days"], [])
+    ok("no ticks still means day of the month", by["Rent"]["nth_days"], [])
 
     # Months gates WEEKLY rows too, which is how a weekly rule gets a season.
     true("weekly-with-season fires inside its months (Sat 3 Oct)",
@@ -1565,6 +1586,32 @@ def test_tasks():
     true("the confirm window is wider than one try",
          "[1500, 4000, 9000]" in js)
     true("a pending add expires even if the Sheet never shows it", "3e5" in js)
+
+
+def test_reminders_three_copies():
+    """The reminders rules exist THREE times: here, in the browser copy, and in
+    apps-script/Code.js, which is what actually sends the notification.
+
+    They disagreed for months. Two ticks with an nth dropped out of monthly in
+    all three, and the fallback was the weekly grid -- so Update Paystubs fired
+    nine times a quarter and buzzed his phone each time, while the row said
+    "1st". Nothing could have caught that except comparing the schedules, which
+    is what this does: every rule, every day, for well over a year.
+    """
+    import reminders
+    js = reminders.page_js({"sheet": "S", "webapp": ""})
+    true("the browser copy still exports its rules",
+         "window.__remRules" in js and "window.__remFires" in js)
+
+    import jsdiff
+    results = jsdiff.check_reminders()
+    if results is None:
+        print("note  node is absent, so the three copies were not compared")
+        return
+    for title, agreed, note in results:
+        true("all three agree on %s%s"
+             % (title, "" if agreed else "  (%s)" % note), agreed)
+    true("and there were rules to compare", len(results) >= 15)
 
 
 def test_church_js():

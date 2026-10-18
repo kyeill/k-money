@@ -332,7 +332,15 @@ def read_rules(text):
                 weekday = WEEKDAYS[next(iter(days))]
             elif not days:
                 weekday = "Day"
-        monthly = bool(nths) and weekday != ""
+        # TWO OR MORE ticks with an nth. "1st" with Wed and Sun ticked means
+        # the 1st Wednesday and the 1st Sunday -- two days, which one
+        # `weekday` cannot hold. Before this existed the inference above ran
+        # out of branches, `weekday` stayed blank, `monthly` came out False,
+        # and the row silently fell back to its weekly ticks: Update Paystubs
+        # fired every Wednesday AND every Sunday of four months, nine times a
+        # quarter instead of twice, with nothing anywhere to say so.
+        nth_days = sorted(days) if (nths and not weekday and days) else []
+        monthly = bool(nths) and (weekday != "" or bool(nth_days))
         rules.append({
             "title": title,
             "at": at,
@@ -340,6 +348,7 @@ def read_rules(text):
             "nths": nths,
             "unreadable": unreadable,
             "weekday": weekday,
+            "nth_days": nth_days,
             "months": parse_months(cell(cells, "months")),
             "every": every,
             "start": start,
@@ -385,6 +394,12 @@ def fires_on(rule, day):
     if rule["monthly"]:
         # A row carrying both a monthly rule and weekly ticks is monthly. One
         # row, one schedule -- a row firing on both would be unreadable later.
+        # Several ticked days each get the nth applied: "1st" with Wed and Sun
+        # is the 1st Wednesday and the 1st Sunday. `.get` because rules built
+        # by hand in the tests predate the field.
+        if rule.get("nth_days"):
+            return any(nth_weekday(day.year, day.month, target, n) == day
+                       for target in rule["nth_days"] for n in rule["nths"])
         if rule["weekday"] == "Day":
             return any(nth_day(day.year, day.month, n) == day
                        for n in rule["nths"])
@@ -583,9 +598,14 @@ JS = """
         if(days.length===1) wd=WD[days[0]];
         else if(!days.length) wd='Day';
       }
+      // Two or more ticks with an nth: one `weekday` cannot hold them, so the
+      // nth is applied to each ticked day instead. Without this the row drops
+      // out of monthly and fires on its weekly ticks -- see the Python copy.
+      var nthDays=(nths.length&&wd===''&&days.length)?days.slice():[];
       rules.push({title:c[0],at:at,days:days,nths:nths,every:every,start:start,
-                  weekday:wd,months:parseMonths(cell(c,'months')),
-                  monthly:(nths.length>0&&wd!=='')});
+                  weekday:wd,nthDays:nthDays,
+                  months:parseMonths(cell(c,'months')),
+                  monthly:(nths.length>0&&(wd!==''||nthDays.length>0))});
     }
     return rules;
   }
@@ -609,7 +629,13 @@ JS = """
       return b>=a && ((b-a)%r.every)===0;
     }
     if(r.monthly){
-      var i;
+      var i,j;
+      if(r.nthDays&&r.nthDays.length){
+        for(j=0;j<r.nthDays.length;j++)
+          for(i=0;i<r.nths.length;i++)
+            if(nthWeekday(y,m,r.nthDays[j],r.nths[i])===dd) return true;
+        return false;
+      }
       if(r.weekday==='Day'){
         for(i=0;i<r.nths.length;i++){
           var want=(r.nths[i]===-1)?daysIn(y,m):r.nths[i];
@@ -689,6 +715,12 @@ JS = """
     return out.join('');
   }
   window.__remBuild=function(text,today,done){ return build(readRules(text),today,done||{}); };
+  // The schedule itself, for jsdiff.py. Exported HERE, above the pane check
+  // below, so the comparison needs no DOM at all: three implementations of
+  // these rules exist -- this one, reminders.py and apps-script/Code.js --
+  // and the one that disagreed went unnoticed for months.
+  window.__remRules=readRules;
+  window.__remFires=firesOn;
   // The pending overlay is a JS-only idea -- Python has no user to have just
   // tapped something. The parity check therefore needs a way to clear it, or
   // an old tap makes the two engines look like they disagree when they do not.

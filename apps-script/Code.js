@@ -361,12 +361,19 @@ function readRules() {
       if (days.length === 1) weekday = WD[days[0]];
       else if (!days.length) weekday = 'Day';
     }
+    // TWO OR MORE ticks with an nth. "1st" with Wed and Sun means the 1st
+    // Wednesday and the 1st Sunday, which one `weekday` cannot hold. Without
+    // this the row drops out of monthly and fires on its weekly ticks -- and
+    // since this file is what SENDS the notification, that is a phone buzzing
+    // nine times a quarter for a reminder meant to arrive twice.
+    var nthDays = (nths.length && weekday === '' && days.length)
+      ? days.slice() : [];
     rules.push({
       title: c[0], hour: at[0], minute: at[1], days: days,
-      nths: nths, weekday: weekday,
+      nths: nths, weekday: weekday, nthDays: nthDays,
       every: every, start: start,
       months: parseMonths(cell(c, 'months')),
-      monthly: (nths.length > 0 && weekday !== '')
+      monthly: (nths.length > 0 && (weekday !== '' || nthDays.length > 0))
     });
   }
   return rules;
@@ -471,7 +478,16 @@ function firesOn(rule, date) {
   if (rule.monthly) {
     // A row with both a monthly rule and weekly ticks is monthly. One row,
     // one schedule.
-    var i;
+    var i, j;
+    // Several ticked days each get the nth applied.
+    if (rule.nthDays && rule.nthDays.length) {
+      for (j = 0; j < rule.nthDays.length; j++) {
+        for (i = 0; i < rule.nths.length; i++) {
+          if (nthWeekday(y, m, rule.nthDays[j], rule.nths[i]) === d) return true;
+        }
+      }
+      return false;
+    }
     if (rule.weekday === 'Day') {
       for (i = 0; i < rule.nths.length; i++) {
         var want = (rule.nths[i] === -1) ? daysIn(y, m) : rule.nths[i];
