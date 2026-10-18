@@ -11,6 +11,8 @@ what `render` produced from the same CSV.
 
     python jsdiff.py              every case, as a table
     python jsdiff.py -v           print the HTML of any case that differs
+    python jsdiff.py --live       compare his REAL reminder rows, over the
+                                  network, instead of the fixture
 
 `selftest.py` calls `check()` and skips quietly when node is not installed, so
 this is also the thing to extend when the Church rules change.
@@ -178,7 +180,8 @@ def browser(csv, binary, workdir):
     io.open(path, "w", encoding="utf-8", newline="\n").write(
         HARNESS % {"csv": json.dumps(csv),
                    "today": json.dumps(TODAY.isoformat()), "js": js})
-    done = subprocess.run([binary, path], capture_output=True, text=True)
+    done = subprocess.run([binary, path], capture_output=True, text=True,
+                          encoding="utf-8", errors="replace")
     if done.returncode != 0:
         raise RuntimeError("node refused the JS:\n" + done.stderr.strip())
     return json.loads(done.stdout.strip().splitlines()[-1])["html"]
@@ -320,9 +323,19 @@ def _calendar_python(csv):
 
 
 def _run(binary, workdir, name, source):
+    """Run one generated file under node and read back its JSON.
+
+    The encoding is NOT optional. `text=True` on its own decodes with the
+    console codepage -- cp1252 on Windows -- and every one of his real reminder
+    titles starts with an emoji, so the pipe dies on the first rule and
+    `stdout` comes back as None. The fixtures are plain ASCII, so this failed
+    only against the live Sheet, which is the one place a check like this most
+    wants to be pointed.
+    """
     path = os.path.join(workdir, name)
     io.open(path, "w", encoding="utf-8", newline="\n").write(source)
-    done = subprocess.run([binary, path], capture_output=True, text=True)
+    done = subprocess.run([binary, path], capture_output=True, text=True,
+                          encoding="utf-8", errors="replace")
     if done.returncode != 0:
         raise RuntimeError("node refused %s:\n%s" % (name, done.stderr.strip()))
     return json.loads(done.stdout.strip().splitlines()[-1])
@@ -383,7 +396,7 @@ def check_reminders(csv=None):
     return out
 
 
-def main(verbose=False):
+def main(verbose=False, live=False):
     results = check()
     if results is None:
         print("node is not installed -- nothing checked")
@@ -403,9 +416,20 @@ def main(verbose=False):
         if verbose:
             print("  python  %s\n  browser %s" % (want, got))
 
-    rules = check_reminders()
+    # The fixture is ASCII and his real titles all start with an emoji, which
+    # is how the cp1252 decode bug in `_run` hid: it could only ever fail here.
+    # Worth running after any change to the rules, and the only way to see what
+    # a REAL row does in all three copies at once.
+    csv_text = None
+    if live:
+        import watch
+        csv_text = reminders.fetch_csv(
+            watch.load_config()["reminders_sheet"])
+    rules = check_reminders(csv_text)
     print("\nReminders -- %d day calendars, python vs browser vs Apps Script"
           % CAL_DAYS)
+    if live:
+        print("  (his live Sheet, %d rule(s))" % len(rules))
     for title, agreed, note in rules:
         if agreed and not verbose:
             continue
@@ -421,4 +445,10 @@ def main(verbose=False):
 
 
 if __name__ == "__main__":
-    sys.exit(main("-v" in sys.argv))
+    # Titles carry emoji and the Windows console is cp1252, which cannot encode
+    # them -- printing a differing rule would die on its own output.
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+    sys.exit(main("-v" in sys.argv, "--live" in sys.argv))

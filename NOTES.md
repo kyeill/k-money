@@ -361,6 +361,18 @@ with no DOM at all. Sabotaging one branch of `Code.js` and watching the check
 report it is how this was proved to work, and is worth repeating after any
 change to it.
 
+### ...and the first time it was pointed at real data it fell over
+
+`subprocess.run(..., text=True)` decodes the child's output with the **console
+codepage**, which is cp1252 here. Every one of his reminder titles starts with
+an emoji, so the pipe died on the first rule and `stdout` came back as `None`.
+The fixture is plain ASCII, so the fixture run was green throughout.
+
+A checking tool that only works on the fixture is only checking the fixture.
+`_run` now passes `encoding="utf-8"`, and **`python jsdiff.py --live`** points
+the whole thing at the real Sheet -- 46 rules instead of 17, and the only way
+to see what one of his actual rows does in all three copies at once.
+
 ## A tab that only re-reads its Sheet once a day looks broken
 
 Two mornings running, Kyle added something to the Church tab, opened the app

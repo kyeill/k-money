@@ -20,6 +20,7 @@ python teams.py          print the season, week by week
 python resolve.py --write fill watchlist ids in from titles
 python selftest.py       644 assertions -- run before trusting any change
 python jsdiff.py         Church HTML + the reminder calendars, all three copies
+python jsdiff.py --live  the same, against his real rows (emoji, 46 rules)
 ```
 
 Python is not on PATH:
