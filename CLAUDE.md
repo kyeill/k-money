@@ -18,7 +18,7 @@ python church.py         print upcoming church events
 python tasks.py          print open tasks, rolled forward
 python teams.py          print the season, week by week
 python resolve.py --write fill watchlist ids in from titles
-python selftest.py       644 assertions -- run before trusting any change
+python selftest.py       656 assertions -- run before trusting any change
 python jsdiff.py         Church HTML + the reminder calendars, all three copies
 python jsdiff.py --live  the same, against his real rows (emoji, 46 rules)
 ```
@@ -89,7 +89,7 @@ add the rule itself.
 
 ## Validation routine — run all of it before trusting a change
 
-`python selftest.py` (644 assertions, `jsdiff.py` among them), plus: compile every module, run every
+`python selftest.py` (656 assertions, `jsdiff.py` among them), plus: compile every module, run every
 entry point (`site.py`, `site.py --fixtures`, `site.py --tab watch`,
 `watch.py`, `reminders.py`, `church.py`, `teams.py`, `tasks.py`, `resolve.py`), a dead-code sweep (every `def` and module constant
 cross-referenced across all files; CSS classes checked against the built page,

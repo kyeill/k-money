@@ -825,6 +825,10 @@ JS = """
     var on=box.checked, key=box.dataset.key;
     box.closest('label').classList.toggle('done',on);
     remember(key,on);
+    // The snapshot was last written by a refresh, which predates this tick --
+    // so without this a reload paints the row unticked and orange again until
+    // the fetch lands. What is on screen now IS the truth; keep it.
+    saveSnap(body.innerHTML);
     if(!WEBAPP) return;
     // no-cors: the reply is unreadable across origins from an Apps Script web
     // app, and is not needed -- the Sheet is the record, reconciled on the

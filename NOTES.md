@@ -307,6 +307,45 @@ of the title, listed in `_comment_ignore_titles_list` with the reason, the way
   and a hand-added title is explicit; the reverse would make a pin fail
   silently, which is the one thing pins exist to prevent.
 
+## The flash was never one bug, and the last of it was in the save, not the paint
+
+Kyle reported the app "still flashes a bit on refresh, showing items that were
+previously cleared out for a brief second". Two fixes were already in: the
+compare-before-write guard, and the dated snapshot painted before the network.
+Both were working. Two things were still wrong, and measuring beat guessing --
+loading the real page in an iframe and polling the DOM put numbers on it:
+
+* **Active had no snapshot at all.** It painted the 6am baked list and waited
+  for the fetch, so every task ticked since 6am came back. **273ms** on a
+  desktop over home broadband; a phone on mobile data is several times that,
+  which is the "brief second". It now keeps the same `tsnap:<date>` snapshot
+  Reminders keeps.
+* **Reminders saved its snapshot only on a successful refresh** -- which always
+  predates the tick that needs it. Tick a row, reopen, and the snapshot painted
+  it unticked and orange again until the fetch landed: **458ms** measured.
+
+The second is the more interesting mistake. The snapshot mechanism was right;
+it was being *written at the wrong moment*. A cache refreshed only by the thing
+it is meant to front-run is always one step behind. Both tabs now write it on
+every change -- refresh, tick, add and edit -- because what is on screen at the
+moment of a tap IS the truth, and no fetch is needed to know it.
+
+Belt and braces on Active: the pending record (`tdone`) already knows what was
+ticked in the last two minutes, so rows it names are pruned from whatever was
+painted first. That covers a tick made in the second before the confirming
+refresh could write a clean snapshot.
+
+**Verified by measurement, not by eye.** With a seeded pending record and no
+snapshot -- the hardest case -- first paint and the settled state four seconds
+later are now byte-identical on both tabs. `.claude/launch.json` has a
+`k-money` entry serving `output/site`, which is how this was tested before
+pushing; the Sheet allows cross-origin reads from `localhost` just as it does
+from Pages.
+
+One trap if you repeat this: **driving the real tick handler writes to his real
+Done tab.** Untick it afterwards and check the Sheet, which is what was done
+here.
+
 ## "Two ticks with an nth is ambiguous" cost him a wrong reminder for months
 
 `💵 Update Paystubs` had Wed **and** Sun ticked, `nth` of `1st`, and Months of

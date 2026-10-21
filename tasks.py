@@ -513,7 +513,7 @@ JS = """
       });
     });
     var out=[], days=Object.keys(byDay).sort();
-    if(!days.length) return '<div class="tnone">Nothing to do.</div>';
+    if(!days.length) return EMPTY;
     days.forEach(function(day){
       out.push('<div class="tday'+(day===now?' today':'')+'">'+
                '<h2>'+esc(heading(day,now))+'</h2>');
@@ -535,6 +535,10 @@ JS = """
     return out.join('');
   }
 
+  // Spelled once: `prune` can empty the list too, and two spellings of it
+  // would differ the day one of them is edited.
+  var EMPTY='<div class="tnone">Nothing to do.</div>';
+
   var scratch=document.createElement('div'), busy=false, lastCsv=null;
   function redraw(){
     if(lastCsv===null) return;
@@ -544,6 +548,49 @@ JS = """
   function paint(html){
     scratch.innerHTML=html;
     if(scratch.innerHTML!==body.innerHTML) body.innerHTML=scratch.innerHTML;
+  }
+
+  // The baked list was built at 6am, so EVERY task ticked since then is still
+  // in it -- a reload brings all of them back until the fetch lands. Measured
+  // on the live page: a quarter of a second on a desktop, and far longer on a
+  // phone on mobile data. That is the flash Kyle sees.
+  //
+  // So the last list actually seen is kept and painted straight back, before
+  // any network, which is what Reminders has always done. Keyed by date,
+  // because yesterday's list restored this morning would be worse than the
+  // baked one, and the old keys are swept so this cannot grow without bound.
+  var SNAP='tsnap:';
+  function snapKey(){ return SNAP+today(); }
+  function saveSnap(){
+    try{
+      Object.keys(localStorage).forEach(function(k){
+        if(k.indexOf(SNAP)===0&&k!==snapKey()) localStorage.removeItem(k);
+      });
+      localStorage.setItem(snapKey(),body.innerHTML);
+    }catch(e){}
+  }
+  function loadSnap(){
+    try{ return localStorage.getItem(snapKey()); }catch(e){ return null; }
+  }
+
+  // A tick the snapshot predates -- he ticked something and reloaded before
+  // the confirming refresh could save a clean copy. PENDING already knows, and
+  // knowing costs no network, so there is no reason to show the row again.
+  function prune(){
+    var dropped=false;
+    [].forEach.call(body.querySelectorAll('.tk'),function(row){
+      var cb=row.querySelector('input[data-key]');
+      if(cb&&cb.dataset.key&&closed(cb.dataset.key)){
+        row.parentNode.removeChild(row);
+        dropped=true;
+      }
+    });
+    if(!dropped) return;
+    // A day that has lost its last task loses its heading too.
+    [].forEach.call(body.querySelectorAll('.tday'),function(day){
+      if(!day.querySelector('.tk')) day.parentNode.removeChild(day);
+    });
+    if(!body.querySelector('.tk')) body.innerHTML=EMPTY;
   }
   function url(){
     // headers=1 for the same reason CSV_URL carries it: without it gviz
@@ -561,7 +608,7 @@ JS = """
       .then(function(r){ if(!r.ok) throw new Error(r.status); return r.text(); })
       .then(function(t){
         var html=build(t);
-        if(html!==null){ lastCsv=t; paint(html); }
+        if(html!==null){ lastCsv=t; paint(html); saveSnap(); }
       })
       .catch(function(){})          // keep the baked list; it is not wrong
       .then(function(){ busy=false; });
@@ -573,6 +620,9 @@ JS = """
     var key=cb.dataset.key;
     cb.closest('.tk').classList.add('done');
     remember(key);
+    // Straight away, so a reload in the second before the confirming refresh
+    // still shows it struck through rather than outstanding again.
+    saveSnap();
     if(!WEBAPP) return;
     fetch(WEBAPP+'?action=task&key='+encodeURIComponent(key)+'&done=1',
           {mode:'no-cors',cache:'no-store'}).catch(function(){});
@@ -648,11 +698,16 @@ JS = """
       reset();
       if(box) box.open=false;
       redraw();
+      saveSnap();
       // Then confirm, over a window wide enough for the export to catch up.
       [1500, 4000, 9000].forEach(function(ms){ setTimeout(refresh, ms); });
     });
   }
 
+  // Before the network, not after it.
+  var snap=loadSnap();
+  if(snap!==null) paint(snap);
+  prune();
   refresh();
   document.addEventListener('visibilitychange',function(){
     if(document.visibilityState==='visible') refresh();

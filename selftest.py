@@ -875,6 +875,15 @@ def test_done_render():
          "example.invalid" in reminders.page_js(data))
     true("no unreplaced placeholders", "%%" not in reminders.page_js(data))
 
+    # A tick has to update the snapshot. Without this it was written only by a
+    # refresh, so it always predated the tick -- and a reload painted the row
+    # unticked and orange again until the fetch landed.
+    rjs = reminders.page_js(data)
+    true("a tick writes the snapshot straight away",
+         "saveSnap(body.innerHTML);" in rjs)
+    true("so the restored list is never older than the last tap",
+         rjs.index("saveSnap(body.innerHTML);") > rjs.index("function saveSnap"))
+
     # Today's unticked rows are shaded the Church orange. This is CSS alone --
     # `.tick` is only ever on today's rows and `.done` is already toggled by
     # the checkbox handler, so ticking clears the shading with no JS involved,
@@ -1586,6 +1595,34 @@ def test_tasks():
     true("the confirm window is wider than one try",
          "[1500, 4000, 9000]" in js)
     true("a pending add expires even if the Sheet never shows it", "3e5" in js)
+
+    # THE FLASH. The baked list was built at 6am, so every task ticked since
+    # then is still in it and a reload brings them all back until the fetch
+    # lands -- measured at 273ms on a desktop and plainly worse on his phone.
+    # Reminders has kept a snapshot for this since the beginning; Active did
+    # not, which is why he still saw cleared items reappear.
+    true("the last list seen is kept", "tsnap:" in js)
+    true("and painted before any network",
+         "var snap=loadSnap();" in js and "if(snap!==null) paint(snap);" in js)
+    true("ahead of the fetch, not after it",
+         js.index("loadSnap();") < js.rindex("refresh();"))
+    # Keyed by date: yesterday's list restored this morning would be worse than
+    # the baked one, and the old keys are swept so this cannot grow unbounded.
+    true("keyed by date", "SNAP+today()" in js)
+    true("and the older keys are swept", "localStorage.removeItem(k)" in js)
+    # Saved whenever the list changes, not only on a refresh -- a snapshot
+    # written only by the fetch always predates the tick that needs it.
+    # Three call sites: the refresh that confirms, the tick, and the add/edit.
+    # A snapshot written only by the fetch always predates the tap that needs
+    # it, which is the whole bug.
+    ok("saved at every point the list changes", js.count("saveSnap();"), 3)
+    # A tick the snapshot predates: PENDING knows already, and knowing costs
+    # no network.
+    true("a ticked row is dropped from the baked list too", "prune();" in js)
+    true("and a day that loses its last task loses its heading",
+         "if(!day.querySelector('.tk'))" in js)
+    true("an emptied list says so", "body.innerHTML=EMPTY" in js)
+    ok("and the empty state is spelled once", js.count("Nothing to do."), 1)
 
 
 def test_reminders_three_copies():

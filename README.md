@@ -131,7 +131,7 @@ on open and on pull-to-refresh — an edit made a minute ago shows up without
 waiting for tomorrow's build. The daily build bakes a snapshot so the tab paints
 instantly and still works offline.
 
-**That refresh does not flash**, which took two separate fixes.
+**That refresh does not flash**, which took three separate fixes.
 
 The new markup is **compared before it is written**, so a refresh that rebuilds
 what is already there does not tear the rows down and build them again. Both
@@ -148,6 +148,12 @@ that follows almost always just confirms it. It is keyed by date — yesterday's
 list restored this morning would be worse than the baked one — and older keys
 are pruned. Every access is wrapped, because a page opened from a `data:` URL
 throws on `localStorage` rather than returning nothing.
+
+Third: **the snapshot is written whenever the list changes, not only when a
+fetch succeeds.** It used to be saved by the refresh alone, so it always
+predated the tick that needed it — tick something, reopen the app, and the row
+came back unticked and orange for as long as the fetch took. Now a tap writes
+it immediately, because what is on screen at that moment *is* the truth.
 
 Which means the rules exist **three times**: in `reminders.py`, again in the
 browser copy, and a third time in `apps-script/Code.js` — the one that actually
@@ -242,6 +248,14 @@ The tab **re-fetches the Sheet in the browser**, so an added task appears
 immediately rather than at tomorrow's build. Which means the rules exist twice,
 in `tasks.py` and again in JS — much smaller than the Reminders duplication
 (parse, drop done, roll over, group) but the same discipline applies.
+
+It keeps the **same dated snapshot** Reminders does, and for the same reason:
+the baked list was built at 6am, so every task completed since then is still in
+it and a reload brought them all back until the fetch landed. Measured on the
+live page, that was 273ms on a desktop and plainly longer on a phone on mobile
+data. The snapshot is painted before any network, and a tick that the snapshot
+predates is pruned from whatever was painted using the pending record — which
+costs no network at all, since it is already in `localStorage`.
 
 A tick, an add and an edit are all fire-and-forget `no-cors` calls, so for a few
 seconds the Sheet does not agree yet — and Google's CSV export lags a write by
@@ -794,7 +808,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         644 assertions, no key and no network needed
+python selftest.py         656 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
