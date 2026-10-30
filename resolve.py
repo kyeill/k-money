@@ -13,7 +13,6 @@ import os
 import sys
 
 import tmdb
-import watch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 CONFIG = os.path.join(HERE, "config.json")

@@ -24,8 +24,9 @@ about, and because Reminders has a third implementation: `apps-script/Code.js`
 is what actually sends the notification to his phone, so a rule it reads
 differently is a buzz at the wrong time, or none at all.
 
-The Active tab is not covered. It would fit the same harness and does not have
-one, which is a gap rather than a decision.
+**Active** is diffed as HTML too. It was the last tab without a check, which
+is how its browser copy came to refuse `2026/11/5` -- a date the build accepts
+-- without anybody noticing.
 """
 
 import datetime as dt
@@ -40,6 +41,7 @@ import tempfile
 
 import church
 import reminders
+import tasks
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
@@ -214,6 +216,145 @@ def check():
     with tempfile.TemporaryDirectory() as tmp:
         for name, csv in CASES.items():
             want, got = python(csv), browser(csv, binary, tmp)
+            out.append((name, canon(want) == canon(got), want, got))
+    return out
+
+
+# ============================================================== the Active tab
+#
+# Same shape as Church: the browser copy exists to paint, so the diff is the
+# HTML. Its IIFE bails out early without a pane, and everything `build` closes
+# over is declared after that point -- so unlike Reminders there is no hoisted
+# hook to reach for, and the DOM has to be faked just enough to get past it.
+
+TASKS_HARNESS = """
+globalThis.__csv = %(csv)s;
+globalThis.__today = %(today)s;
+function stub(){
+  return {
+    innerHTML: '', value: '', textContent: '', hidden: false, open: false,
+    dataset: {}, classList: {add: function(){}, remove: function(){},
+                             toggle: function(){}, contains: function(){ return false; }},
+    style: {}, querySelector: function(){ return stub(); },
+    querySelectorAll: function(){ return []; },
+    addEventListener: function(){}, focus: function(){},
+    closest: function(){ return stub(); }
+  };
+}
+globalThis.document = {
+  querySelector: function(){ return stub(); },
+  createElement: function(){ return stub(); },
+  addEventListener: function(){}
+};
+globalThis.localStorage = {
+  getItem: function(){ return null; }, setItem: function(){},
+  removeItem: function(){}, key: function(){ return null; }, length: 0
+};
+globalThis.fetch = function(){
+  return Promise.resolve({ok: false, text: function(){
+    return Promise.resolve('');
+  }});
+};
+%(js)s
+console.log(JSON.stringify({html: globalThis.__html}));
+"""
+
+TASKS_PROBE = """
+  globalThis.__html = build(globalThis.__csv);
+  refresh();
+"""
+
+
+def tasks_browser(csv, binary, workdir):
+    js = tasks.page_js({"sheet": "S", "tab": "Tasks", "webapp": "",
+                        "overrides": {}})
+    assert "\n  refresh();\n" in js, "the Active copy no longer ends in refresh()"
+    js = js.replace("\n  refresh();\n", "\n" + TASKS_PROBE, 1)
+    old = "function today(){ return iso(new Date()); }"
+    assert old in js, "the Active copy no longer takes today from iso(new Date())"
+    js = js.replace(old, "function today(){ return globalThis.__today; }", 1)
+    return _run(binary, workdir, "tasks.probe.js",
+                TASKS_HARNESS % {"csv": json.dumps(csv), "js": js,
+                                 "today": json.dumps(TODAY.isoformat())})["html"]
+
+
+def tasks_python(csv):
+    days, undated, unknown = tasks.read_tasks(csv, TODAY)
+    return tasks.body({"today": TODAY, "days": days, "undated": undated,
+                       "unknown": unknown, "error": None})
+
+
+def _tasks_csv(*lines):
+    return "\n".join(('"Task","Due","Category","Done"',) + lines)
+
+
+TASK_CASES = {
+    "the fixture": None,        # filled in below
+
+    # The reason this check exists. 2026/11/5 is one of the four forms
+    # sheet_date accepts and the browser copy used to drop it, so the task was
+    # on the page at 6am and gone the moment the refresh landed.
+    "every date form the Sheet exports": _tasks_csv(
+        '"ISO","%s","Work",""' % _iso(1),
+        '"Slashes, four-digit year","%d/%d/%d","Work",""'
+        % ((TODAY + dt.timedelta(days=2)).month,
+           (TODAY + dt.timedelta(days=2)).day,
+           (TODAY + dt.timedelta(days=2)).year),
+        '"Slashes, two-digit year","%s","Work",""' % _slash(3),
+        '"Year first","%d/%d/%d","Work",""'
+        % ((TODAY + dt.timedelta(days=4)).year,
+           (TODAY + dt.timedelta(days=4)).month,
+           (TODAY + dt.timedelta(days=4)).day),
+    ),
+    "a date that does not exist": _tasks_csv(
+        '"Thirtieth of February","2026-02-30","Work",""',
+        '"Twenty-ninth in a common year","2/29/2026","Work",""',
+        '"A real one","%s","Work",""' % _iso(1),
+    ),
+    "overdue rolls on to today": _tasks_csv(
+        '"Weeks late","%s","Personal",""' % _iso(-30),
+        '"Yesterday","%s","",""' % _iso(-1),
+    ),
+    "done rows are dropped": _tasks_csv(
+        '"Finished","%s","Work","%s"' % (_iso(1), _iso(0)),
+        '"Open","%s","Work",""' % _iso(1),
+    ),
+    "every category, and one that is not": _tasks_csv(
+        '"Personal one","%s","Personal",""' % _iso(1),
+        '"Work one","%s","Work",""' % _iso(1),
+        '"Blog one","%s","Blog",""' % _iso(1),
+        '"Church one","%s","Church",""' % _iso(1),
+        '"Chartreuse","%s","Chartreuse",""' % _iso(1),
+        '"None at all","%s","",""' % _iso(1),
+    ),
+    "escaping": _tasks_csv(
+        '"Pay Rachel & Sam <soon>","%s","Personal",""' % _iso(1),
+        '"Dan\'s birthday","%s","Personal",""' % _iso(1),
+    ),
+    "no due date, and no task": _tasks_csv(
+        '"No date","","Work",""',
+        '"","%s","Work",""' % _iso(1),
+        '"Unreadable","soon","Work",""',
+    ),
+    "nothing open": _tasks_csv(
+        '"All done","%s","Work","%s"' % (_iso(1), _iso(0)),
+    ),
+}
+
+
+TASK_CASES["the fixture"] = io.open(
+    os.path.join(HERE, "fixtures", "tasks.csv"), encoding="utf-8").read()
+
+
+def check_tasks():
+    """[(case, agreed, python_html, browser_html)], or None without node."""
+    binary = node()
+    if not binary:
+        return None
+    out = []
+    with tempfile.TemporaryDirectory() as tmp:
+        for name, csv in TASK_CASES.items():
+            want, got = tasks_python(csv), tasks_browser(csv, binary, tmp)
             out.append((name, canon(want) == canon(got), want, got))
     return out
 

@@ -109,3 +109,88 @@ def relative(iso, today):
         return ""
     delta = (dt.date.fromisoformat(iso) - dt.date.fromisoformat(today)).days
     return {0: "Today", 1: "Tomorrow", -1: "Yesterday"}.get(delta, "")
+
+
+# ------------------------------------------------------ shared browser code
+
+# Three tabs re-read their Sheet in the browser, so each one needs to escape
+# HTML, read a CSV and parse a date the way Python just did. They each grew
+# their own copy, and the copies DRIFTED: `2026/11/5` is one of the four forms
+# `sheet_date` accepts, and two of the three browser copies silently dropped
+# it -- a row would be on the page at 6am and gone the moment the refresh
+# landed, which reads as the app having eaten it.
+#
+# So there is one copy, here, injected into each tab's JS in place of
+# `%%HELPERS%%`. `selftest.py` runs `sheet_date` and `sheetDate` over the same
+# inputs and requires the same answers.
+JS_HELPERS = r"""
+  function esc(s){
+    return String(s==null?'':s).replace(/[&<>"']/g,function(c){
+      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
+    });
+  }
+  function two(n){ return (n<10?'0':'')+n; }
+  // The LOCAL date. toISOString() would be UTC, which is yesterday all
+  // evening on this side of the Atlantic.
+  function iso(d){
+    return d.getFullYear()+'-'+two(d.getMonth()+1)+'-'+two(d.getDate());
+  }
+  function today(){ return iso(new Date()); }
+
+  // A date that does not exist is NOT a date. strptime refuses 2026-02-30 and
+  // 2/29/2026; a regex happily hands back "2026-02-30", and the row then sorts
+  // into a day that never comes. Checked by round trip, which also catches
+  // month 13 and day 99.
+  function ymd(y,m,d){
+    var t=new Date(y,m-1,d);
+    if(t.getFullYear()!==y||t.getMonth()!==m-1||t.getDate()!==d) return null;
+    return y+'-'+two(m)+'-'+two(d);
+  }
+
+  // sheet_date, to the character -- including which forms it REFUSES. Sheets
+  // renders a date in the viewer's locale, so the export says "9/8/26" and
+  // not ISO. Returns 'YYYY-MM-DD', or null. strptime does not insist on two
+  // digits, so neither does this: "2026-11-5" is a date.
+  function sheetDate(text){
+    text=(text||'').trim();
+    var m=text.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/)
+         ||text.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
+    if(m) return ymd(+m[1],+m[2],+m[3]);
+    m=text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+    if(!m) return null;
+    // strptime's %y pivot, not a guess: 69-99 are the 1900s and 00-68 the
+    // 2000s. Nothing in this Sheet is from 1999, but the two sides have to
+    // answer the same thing or the checks below are testing a coincidence.
+    var y=+m[3]; if(y<100) y+=(y<69?2000:1900);
+    return ymd(y,+m[1],+m[2]);
+  }
+
+  // The gviz export: quoted fields, with doubled quotes inside them.
+  function csvRows(text){
+    var out=[], row=[], cell='', quoted=false;
+    for(var i=0;i<text.length;i++){
+      var c=text[i];
+      if(quoted){
+        if(c==='"'){ if(text[i+1]==='"'){ cell+='"'; i++; } else quoted=false; }
+        else cell+=c;
+      } else if(c==='"') quoted=true;
+      else if(c===','){ row.push(cell); cell=''; }
+      else if(c==='\n'){ row.push(cell); out.push(row); row=[]; cell=''; }
+      else if(c!=='\r') cell+=c;
+    }
+    if(cell!==''||row.length){ row.push(cell); out.push(row); }
+    return out;
+  }
+
+  // wash(), at the one strength the whole app uses.
+  function washOf(hex){
+    var r=parseInt(hex.substr(1,2),16), g=parseInt(hex.substr(3,2),16),
+        b=parseInt(hex.substr(5,2),16);
+    return 'rgba('+r+','+g+','+b+',%%WASH%%)';
+  }
+"""
+
+
+def js_helpers():
+    """The shared block, with the wash strength filled in from WASH."""
+    return JS_HELPERS.replace("%%WASH%%", "%.2f" % WASH)
