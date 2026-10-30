@@ -168,6 +168,10 @@ nothing less would do. `selftest.py` runs it and skips quietly where node is
 absent. Before this existed the cross-check was a `window.__remBuild` hook that
 nothing called — the duplication was documented as checked and was not.
 
+The parts every tab shares — escaping, the CSV reader, `sheetDate` — are **one
+copy**, in `ui.JS_HELPERS`, injected into each tab's JS. They used to be three,
+and the three had drifted into four separate bugs.
+
 ### Setting the reminders up
 
 Deployed with `clasp push` (see NOTES.md); by hand it is **Extensions → Apps
@@ -248,6 +252,10 @@ The tab **re-fetches the Sheet in the browser**, so an added task appears
 immediately rather than at tomorrow's build. Which means the rules exist twice,
 in `tasks.py` and again in JS — much smaller than the Reminders duplication
 (parse, drop done, roll over, group) but the same discipline applies.
+
+Its browser copy is diffed against `tasks.body()` by `jsdiff.py`, the same way
+Church's is. It was the last tab without that check, and adding it turned up
+three divergences on the first run — see NOTES.
 
 It keeps the **same dated snapshot** Reminders does, and for the same reason:
 the baked list was built at 6am, so every task completed since then is still in
@@ -612,9 +620,8 @@ build still bakes a snapshot, so the tab paints instantly and works offline.
 
 That makes the rules exist twice, in `read_events`/`render` and again in
 `church.JS`, and the second copy is only worth having if it agrees with the
-first. `python jsdiff.py` runs the real JS under node against eleven CSVs and
-diffs the HTML against Python's; `selftest.py` calls it and skips quietly where
-node is absent.
+first. `python jsdiff.py` runs the real JS under node and diffs the HTML against
+Python's; `selftest.py` calls it and skips quietly where node is absent.
 
 A row is the Watchlist's shape — title above, quieter detail below — so the app
 reads as one app rather than three. A `Details` cell that just repeats the
@@ -808,7 +815,7 @@ python site.py --fixtures  build from canned data -- no key, for styling work
 python site.py --tab watch build one tab only
 python watch.py            print the list as text, no HTML, no history written
 python resolve.py --write  fill in watchlist ids from titles
-python selftest.py         656 assertions, no key and no network needed
+python selftest.py         680 assertions, no key and no network needed
 ```
 
 Python is not on PATH:
@@ -912,7 +919,7 @@ tabs.py      the registry; this list's ORDER is the nav order
 site.py      the shell: frame, nav, service worker, manifest, icons
 resolve.py   title -> tmdb id, run by hand
 selftest.py  fixture-driven; no key, no network
-jsdiff.py    runs a tab's browser copy under node and diffs it against Python
+jsdiff.py    runs each browser copy under node and diffs it against Python
 
 apps-script/Code.js        NOT part of the build -- shipped with clasp push.
 apps-script/appsscript.json  its manifest; pins the anonymous web app access.

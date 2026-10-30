@@ -510,7 +510,7 @@ def test_reminder_parsing():
     ok("a row with no time is dropped -- it could never fire",
        "No time row" not in titles, True)
     ok("a row with no title is dropped", "" not in titles, True)
-    ok("everything else parses", len(rules), 17)
+    ok("everything else parses", len(rules), 20)
 
     ok("12-hour times", reminders.parse_time("12:30 PM"), (12, 30))
     ok("midnight is 00, not 12", reminders.parse_time("12:00 AM"), (0, 0))
@@ -1649,6 +1649,49 @@ def test_reminders_three_copies():
         true("all three agree on %s%s"
              % (title, "" if agreed else "  (%s)" % note), agreed)
     true("and there were rules to compare", len(results) >= 15)
+
+
+def test_shared_browser_helpers():
+    """One copy of esc, iso, sheetDate and csvRows for the three tabs that
+    re-read their Sheet.
+
+    They each had their own and the copies drifted. `2026/11/5` is one of the
+    four forms sheet_date accepts, and Active, Reminders AND the Apps Script
+    all refused it -- a row on the page at 6am, gone the moment the refresh
+    landed, and a reminder that never reached his phone at all.
+    """
+    import church
+    import reminders
+    import tasks
+    helpers = ui.js_helpers()
+    true("the wash strength comes from Python", ",%.2f)" % ui.WASH in helpers)
+    true("and no placeholder survives", "%%" not in helpers)
+
+    # Every tab is on them, and none kept a private copy.
+    for name, js in (
+            ("Active", tasks.page_js({"sheet": "S", "tab": "Tasks",
+                                      "webapp": "", "overrides": {}})),
+            ("Church", church.page_js({"sheet": "S", "tab": "Church"})),
+            ("Reminders", reminders.page_js({"sheet": "S", "webapp": ""}))):
+        true("%s gets the shared helpers" % name, "function sheetDate(" in js)
+        ok("%s defines sheetDate once" % name, js.count("function sheetDate("), 1)
+        ok("%s defines esc once" % name, js.count("function esc("), 1)
+        ok("%s defines csvRows once" % name, js.count("function csvRows("), 1)
+        true("%s has no unreplaced placeholder" % name, "%%" not in js)
+    # Reminders still needs a Date rather than a string, but it parses with the
+    # shared one -- the wrapper only changes the shape.
+    rjs = reminders.page_js({"sheet": "S", "webapp": ""})
+    true("the Reminders wrapper defers to sheetDate",
+         "var d=sheetDate(t);" in rjs)
+
+    # And the Apps Script, which is nobody's copy of anything but has to agree.
+    with open(os.path.join(HERE, "apps-script", "Code.js"),
+              encoding="utf-8") as fh:
+        code = fh.read()
+    true("the Apps Script takes the year-first form too",
+         r"/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/" in code)
+    true("and refuses a date that does not exist", "function realDate(" in code)
+    true("with strptime's two-digit pivot", "y < 69 ? 2000 : 1900" in code)
 
 
 def test_church_js():

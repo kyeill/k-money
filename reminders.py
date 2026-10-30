@@ -488,6 +488,7 @@ JS = """
   var WD=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   var OPTIONAL=['nth','weekday','every','starting','months'];
   var WORDN={first:1,second:2,third:3,fourth:4,fifth:5,last:-1};
+%%HELPERS%%
   // "4 weeks" -> 28. A unit is required; a bare number could mean either.
   function parseEvery(t){
     t=(t||'').trim().toLowerCase();
@@ -500,13 +501,12 @@ JS = """
     return null;
   }
   // Sheets renders dates in the viewer's locale, so ISO and US slash both.
+  // A Date, because `Starting` is an anchor that gets compared and counted
+  // from. The parsing is sheetDate's -- this only changes the shape, and so
+  // cannot drift from what the build accepts.
   function parseDate(t){
-    t=(t||'').trim(); if(!t) return null;
-    var m=/^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(t);
-    if(m) return new Date(+m[1],+m[2]-1,+m[3]);
-    m=/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})$/.exec(t);
-    if(m){ var y=+m[3]; if(y<100) y+=2000; return new Date(y,+m[1]-1,+m[2]); }
-    return null;
+    var d=sheetDate(t);
+    return d? new Date(+d.slice(0,4),+d.slice(5,7)-1,+d.slice(8,10)) : null;
   }
   function dayNum(d){ return Math.floor(Date.UTC(d.getFullYear(),d.getMonth(),d.getDate())/864e5); }
   // A LIST: "1st, 3rd" is two occurrences. Stripping non-digits made it 13.
@@ -526,21 +526,6 @@ JS = """
   }
   var MO=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 
-  function splitCSV(text){
-    var rows=[],row=[],cell='',q=false,i;
-    for(i=0;i<text.length;i++){
-      var c=text[i];
-      if(q){
-        if(c==='"'){ if(text[i+1]==='"'){cell+='"';i++;} else q=false; }
-        else cell+=c;
-      } else if(c==='"') q=true;
-      else if(c===','){ row.push(cell); cell=''; }
-      else if(c==='\\n'){ row.push(cell); rows.push(row); row=[]; cell=''; }
-      else if(c!=='\\r') cell+=c;
-    }
-    if(cell!==''||row.length){ row.push(cell); rows.push(row); }
-    return rows;
-  }
   function parseTime(t){
     t=(t||'').trim().toUpperCase().replace(/\\./g,'');
     if(!t) return null;
@@ -568,7 +553,7 @@ JS = """
     return out.length?out:all;
   }
   function readRules(text){
-    var rows=splitCSV(text);
+    var rows=csvRows(text);
     if(!rows.length) throw new Error('empty sheet');
     // Everything after the day columns is located BY NAME, so columns can be
     // added, removed or reordered without breaking anything.
@@ -650,15 +635,11 @@ JS = """
     }
     return r.days.indexOf(wd(date))>=0;
   }
-  function two(n){ return (n<10?'0':'')+n; }
   function clock(at){
     var h=at[0]%12; if(h===0)h=12;
     return h+':'+two(at[1])+' '+(at[0]<12?'am':'pm');
   }
-  function esc(s){ return String(s).replace(/[&<>"]/g,function(c){
-    return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
   function doneKey(r){ return r.title+'@'+two(r.at[0])+':'+two(r.at[1]); }
-  function iso(d){ return d.getFullYear()+'-'+two(d.getMonth()+1)+'-'+two(d.getDate()); }
 
   // A tick is fire-and-forget: an Apps Script web app redirects, and a browser
   // will not follow that for a readable cross-origin response, so the reply is
@@ -745,7 +726,7 @@ JS = """
            '&_='+Date.now();
   }
   function readDone(text){
-    var rows=splitCSV(text||''), out={}, i;
+    var rows=csvRows(text||''), out={}, i;
     if(!rows.length) return out;
     var h=rows[0].map(function(x){return (x||'').trim().toLowerCase().split(/\\s+/)[0];});
     // An unknown tab returns the FIRST one, so without this the reminders
@@ -963,7 +944,8 @@ def build(today=None, cfg=None, record=True):
 
 
 def page_js(data):
-    return (JS.replace("%%SHEET%%", '"%s"' % data.get("sheet", ""))
+    return (JS.replace("%%HELPERS%%", ui.js_helpers())
+              .replace("%%SHEET%%", '"%s"' % data.get("sheet", ""))
               .replace("%%WEBAPP%%", '"%s"' % data.get("webapp", ""))
               .replace("%%DAYS%%", str(DAYS_SHOWN))
               .replace("%%PMHOUR%%", str(AFTERNOON_HOUR)))

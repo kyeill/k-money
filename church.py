@@ -237,48 +237,7 @@ JS = r"""
   var body=pane.querySelector('#cbody');
   if(!body) return;
 
-  function esc(s){
-    return String(s==null?'':s).replace(/[&<>"']/g, function(c){
-      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
-    });
-  }
-  function iso(d){
-    return new Date(d.getTime()-d.getTimezoneOffset()*6e4)
-             .toISOString().slice(0,10);
-  }
-  function today(){ return iso(new Date()); }
-
-  // A minimal CSV reader: quoted fields with doubled quotes inside, which is
-  // everything the gviz endpoint emits. The Active tab carries the same one.
-  function rows(text){
-    var out=[], row=[], field='', quoted=false;
-    for(var i=0;i<text.length;i++){
-      var c=text[i];
-      if(quoted){
-        if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else quoted=false; }
-        else field+=c;
-      } else if(c==='"') quoted=true;
-      else if(c===','){ row.push(field); field=''; }
-      else if(c==='\n'){ row.push(field); out.push(row); row=[]; field=''; }
-      else if(c!=='\r') field+=c;
-    }
-    if(field||row.length){ row.push(field); out.push(row); }
-    return out;
-  }
-
-  // The four forms ui.sheet_date accepts. Sheets renders a date in the
-  // VIEWER'S locale, so the export says "9/8/26" and not ISO.
-  function parseDate(text){
-    text=(text||'').trim();
-    var m=text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
-    if(m) return m[1]+'-'+m[2]+'-'+m[3];
-    m=text.match(/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/);
-    if(m) return m[1]+'-'+('0'+m[2]).slice(-2)+'-'+('0'+m[3]).slice(-2);
-    m=text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
-    if(!m) return null;
-    var y=Number(m[3]); if(y<100) y+=2000;
-    return y+'-'+('0'+m[1]).slice(-2)+'-'+('0'+m[2]).slice(-2);
-  }
+%%HELPERS%%
 
   // color_of: a named colour from the shared palette, or a literal #rrggbb.
   function colourFor(text){
@@ -287,13 +246,6 @@ JS = r"""
     if(/^#?[0-9a-f]{6}$/.test(text)) return '#'+text.replace(/^#/,'');
     return COLORS[text]||null;
   }
-  // ui.wash, at the one strength the whole app uses.
-  function washOf(hex){
-    var r=parseInt(hex.substr(1,2),16), g=parseInt(hex.substr(3,2),16),
-        b=parseInt(hex.substr(5,2),16);
-    return 'rgba('+r+','+g+','+b+',0.13)';
-  }
-
   // ui.day_heading: only today is named.
   function heading(day, now){
     if(day===now) return 'Today';
@@ -313,7 +265,7 @@ JS = r"""
   }
 
   function build(text){
-    var lines=rows(text);
+    var lines=csvRows(text);
     if(!lines.length) return null;
     var head=lines[0].map(function(h){
       h=(h||'').trim().toLowerCase(); return h.split(' ')[0];
@@ -334,7 +286,7 @@ JS = r"""
       var title=c[at.title]||'';
       if(!title) continue;
       var when=c[at.date]||'';
-      var day=parseDate(when);
+      var day=sheetDate(when);
       // A date we cannot read is NAMED rather than guessed at, so a bad cell
       // shows up as a bad cell instead of the event never appearing.
       if(!day){ if(when) bad.push(title); continue; }
@@ -413,7 +365,8 @@ JS = r"""
 
 def page_js(data):
     import json
-    return (JS.replace("%%SHEET%%", json.dumps(data.get("sheet") or ""))
+    return (JS.replace("%%HELPERS%%", ui.js_helpers())
+              .replace("%%SHEET%%", json.dumps(data.get("sheet") or ""))
               .replace("%%TAB%%", json.dumps(data.get("tab") or TAB))
               .replace("%%COLORS%%", json.dumps(COLORS))
               .replace("%%SOON%%", json.dumps(SOON_DAYS))

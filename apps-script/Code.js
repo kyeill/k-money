@@ -413,14 +413,32 @@ function parseEvery(t) {
 }
 
 /** Sheets renders dates in the viewer's locale, so ISO and US slash both. */
+// sheet_date, and ui.JS_HELPERS' sheetDate, to the character. It did not used
+// to be: this refused "2026/9/2" -- one of the four forms sheet_date accepts
+// -- so a Starting anchor written that way made the rule fire NEVER, and this
+// is the file that sends the notification. Nothing compared the three until
+// jsdiff.py did.
+//
+// A date that does not exist is not a date either. A regex hands back
+// 2026-02-30 quite happily; the round trip below is what refuses it, along
+// with month 13 and day 99.
 function parseDate(t) {
   t = String(t || '').trim();
   if (!t) return null;
-  var m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(t);
-  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  var m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t) ||
+          /^(\d{4})\/(\d{1,2})\/(\d{1,2})$/.exec(t);
+  if (m) return realDate(+m[1], +m[2], +m[3]);
   m = /^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/.exec(t);
-  if (m) { var y = +m[3]; if (y < 100) y += 2000; return new Date(y, +m[1] - 1, +m[2]); }
-  return null;
+  if (!m) return null;
+  // strptime's %y pivot: 69-99 are the 1900s, 00-68 the 2000s.
+  var y = +m[3]; if (y < 100) y += (y < 69 ? 2000 : 1900);
+  return realDate(y, +m[1], +m[2]);
+}
+
+function realDate(y, m, d) {
+  var t = new Date(y, m - 1, d);
+  return (t.getFullYear() === y && t.getMonth() === m - 1 && t.getDate() === d)
+    ? t : null;
 }
 
 function dayNum(d) {

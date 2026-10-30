@@ -348,16 +348,7 @@ JS = """
   var form=pane.querySelector('#tform');
   var box=pane.querySelector('#tadd');
 
-  function esc(s){
-    return String(s==null?'':s).replace(/[&<>"']/g, function(c){
-      return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];
-    });
-  }
-  function iso(d){
-    return new Date(d.getTime()-d.getTimezoneOffset()*6e4)
-             .toISOString().slice(0,10);
-  }
-  function today(){ return iso(new Date()); }
+%%HELPERS%%
 
   // Ticks and adds are fire-and-forget, so for a few seconds the Sheet does not
   // agree yet. PENDING covers that window, exactly as the reminders do.
@@ -408,46 +399,12 @@ JS = """
     keepEdits();
   }
 
-  function rows(text){
-    // A minimal CSV reader: quoted fields with doubled quotes inside, which is
-    // everything the gviz endpoint emits.
-    var out=[], row=[], field='', quoted=false;
-    for(var i=0;i<text.length;i++){
-      var c=text[i];
-      if(quoted){
-        if(c==='"'){ if(text[i+1]==='"'){ field+='"'; i++; } else quoted=false; }
-        else field+=c;
-      } else if(c==='"') quoted=true;
-      else if(c===','){ row.push(field); field=''; }
-      else if(c==='\\n'){ row.push(field); out.push(row); row=[]; field=''; }
-      else if(c!=='\\r') field+=c;
-    }
-    if(field||row.length){ row.push(field); out.push(row); }
-    return out;
-  }
-
-  function parseDate(text){
-    text=(text||'').trim();
-    var m=text.match(/^(\\d{4})-(\\d{2})-(\\d{2})$/);
-    if(m) return m[1]+'-'+m[2]+'-'+m[3];
-    m=text.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{2,4})$/);
-    if(!m) return null;
-    var y=Number(m[3]); if(y<100) y+=2000;
-    return y+'-'+('0'+m[1]).slice(-2)+'-'+('0'+m[2]).slice(-2);
-  }
-
   var CATS=%%CATS%%, NONE=%%NONE%%, OVERRIDES=%%OVERRIDES%%;
   function colourFor(name){
     name=(name||'').trim().toLowerCase();
     if(!name) return NONE;
     return OVERRIDES[name] || CATS[name] || NONE;
   }
-  function washOf(hex){
-    var r=parseInt(hex.substr(1,2),16), g=parseInt(hex.substr(3,2),16),
-        b=parseInt(hex.substr(5,2),16);
-    return 'rgba('+r+','+g+','+b+',0.13)';
-  }
-
   function heading(day, now){
     if(day===now) return 'Today';
     var d=new Date(day+'T12:00:00');
@@ -457,24 +414,29 @@ JS = """
   }
 
   function build(text){
-    var lines=rows(text);
+    var lines=csvRows(text);
     if(!lines.length) return '';
     var head=lines[0].map(function(h){
       h=(h||'').trim().toLowerCase(); return h.split(' ')[0];
     });
-    var at={};
-    ['task','due','category','done'].forEach(function(n){
-      var i=head.indexOf(n); if(i>=0) at[n]=i;
+    var at={}, unknown=[], known=['task','due','category','done'];
+    head.forEach(function(name,i){
+      if(!name) return;
+      if(known.indexOf(name)<0) unknown.push(name);
+      else if(at[name]===undefined) at[name]=i;
     });
     if(at.task===undefined||at.due===undefined) return null;
-    var now=today(), byDay={}, seen={};
+    var now=today(), byDay={}, seen={}, undated=[];
     for(var i=1;i<lines.length;i++){
       var c=lines[i].map(function(v){ return (v||'').trim(); });
       var title=c[at.task]||'';
       if(!title) continue;
       if(at.done!==undefined && c[at.done]) continue;
-      var due=parseDate(c[at.due]);
-      if(!due) continue;
+      var due=sheetDate(c[at.due]);
+      // Named, not dropped in silence -- read_tasks says so on the page and
+      // the browser copy did not, so a warning about a bad cell disappeared
+      // the moment the refresh landed.
+      if(!due){ undated.push(title); continue; }
       var key=title+'@'+due;
       seen[key]=true;
       var cat0=(at.category!==undefined?c[at.category]:'')||'';
@@ -513,7 +475,14 @@ JS = """
       });
     });
     var out=[], days=Object.keys(byDay).sort();
-    if(!days.length) return EMPTY;
+    // The same two warnings, in the same order, as tasks.body().
+    if(undated.length)
+      out.push('<div class="rerr">No due date, so not shown: '+
+               esc(undated.join(', '))+'</div>');
+    if(unknown.length)
+      out.push('<div class="rerr">Column not recognised: '+
+               esc(unknown.join(', '))+'</div>');
+    if(!days.length) return out.join('')+EMPTY;
     days.forEach(function(day){
       out.push('<div class="tday'+(day===now?' today':'')+'">'+
                '<h2>'+esc(heading(day,now))+'</h2>');
@@ -721,7 +690,8 @@ def page_js(data):
     overrides = {}
     for name, value in (data.get("overrides") or {}).items():
         overrides[name] = ui.COLORS.get(str(value).lower(), value)
-    return (JS.replace("%%SHEET%%", json.dumps(data.get("sheet") or ""))
+    return (JS.replace("%%HELPERS%%", ui.js_helpers())
+              .replace("%%SHEET%%", json.dumps(data.get("sheet") or ""))
               .replace("%%TAB%%", json.dumps(data.get("tab") or TAB))
               .replace("%%WEBAPP%%", json.dumps(data.get("webapp") or ""))
               .replace("%%CATS%%", json.dumps(CATEGORY_COLORS))

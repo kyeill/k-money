@@ -108,21 +108,6 @@ disagreeing. That cost a confused minute already.
 `doneKey` is `Title@HH:MM`, built identically in all three places. Change it in
 one and ticks stop matching the reminders they were meant to silence.
 
-## The reminder rules exist three times, and nothing enforces that from outside
-
-`reminders.py` renders the page. The **JS copy** in the same file re-reads the
-Sheet in the browser so a pull-down is live. `apps-script/Code.js` is the
-only one that actually notifies. All three must agree.
-
-Python and JS are compared directly: run both over the same CSV and hash the
-rendered HTML. They matched byte for byte across month ends, quarter
-boundaries, a 5th-Sunday month and a leap February. **Do this again after any
-rule change** — the failure mode otherwise is a page that quietly disagrees
-with the notifications.
-
-The Apps Script can be reached too — see the harness section below. Change all
-three in the same commit or not at all.
-
 ## ntfy.sh cannot be used from Apps Script — the quota is not yours
 
 It was the first choice and it fails, structurally:
@@ -191,13 +176,6 @@ Read raw, a cell formatted `h:mm am/pm` comes back as a **Date on the
 `getDisplayValues()` hand back the *displayed* `"12:30 PM"` instead, which is
 why all three parsers take a string. Never switch to raw values or
 `getValues()`.
-
-## Asking a Google Sheet for a tab that does not exist returns the FIRST tab
-
-Silently, with no error — a trap that already cost time on `dynasty`. So the
-header row is validated on every read, in `reminders.py` and again in the Apps
-Script, and a mismatch is refused loudly rather than parsed as if it were the
-right sheet.
 
 ## The Sheet allows cross-origin reads
 
@@ -380,17 +358,20 @@ only Paystubs moved, from 34 fires a year to 8.
 refusing it loudly beats falling back to a different rule quietly. The fallback
 here was indistinguishable from a deliberate weekly schedule.
 
-## The reminder rules exist three times, and nothing compared them
+## The rules exist three times, and for a long time nothing compared them
 
-`reminders.py`, its browser copy, and `apps-script/Code.js` -- and the third is
-the one that sends the notification. The nth bug above was in **all three**, so
-the page and the phone agreed with each other while both were wrong, which is
-the most convincing way to be wrong.
+`reminders.py` renders the page; its **browser copy** re-reads the Sheet so a
+pull-down is live; `apps-script/Code.js` is the only one that actually
+notifies. All three must agree, and `doneKey` -- `Title@HH:MM` -- must be built
+identically in all three or ticks stop matching the reminders they silence.
+
+The nth bug above was in **all three**, so the page and the phone agreed with
+each other while both were wrong, which is the most convincing way to be wrong.
 
 README claimed the duplication was cross-checked. It was not: the hook that
-cross-check used, `window.__remBuild`, is still in the file and **nothing has
-called it** for as long as git remembers. A dead test hook reads exactly like a
-live one.
+check used, `window.__remBuild`, was still in the file and **nothing had
+called it** for as long as git remembered. A dead test hook reads exactly like
+a live one.
 
 `jsdiff.py` now compares them as a **calendar** -- every rule, every day it
 fires on, 420 days from a fixed Monday, across all three. The Apps Script is
@@ -399,6 +380,8 @@ copy exports `__remRules` and `__remFires` above its pane check, so it loads
 with no DOM at all. Sabotaging one branch of `Code.js` and watching the check
 report it is how this was proved to work, and is worth repeating after any
 change to it.
+
+Change all three in the same commit, or not at all.
 
 ### ...and the first time it was pointed at real data it fell over
 
@@ -436,19 +419,46 @@ right rather than copying:
 
 ### The rules now exist twice, so something has to hold them together
 
-A text assertion over the JS source -- which is all the Reminders and Active
-tests do -- proves the code is *present*, not that it is *right*. `jsdiff.py`
-runs the real JS under **node** against eleven CSVs and diffs the HTML against
-what `render` produced from the same bytes: escaping, both urgency boundaries,
-a reordered header, every date form Sheets exports, a details cell repeating
-its title, an unreadable date. `selftest.py` calls it and skips with a printed
-note where node is absent.
+A text assertion over the JS source proves the code is *present*, not that it
+is *right*. `jsdiff.py` runs the real JS under **node** and diffs the HTML
+against what `render` produced from the same bytes: escaping, both urgency
+boundaries, a reordered header, every date form Sheets exports, a details cell
+repeating its title, an unreadable date. It covers **Church and Active** as
+HTML and **Reminders** as a calendar; `selftest.py` runs all three and skips
+with a printed note where node is absent.
 
 One difference is real and harmless: `html.escape` writes an apostrophe as
 `&#x27;` and the browser copy writes `&#39;`. Both decode to the same
 character, and `paint()` compares `innerHTML` *after* the browser has
 normalised them, so it can cause neither a visible difference nor a repaint
 loop. `jsdiff.canon` folds it.
+
+### Three copies of one helper is three chances to be different
+
+Every tab that re-reads its Sheet needs to escape HTML, read a CSV and parse a
+date the way Python just did. Each had grown **its own copy**, and nobody had
+ever diffed them. They were not the same:
+
+* `2026/11/5` is one of the four forms `sheet_date` accepts. **Active,
+  Reminders and the Apps Script all refused it.** A task dated that way was on
+  the page at 6am and gone the moment the refresh landed; a `Starting` anchor
+  written that way meant the rule fired *never*, and that one was in the file
+  that sends the notification.
+* `2026-02-30` and `2/29/2026` are refused by the build and were accepted by
+  the browser copies, which invented a day that never comes.
+* Active rendered neither the "no due date" nor the "column not recognised"
+  warning, so a warning about a bad cell vanished on refresh.
+
+One copy now lives in `ui.JS_HELPERS` and is injected into each tab in place of
+`%%HELPERS%%`. `sheetDate` was checked against `sheet_date` over **1017**
+inputs -- every form, impossible dates, leap years, the `strptime` `%y` pivot
+-- and that check caught two bugs in the shared version before it reached a
+tab. The Apps Script keeps its own, because it is not built by Python; the
+calendar diff is what holds it to the same answers.
+
+**The general shape:** duplication is survivable and drift is not, so the thing
+to invest in is the comparison, not the DRY. Active went years without one and
+that is where all four bugs were.
 
 ### `church.JS` is a RAW string, and has to be
 
@@ -701,6 +711,12 @@ with `getSheets()[0]`. That was fine with one tab and became a trap the moment
 `Church` was added: dragging it to the front would have pointed the
 **notifications** at the wrong data, with no error anywhere. Both name the tab
 now, and `config.json` holds the names.
+
+Naming it is not enough on its own: **asking for a tab that does not exist
+returns the FIRST one**, silently, a trap that already cost time on `dynasty`.
+So the header row is validated on every read, in `reminders.py` and again in
+the Apps Script, and a mismatch is refused loudly rather than parsed as though
+it were the right sheet.
 
 The same lesson one level down. Church started as `Title | Date`, and `Details`
 and `Color` were later inserted **between them** — under positional reading that
